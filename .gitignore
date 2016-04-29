@@ -2,4 +2,8 @@
 *.pyo
 *~
 *#
+*.swp
 /.idea
+/build
+/dist
+/amazon.ion.egg-info
