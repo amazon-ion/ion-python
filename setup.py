@@ -30,8 +30,11 @@ setup(
     packages=find_packages(exclude=['tests*']),
     namespace_packages=['amazon'],
 
-    tests_require=[
-        'nose>=1.3'
+    setup_requires=[
+        'pytest-runner'
     ],
-    test_suite='nose.collector',
+
+    tests_require=[
+        'pytest'
+    ],
 )

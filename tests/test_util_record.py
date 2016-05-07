@@ -14,7 +14,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from nose.tools import raises
+import pytest
 
 from amazon.ion.util import record
 
@@ -28,12 +28,14 @@ def test_default_fields():
     assert a.b == 2
     assert a.c == 5
 
-@raises(ValueError)
-def test_missing_default():
-    class TestRecord(record(('a', 1), 'b')):
-        pass
 
-@raises(ValueError)
+def test_missing_default():
+    with pytest.raises(ValueError):
+        class TestRecord(record(('a', 1), 'b')):
+            pass
+
+
 def test_bad_parameter():
-    class TestRecord(record(True)):
-        pass
+    with pytest.raises(ValueError):
+        class TestRecord(record(True)):
+            pass
