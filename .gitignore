@@ -4,6 +4,7 @@
 *#
 *.swp
 /.idea
+/.cache
 /build
 /dist
 /amazon.ion.egg-info
