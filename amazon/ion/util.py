@@ -15,6 +15,19 @@ from __future__ import division
 from __future__ import print_function
 
 import collections
+import sys
+
+
+PY_MAJOR_VERSION = sys.version_info[0]
+
+if PY_MAJOR_VERSION <= 2:
+    def is_unicode(val):
+        """Defines if a value is a native unicode sequence."""
+        return isinstance(val, unicode)
+else:
+    def is_unicode(val):
+        """Defines if a value is a native unicode sequence."""
+        return isinstance(val, str)
 
 
 def iteritems(dictionary):
@@ -54,14 +67,15 @@ class _EnumMetaClass(type):
 class Enum(object):
     """Simple enumeration type.
 
-    The typical declaration looks like::
+    Examples:
+        The typical declaration looks like::
 
-        class MyEnum(Enum):
-            A = 1
-            B = 2
-            C = 3
+            class MyEnum(Enum):
+                A = 1
+                B = 2
+                C = 3
 
-    At this point ``MyEnum.A`` is an instance of ``MyEnum``.
+        At this point ``MyEnum.A`` is an instance of ``MyEnum``.
 
     Note:
         Proper enumerations were added in Python 3.4 (PEP 435), this is a very simplified implementation
@@ -124,13 +138,14 @@ class _RecordMetaClass(type):
 def record(*fields):
     """Constructs a type that can be extended to create immutable, value types.
 
-    A typical declaration looks like::
+    Examples:
+        A typical declaration looks like::
 
-        class MyRecord(record('a', ('b', 1))):
-            pass
+            class MyRecord(record('a', ('b', 1))):
+                pass
 
-    The above would make a sub-class of ``collections.namedtuple`` that was named ``MyRecord`` with
-    a constructor that had the ``b`` field set to 1 by default.
+        The above would make a sub-class of ``collections.namedtuple`` that was named ``MyRecord`` with
+        a constructor that had the ``b`` field set to 1 by default.
 
     Note:
         This uses meta-class machinery to rewrite the inheritance hierarchy.
@@ -139,7 +154,7 @@ def record(*fields):
         to enable this machinery is not enabled for sub-classes of a user's record class.
 
     Args:
-        fields: A sequence of str or pairs that
+        fields (list[str | (str, any)]): A sequence of str or pairs that
     """
     class RecordType(object):
         _record_sentinel = True
