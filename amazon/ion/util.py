@@ -29,7 +29,9 @@ class _EnumMetaClass(type):
         members = {}
         # Re-bind any non magic-named method with an instance of the enumeration.
         for attr_name, attr_value in six.iteritems(attrs):
-            if not attr_name.startswith('_') and not callable(attr_value):
+            if not attr_name.startswith('_') and not callable(attr_value) and not isinstance(attr_value, property):
+                if not isinstance(attr_value, int):
+                    raise TypeError('Enum value must be an int: %r' % attr_value)
                 actual_value = cls(attr_name, attr_value)
                 setattr(cls, attr_name, actual_value)
                 members[attr_value] = actual_value
@@ -37,15 +39,16 @@ class _EnumMetaClass(type):
         # Store the members reverse index.
         cls._enum_members = members
 
-        super(_EnumMetaClass, cls).__init__(name, bases, attrs)
+        type.__init__(cls, name, bases, attrs)
 
     def __getitem__(cls, name):
         """Looks up an enumeration value field by either name or ordinal."""
         return cls._enum_members[name]
 
+
 @six.add_metaclass(_EnumMetaClass)
-class Enum(object):
-    """Simple enumeration type.
+class Enum(int):
+    """Simple integer based enumeration type.
 
     Examples:
         The typical declaration looks like::
@@ -64,13 +67,16 @@ class Enum(object):
         In particular, implicit order of the values is not supported.
 
     Args:
-        value (Any): the value associated with the enumeration.
+        value (int): the value associated with the enumeration.
 
     Attributes:
         name (str): The name of the enum.
-        value (Any): The underlying value associated with the enum.
+        value (int): The original value associated with the enum.
     """
     _enum_members = {}
+
+    def __new__(cls, name, value):
+        return int.__new__(cls, value)
 
     def __init__(self, name, value):
         self.name = name

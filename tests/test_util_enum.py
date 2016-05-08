@@ -14,27 +14,39 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from amazon.ion.util import Enum
+import pytest
+
+import amazon.ion.util as util
 
 
-class TestEnum(Enum):
+class TestEnum(util.Enum):
     A = 1
     B = 2
-    C = 'bar'
 
 
 def test_enum_members():
-    assert TestEnum._enum_members == {1: TestEnum.A, 2: TestEnum.B, 'bar': TestEnum.C}
+    assert TestEnum._enum_members == {1: TestEnum.A, 2: TestEnum.B}
 
 
 def test_enum_reverse_lookup():
     assert TestEnum[1] == TestEnum.A
     assert TestEnum[2] == TestEnum.B
-    assert TestEnum['bar'] == TestEnum.C
 
 
 def test_enum_fields():
     assert TestEnum.A.value == 1
     assert TestEnum.A.name == 'A'
-    assert TestEnum.C.value == 'bar'
-    assert TestEnum.C.name == 'C'
+    assert TestEnum.B.value == 2
+    assert TestEnum.B.name == 'B'
+
+
+def test_enum_as_int():
+    assert isinstance(TestEnum.A, int)
+    assert TestEnum.A == 1
+    assert TestEnum.A is not 1
+
+
+def test_malformed_enum():
+    with pytest.raises(TypeError):
+        class BadEnum(util.Enum):
+            A = 'Allo'
