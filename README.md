@@ -11,6 +11,7 @@ Here are some, rather critical, things that need to be implemented:
 * Design and implement an event oriented text and binary pull-parser with coroutines.
 * Provide a `simplejson` style API for ease-of-use.
     * Provide proper type mappings that retains Ion data model metadata (e.g. Ion type and annotations).
+* Python 3.3+ compatibility--in particular, metaclasses have to be done in a portable way (this is very broken right now).
 
 In addition, there are build, deployment, or release tasks that are required:
 
