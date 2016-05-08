@@ -168,7 +168,7 @@ def test_shared_symbols(p):
     text_iter = iter(p.symbol_texts)
     curr_sid = 1
     for token in p.table:
-        text = text_iter.next()
+        text = next(text_iter)
         assert text == token.text
         assert curr_sid == token.sid
         assert symbols.ImportLocation(p.name, curr_sid) == token.location

@@ -17,6 +17,7 @@ from __future__ import division
 from __future__ import print_function
 
 import itertools
+import six
 
 from . import util
 
@@ -143,7 +144,7 @@ class SymbolTable(object):
             raise ValueError('Local symbol tables cannot have a name or version')
         if table_type.is_system and (name != _TEXT_ION):
             raise ValueError('System symbol tables must be named "%s"' % _TEXT_ION)
-        if name is not None and not util.is_unicode(name):
+        if name is not None and not isinstance(name, six.text_type):
             raise TypeError('Shared symbol tables must have a unicode name: %r' % name)
 
         self.table_type = table_type
@@ -209,7 +210,7 @@ class SymbolTable(object):
 
     def __add_text(self, text):
         """Adds the given Unicode text as a locally defined symbol."""
-        if text is not None and not util.is_unicode(text):
+        if text is not None and not isinstance(text, six.text_type):
             raise TypeError('Local symbol definition must be a Unicode sequence or None: %r' % text)
         sid = self.__new_sid()
         location = None
@@ -233,7 +234,7 @@ class SymbolTable(object):
         """
         if self.table_type.is_shared:
             raise TypeError('Cannot intern on shared symbol table')
-        if not util.is_unicode(text):
+        if not isinstance(text, six.text_type):
             raise TypeError('Cannot intern non-Unicode sequence into symbol table: %r' % text)
 
         token = self.get(text)
@@ -257,7 +258,7 @@ class SymbolTable(object):
         Returns:
             SymbolToken: The token associated with the key or the default if it doesn't exist.
         """
-        if util.is_unicode(key):
+        if isinstance(key, six.text_type):
             return self.__mapping.get(key, None)
         if not isinstance(key, int):
             raise TypeError('Key must be int or Unicode sequence.')
@@ -336,7 +337,7 @@ class SymbolTable(object):
         other_iter = getattr(other, '__iter__')
         if not callable(other_iter):
             return False
-        for token, other_token in itertools.izip_longest(self, other):
+        for token, other_token in six.moves.zip_longest(self, other):
             if token != other_token:
                 return False
 
@@ -502,7 +503,7 @@ class SymbolTableCatalog(object):
             SymbolTable: The *closest* matching symbol table.  This is either an exact match,
             a placeholder, or a derived substitute depending on what tables are registered.
         """
-        if not util.is_unicode(name):
+        if not isinstance(name, six.text_type):
             raise TypeError('Name must be a Unicode sequence: %r' % name)
         if not isinstance(version, int):
             raise TypeError('Version must be an int: %r' % version)

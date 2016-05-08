@@ -9,36 +9,15 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language
 # governing permissions and limitations under the License.
 
+"""General purpose utilities."""
+
 # Python 2/3 compatibility
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
 import collections
-import sys
-
-
-PY_MAJOR_VERSION = sys.version_info[0]
-
-if PY_MAJOR_VERSION <= 2:
-    def is_unicode(val):
-        """Defines if a value is a native unicode sequence."""
-        return isinstance(val, unicode)
-else:
-    def is_unicode(val):
-        """Defines if a value is a native unicode sequence."""
-        return isinstance(val, str)
-
-
-def iteritems(dictionary):
-    """Utility to provide an iterable view over a dict's items.
-
-    This is specifically to deal with the removal of ``dict.iteritems`` in Python 3.
-    """
-    iteritems_method = getattr(dictionary, 'iteritems')
-    if iteritems_method is not None:
-        return iteritems_method()
-    return iter(dictionary.items())
+import six
 
 
 class _EnumMetaClass(type):
@@ -49,7 +28,7 @@ class _EnumMetaClass(type):
     def __init__(cls, name, bases, attrs):
         members = {}
         # Re-bind any non magic-named method with an instance of the enumeration.
-        for attr_name, attr_value in iteritems(attrs):
+        for attr_name, attr_value in six.iteritems(attrs):
             if not attr_name.startswith('_') and not callable(attr_value):
                 actual_value = cls(attr_name, attr_value)
                 setattr(cls, attr_name, actual_value)
@@ -64,6 +43,7 @@ class _EnumMetaClass(type):
         """Looks up an enumeration value field by either name or ordinal."""
         return cls._enum_members[name]
 
+@six.add_metaclass(_EnumMetaClass)
 class Enum(object):
     """Simple enumeration type.
 
@@ -90,7 +70,6 @@ class Enum(object):
         name (str): The name of the enum.
         value (Any): The underlying value associated with the enum.
     """
-    __metaclass__ = _EnumMetaClass
     _enum_members = {}
 
     def __init__(self, name, value):
@@ -156,9 +135,9 @@ def record(*fields):
     Args:
         fields (list[str | (str, any)]): A sequence of str or pairs that
     """
+    @six.add_metaclass(_RecordMetaClass)
     class RecordType(object):
         _record_sentinel = True
         _record_fields = fields
-        __metaclass__ = _RecordMetaClass
 
     return RecordType

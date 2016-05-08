@@ -9,36 +9,16 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language
 # governing permissions and limitations under the License.
 
-
 # Python 2/3 compatibility
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from setuptools import setup, find_packages
+_IMPORT_ALL = True
+try:
+    from amazon.ion import *
+except:
+    _IMPORT_ALL = False
 
-
-setup(
-    name='amazon.ion',
-    version='0.1.0',
-    description='A Python implementation of Amazon Ion.',
-    url='http://github.com/amznlabs/ion-python',
-    author='Amazon Ion Team',
-    author_email='ion-team@amazon.com',
-    license='Apache License 2.0',
-
-    packages=find_packages(exclude=['tests*']),
-    namespace_packages=['amazon'],
-
-    requires=[
-        'six',
-    ],
-
-    setup_requires=[
-        'pytest-runner',
-    ],
-
-    tests_require=[
-        'pytest',
-    ],
-)
+def test_import_all():
+    assert _IMPORT_ALL
