@@ -18,11 +18,10 @@ __author__ = 'Amazon.com, Inc.'
 __version__ = '0.1.0'
 
 __all__ = [
-    'binary',
     'core',
-    'event',
     'exceptions',
     'symbols',
-    'text',
     'util',
+    'writer',
+    'writer_text',
 ]
