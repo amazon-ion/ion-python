@@ -147,3 +147,22 @@ def record(*fields):
         _record_fields = fields
 
     return RecordType
+
+def coroutine(func):
+    """Wraps a PEP-342 enhanced generator in a way that avoids boilerplate of the "priming" call to ``next``.
+
+    Args:
+        func (Callable): The function constructing a generator to decorate.
+
+    Returns:
+        Callable: The decorated generator.
+    """
+    def wrapper(*args, **kwargs):
+        gen = func(*args, **kwargs)
+        val = next(gen)
+        if val != None:
+            raise TypeError('Unexpected value from start of coroutine')
+        return gen
+    wrapper.__name__ = func.__name__
+    wrapper.__doc__ = func.__doc__
+    return wrapper

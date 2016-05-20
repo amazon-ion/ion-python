@@ -16,10 +16,13 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import itertools
 import six
 
-from . import util
+from itertools import chain
+from itertools import islice
+from itertools import repeat
+
+from .util import record
 
 _TEXT_ION = u'$ion'
 _TEXT_ION_1_0 = u'$ion_1_0'
@@ -32,7 +35,7 @@ _TEXT_MAX_ID = u'max_id'
 _TEXT_ION_SHARED_SYMBOL_TABLE = u'$ion_shared_symbol_table'
 
 
-class ImportLocation(util.record('name', 'position')):
+class ImportLocation(record('name', 'position')):
     """Represents the import location of a symbol token.
 
     An import location can be thought of as a position independent address of an imported symbol.
@@ -49,7 +52,7 @@ class ImportLocation(util.record('name', 'position')):
     """
 
 
-class SymbolToken(util.record('text', 'sid', 'location')):
+class SymbolToken(record('text', 'sid', 'location')):
     """Representation of a *symbolic token*.
 
     A symbolic token may be a *part* of an Ion value in several contexts:
@@ -92,7 +95,7 @@ _SYSTEM_SYMBOL_TOKENS = (
 )
 
 
-class _SymbolTableType(util.record('is_system', 'is_shared', 'is_local')):
+class _SymbolTableType(record('is_system', 'is_shared', 'is_local')):
     """A set of flags indicating attributes of a symbol table.
 
     Args:
@@ -412,7 +415,7 @@ def placeholder_symbol_table(name, version, max_id):
 
     return SymbolTable(
         table_type=SHARED_TABLE_TYPE,
-        symbols=itertools.repeat(None, max_id),
+        symbols=repeat(None, max_id),
         name=name,
         version=version,
         is_substitute=True
@@ -444,11 +447,11 @@ def substitute_symbol_table(table, version, max_id):
 
     # TODO Recycle the symbol tokens from the source table into the substitute.
     if max_id <= table.max_id:
-        symbols = (token.text for token in itertools.islice(table, max_id))
+        symbols = (token.text for token in islice(table, max_id))
     else:
-        symbols = itertools.chain(
+        symbols = chain(
             (token.text for token in table),
-            itertools.repeat(None, max_id - table.max_id)
+            repeat(None, max_id - table.max_id)
         )
 
     return SymbolTable(

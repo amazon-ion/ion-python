@@ -16,10 +16,10 @@ from __future__ import print_function
 
 import pytest
 
-import amazon.ion.util as util
+from amazon.ion.util import Enum
 
 
-class TestEnum(util.Enum):
+class TestEnum(Enum):
     A = 1
     B = 2
 
@@ -48,5 +48,5 @@ def test_enum_as_int():
 
 def test_malformed_enum():
     with pytest.raises(TypeError):
-        class BadEnum(util.Enum):
+        class BadEnum(Enum):
             A = 'Allo'

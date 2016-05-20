@@ -19,7 +19,8 @@ import pytest
 import tests
 
 import amazon.ion.symbols as symbols
-import amazon.ion.util as util
+
+from amazon.ion.util import record
 
 
 FOO_1_TEXTS = (u'aa', u'bb', u'cc')
@@ -52,7 +53,7 @@ REGISTER_TABLES = (
 )
 
 
-class _P(util.record('desc', 'name', 'version', 'max_id', 'expected')):
+class _P(record('desc', 'name', 'version', 'max_id', 'expected')):
     def __str__(self):
         return '{p.desc} - {p.name}, {p.version}, {p.max_id}'.format(p=self)
 
@@ -112,7 +113,7 @@ def test_catalog(p):
     assert p.expected == resolved
 
 
-class _P(util.record('desc', 'table', ('expected', ValueError))):
+class _P(record('desc', 'table', ('expected', ValueError))):
     def __str__(self):
         return self.desc
 

@@ -14,11 +14,13 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-_IMPORT_ALL = True
+import sys
+
+_IMPORT_ALL = None
 try:
     from amazon.ion import *
 except:
-    _IMPORT_ALL = False
+    _IMPORT_ALL = sys.exc_info()
 
 def test_import_all():
-    assert _IMPORT_ALL
+    assert _IMPORT_ALL is None

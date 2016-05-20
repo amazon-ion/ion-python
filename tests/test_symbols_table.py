@@ -21,7 +21,8 @@ import pytest
 import tests
 
 import amazon.ion.symbols as symbols
-import amazon.ion.util as util
+
+from amazon.ion.util import record
 
 
 def test_symbol_token_no_text_or_sid():
@@ -57,7 +58,7 @@ def test_system_symbols():
         )
 
 
-class _P(util.record('name', 'version', 'symbols', ('exc', ValueError))):
+class _P(record('name', 'version', 'symbols', ('exc', ValueError))):
     def __str__(self):
         return  '{p.name!r}, {p.version}, {p.symbols!r}'.format(p = self)
 
@@ -105,7 +106,7 @@ SUB_SOURCE_EQUAL_SYMBOLS = symbols.substitute_symbol_table(BAR_TABLE, 2, 6)
 SUB_SOURCE_EQUAL_TEXTS = BAR_TEXTS
 
 
-class _P(util.record('desc', 'table', 'name', 'version', 'is_substitute', 'symbol_texts')):
+class _P(record('desc', 'table', 'name', 'version', 'is_substitute', 'symbol_texts')):
     def __str__(self):
         return  self.desc
 
@@ -204,7 +205,7 @@ def test_shared_symbols_intern():
         FOO_TABLE.intern(u'hello')
 
 
-class _P(util.record('name', 'version')):
+class _P(record('name', 'version')):
     def __str__(self):
         return '{p.name!r} {p.version!r}'.format(p=self)
 
@@ -235,7 +236,8 @@ _L = functools.partial(symbols.ImportLocation, FOO_TABLE.name)
 _SID_START = len(symbols.SYSTEM_SYMBOL_TABLE) + 1
 _COLLIDE_SID_START = len(symbols.SYSTEM_SYMBOL_TABLE) + len(COLLIDE_TABLE) + 1
 
-class _P(util.record('desc', 'symbol_texts', 'tokens', ('imports', ()), ('symbol_count_override', None))):
+
+class _P(record('desc', 'symbol_texts', 'tokens', ('imports', ()), ('symbol_count_override', None))):
     def __str__(self):
         return self.desc
 
