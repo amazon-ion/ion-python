@@ -42,8 +42,13 @@ class _EnumMetaClass(type):
         type.__init__(cls, name, bases, attrs)
 
     def __getitem__(cls, name):
-        """Looks up an enumeration value field by either name or ordinal."""
+        """Looks up an enumeration value field by integer value."""
         return cls._enum_members[name]
+
+    def __iter__(self):
+        """Iterates through the values of the enumeration in no specific order."""
+        return six.itervalues(self._enum_members)
+
 
 
 @six.add_metaclass(_EnumMetaClass)
@@ -166,3 +171,45 @@ def coroutine(func):
     wrapper.__name__ = func.__name__
     wrapper.__doc__ = func.__doc__
     return wrapper
+
+
+_NON_BMP_OFFSET = 0x10000
+_UTF_16_MAX_CODE_POINT = 0xFFFF
+_HIGH_SURROGATE_START = 0xD800
+_HIGH_SURROGATE_END = 0xDBFF
+_LOW_SURROGATE_START = 0xDC00
+_LOW_SURROGATE_END = 0xDFFF
+_SURROGATE_START = _HIGH_SURROGATE_START
+_SURROGATE_END = _LOW_SURROGATE_END
+
+def unicode_iter(val):
+    """Provides an iterator over the *code points* of the given Unicode sequence.
+
+    Notes:
+        Before PEP-393, Python has the potential to support Unicode as UTF-16 or UTF-32.
+        This is reified in the property as ``sys.maxunicode``.  As a result, naive iteration
+        of Unicode sequences will render non-character code points such as UTF-16 surrogates.
+
+    Args:
+        val (unicode): The unicode sequence to iterate over as integer code points in the range
+            ``0x0`` to ``0x10FFFF``.
+    """
+    val_iter = iter(val)
+    for ch in val_iter:
+        code_point = ord(ch)
+        if _LOW_SURROGATE_START <= code_point <= _LOW_SURROGATE_END:
+            raise ValueError('Unpaired low surrogate in Unicode sequence: %r' % val)
+        elif _HIGH_SURROGATE_START <= code_point <= _HIGH_SURROGATE_END:
+            try:
+                low_code_point = ord(next(val_iter))
+                if low_code_point < _LOW_SURROGATE_START or low_code_point > _LOW_SURROGATE_END:
+                    raise ValueError('Unpaired high surrogate: %r' % val)
+                # Decode the surrogates
+                real_code_point = _NON_BMP_OFFSET
+                real_code_point |= (code_point - _HIGH_SURROGATE_START) << 10
+                real_code_point |= (low_code_point - _LOW_SURROGATE_START)
+                yield real_code_point
+            except StopIteration:
+                raise ValueError('Unpaired high surrogate at end of Unicode sequence: %r' % val)
+        else:
+            yield code_point
