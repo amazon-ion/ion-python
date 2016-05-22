@@ -79,10 +79,15 @@ class IonEventType(Enum):
         """Indicates if the event type is a start of a value."""
         return self is IonEventType.SCALAR or self is IonEventType.CONTAINER_START
 
+    @property
+    def ends_container(self):
+        """Indicates if the event type terminates a container or stream."""
+        return self is IonEventType.STREAM_END or self is IonEventType.CONTAINER_END
+
 
 class IonEvent(record(
         'event_type',
-        'ion_type',
+        ('ion_type', None),
         ('value', None),
         ('field_name', None),
         ('annotations', ()),
@@ -92,9 +97,47 @@ class IonEvent(record(
 
     Args:
         event_type (IonEventType): The type of event.
-        ion_type (amazon.ion.core.IonType): The Ion data model type associated with the event.
+        ion_type (Optional(amazon.ion.core.IonType)): The Ion data model type
+            associated with the event.
         value (Optional[any]): The data value associated with the event.
-        field_name (Optional[amazon.ion.symbols.SymbolToken]): The field name associated with the event.
-        annotations (Sequence[amazon.ion.symbols.SymbolToken]): The annotations associated with the event.
+        field_name (Optional[Union[amazon.ion.symbols.SymbolToken, unicode]]): The field name
+            associated with the event.
+        annotations (Sequence[Union[amazon.ion.symbols.SymbolToken, unicode]]): The annotations
+            associated with the event.
         depth (Optional[int]): The tree depth of the event if applicable.
     """
+    def derive_field_name(self, field_name):
+        """Derives a new event from this one setting the ``field_name`` attribute.
+
+        Args:
+            field_name (Union[amazon.ion.symbols.SymbolToken, unicode]): The field name to set.
+        Returns:
+            IonEvent: The newly generated event.
+        """
+        return IonEvent(
+            self.event_type,
+            self.ion_type,
+            self.value,
+            field_name,
+            self.annotations,
+            self.depth
+        )
+
+    def derive_annotations(self, annotations):
+        """Derives a new event from this one setting the ``annotations`` attribute.
+
+        Args:
+            annotations: (Sequence[Union[amazon.ion.symbols.SymbolToken, unicode]]):
+                The annotations associated with the derived event.
+
+        Returns:
+            IonEvent: The newly generated event.
+        """
+        return IonEvent(
+            self.event_type,
+            self.ion_type,
+            self.value,
+            self.field_name,
+            annotations,
+            self.depth
+        )
