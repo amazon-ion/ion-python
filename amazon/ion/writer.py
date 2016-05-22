@@ -16,8 +16,6 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from contextlib import closing
-
 from .core import IonEventType
 from .util import coroutine
 from .util import record
@@ -69,11 +67,16 @@ def partial_write_result(data, delegate):
 
 
 @coroutine
-def _writer_trampoline(start):
+def writer_trampoline(start):
     """Provides the co-routine trampoline for a writer state machine.
 
     The given co-routine is a state machine that yields :class:`WriteResult` and takes
     a pair of :class:`amazon.ion.core.IonEvent` and the co-routine itself.
+
+    Notes:
+        A writer delimits its logical flush points with ``WriteEventType.COMPLETE``, depending
+        on the configuration, a user may need to send an ``IonEventType.STREAM_END`` to
+        force this to occur.
 
     Args:
         start: The writer co-routine to initially delegate to.
@@ -100,18 +103,24 @@ def _writer_trampoline(start):
 
 
 @coroutine
-def _blocking_writer(writer, output):
+def blocking_writer(writer, output):
     """Provides an implementation of using the writer co-routine with a file-like object.
 
     Args:
         writer (Coroutine): A writer co-routine.
-        output (file): The file-like object to pipe events to.
+        output (BaseIO): The file-like object to pipe events to.
+
+    Yields:
+        WriteEventType: Yields when no events are pending.
+
+        Receives :class:`amazon.ion.core.IonEvent` to write to the ``output``.
     """
-    with closing(writer), closing(output):
-        while True:
-            ion_event = (yield)
-            result_event = WriteEvent(WriteEventType.HAS_PENDING, None)
-            while result_event.type is WriteEventType.HAS_PENDING:
-                result_event = writer.send(ion_event)
-                ion_event = None
-                output.write(result_event.data)
+    result_type = None
+    while True:
+        ion_event = (yield result_type)
+        result_event = WriteEvent(WriteEventType.HAS_PENDING, None)
+        while result_event.type is WriteEventType.HAS_PENDING:
+            result_event = writer.send(ion_event)
+            result_type = result_event.type
+            ion_event = None
+            output.write(result_event.data)

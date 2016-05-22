@@ -14,24 +14,20 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import six
-
-from contextlib import closing
 from io import BytesIO
 from pytest import raises
 from functools import partial
 
-from tests import parametrize
+from tests import is_exception, parametrize
 
 from amazon.ion.core import IonEvent, IonEventType
 from amazon.ion.util import coroutine, record
-from amazon.ion.writer import _writer_trampoline, _blocking_writer, partial_write_result
+from amazon.ion.writer import writer_trampoline, blocking_writer, partial_write_result
 from amazon.ion.writer import WriteEvent, WriteEventType, WriteResult
 
 # Trivial Ion event.
 _IVM_EVENT = IonEvent(
-    event_type=IonEventType.VERSION_MARKER,
-    ion_type=None,
+    event_type=IonEventType.VERSION_MARKER
 )
 
 # Trivial data for write events.
@@ -130,10 +126,10 @@ class _P(record('desc', 'coroutine', 'input', 'expected')):
     ),
 )
 def test_trampoline(p):
-    trampoline = _writer_trampoline(p.coroutine)
+    trampoline = writer_trampoline(p.coroutine)
     assert len(p.input) == len(p.expected)
     for input, expected in zip(p.input, p.expected):
-        if isinstance(expected, type) and issubclass(expected, Exception):
+        if is_exception(expected):
             with raises(expected):
                 trampoline.send(input)
         else:
@@ -170,12 +166,8 @@ def _event_seq(*events):
 )
 def test_blocking_writer(p):
     buf = BytesIO()
-    with closing(_blocking_writer(p.coroutine, buf)) as writer:
-        for i in xrange(p.input):
-            assert None is writer.send(None)
-        assert p.expected == buf.getvalue()
-        assert not buf.closed
-        assert writer.gi_frame is not None
-
-    assert buf.closed
-    assert writer.gi_frame is None
+    writer = blocking_writer(p.coroutine, buf)
+    for i in range(p.input):
+        result_type = writer.send(None)
+        assert isinstance(result_type, WriteEventType) and result_type is not WriteEventType.HAS_PENDING
+    assert p.expected == buf.getvalue()
