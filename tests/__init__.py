@@ -16,7 +16,33 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from contextlib import contextmanager
+from datetime import tzinfo, timedelta
+
 import pytest
+
+
+class UTCOffset(tzinfo):
+    """A trivial UTC Offset :class:`tzinfo`."""
+    def __init__(self, delta=timedelta()):
+        self.delta = delta
+    def dst(self, date_time):
+        return None
+    def tzname(self, date_time):
+        return None
+    def utcoffset(self, date_time):
+        return self.delta
+
+
+@contextmanager
+def noop_manager():
+    """A no-op context manager"""
+    yield
+
+
+def is_exception(val):
+    """Returns whether a given value is an exception type (not an instance)."""
+    return isinstance(val, type) and issubclass(val, Exception)
 
 
 def parametrize(*values):
@@ -67,7 +93,7 @@ def parametrize(*values):
         real_decorator = pytest.mark.parametrize(
             argnames=[argname],
             argvalues=values,
-            ids=str
+            ids=lambda x: str(x).replace('.', '_')
         )
         return real_decorator(func)
 
