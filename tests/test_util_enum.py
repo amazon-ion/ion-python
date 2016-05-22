@@ -19,32 +19,35 @@ import pytest
 from amazon.ion.util import Enum
 
 
-class TestEnum(Enum):
+class SimpleEnum(Enum):
     A = 1
     B = 2
 
 
 def test_enum_members():
-    assert TestEnum._enum_members == {1: TestEnum.A, 2: TestEnum.B}
+    assert SimpleEnum._enum_members == {1: SimpleEnum.A, 2: SimpleEnum.B}
 
 
 def test_enum_reverse_lookup():
-    assert TestEnum[1] == TestEnum.A
-    assert TestEnum[2] == TestEnum.B
+    assert SimpleEnum[1] == SimpleEnum.A
+    assert SimpleEnum[2] == SimpleEnum.B
 
 
 def test_enum_fields():
-    assert TestEnum.A.value == 1
-    assert TestEnum.A.name == 'A'
-    assert TestEnum.B.value == 2
-    assert TestEnum.B.name == 'B'
+    assert SimpleEnum.A.value == 1
+    assert SimpleEnum.A.name == 'A'
+    assert SimpleEnum.B.value == 2
+    assert SimpleEnum.B.name == 'B'
+
+    values = list(SimpleEnum)
+    values.sort()
+    assert values == [SimpleEnum.A, SimpleEnum.B]
 
 
 def test_enum_as_int():
-    assert isinstance(TestEnum.A, int)
-    assert TestEnum.A == 1
-    assert TestEnum.A is not 1
-
+    assert isinstance(SimpleEnum.A, int)
+    assert SimpleEnum.A == 1
+    assert SimpleEnum.A is not 1
 
 def test_malformed_enum():
     with pytest.raises(TypeError):
