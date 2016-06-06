@@ -83,6 +83,26 @@ def writer_trampoline(start):
         trans = trans.delegate.send(Transition(ion_event, trans.delegate))
 
 
+_WRITE_EVENT_HAS_PENDING_EMPTY = DataEvent(WriteEventType.HAS_PENDING, None)
+
+
+def _drain(writer, ion_event):
+    """Drain the writer of its pending write events.
+
+    Args:
+        writer (Coroutine): A writer co-routine.
+        ion_event (amazon.ion.core.IonEvent): The first event to apply to the writer.
+
+    Yields:
+        DataEvent: Yields each pending data event.
+    """
+    result_event = _WRITE_EVENT_HAS_PENDING_EMPTY
+    while result_event.type is WriteEventType.HAS_PENDING:
+        result_event = writer.send(ion_event)
+        ion_event = None
+        yield result_event
+
+
 @coroutine
 def blocking_writer(writer, output):
     """Provides an implementation of using the writer co-routine with a file-like object.
@@ -99,9 +119,6 @@ def blocking_writer(writer, output):
     result_type = None
     while True:
         ion_event = (yield result_type)
-        result_event = DataEvent(WriteEventType.HAS_PENDING, None)
-        while result_event.type is WriteEventType.HAS_PENDING:
-            result_event = writer.send(ion_event)
-            result_type = result_event.type
-            ion_event = None
+        for result_event in _drain(writer, ion_event):
             output.write(result_event.data)
+        result_type = result_event.type

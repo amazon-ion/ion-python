@@ -37,6 +37,16 @@ _TEXT_SYMBOLS = u'symbols'
 _TEXT_MAX_ID = u'max_id'
 _TEXT_ION_SHARED_SYMBOL_TABLE = u'$ion_shared_symbol_table'
 
+SID_ION = 1
+SID_ION_1_0 = 2
+SID_ION_SYMBOL_TABLE = 3
+SID_NAME = 4
+SID_VERSION = 5
+SID_IMPORTS = 6
+SID_SYMBOLS = 7
+SID_MAX_ID = 8
+SID_ION_SHARED_SYMBOL_TABLE = 9
+
 
 class ImportLocation(record('name', 'position')):
     """Represents the import location of a symbol token.
@@ -86,15 +96,15 @@ def _system_symbol_token(text, sid):
 SYMBOL_ZERO_TOKEN = SymbolToken(None, 0)
 
 _SYSTEM_SYMBOL_TOKENS = (
-    _system_symbol_token(_TEXT_ION, 1),
-    _system_symbol_token(_TEXT_ION_1_0, 2),
-    _system_symbol_token(_TEXT_ION_SYMBOL_TABLE, 3),
-    _system_symbol_token(_TEXT_NAME, 4),
-    _system_symbol_token(_TEXT_VERSION, 5),
-    _system_symbol_token(_TEXT_IMPORTS, 6),
-    _system_symbol_token(_TEXT_SYMBOLS, 7),
-    _system_symbol_token(_TEXT_MAX_ID, 8),
-    _system_symbol_token(_TEXT_ION_SHARED_SYMBOL_TABLE, 9),
+    _system_symbol_token(_TEXT_ION, SID_ION),
+    _system_symbol_token(_TEXT_ION_1_0, SID_ION_1_0),
+    _system_symbol_token(_TEXT_ION_SYMBOL_TABLE, SID_ION_SYMBOL_TABLE),
+    _system_symbol_token(_TEXT_NAME, SID_NAME),
+    _system_symbol_token(_TEXT_VERSION, SID_VERSION),
+    _system_symbol_token(_TEXT_IMPORTS, SID_IMPORTS),
+    _system_symbol_token(_TEXT_SYMBOLS, SID_SYMBOLS),
+    _system_symbol_token(_TEXT_MAX_ID, SID_MAX_ID),
+    _system_symbol_token(_TEXT_ION_SHARED_SYMBOL_TABLE, SID_ION_SHARED_SYMBOL_TABLE),
 )
 
 
