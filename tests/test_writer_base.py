@@ -23,10 +23,10 @@ from functools import partial
 
 from tests import is_exception, parametrize
 
-from amazon.ion.core import IonEvent, IonEventType
+from amazon.ion.core import IonEvent, IonEventType, DataEvent, Transition
 from amazon.ion.util import coroutine, record
-from amazon.ion.writer import writer_trampoline, blocking_writer, partial_write_result
-from amazon.ion.writer import WriteEvent, WriteEventType, WriteResult
+from amazon.ion.writer import writer_trampoline, blocking_writer, partial_transition
+from amazon.ion.writer import WriteEventType
 
 # Trivial Ion event.
 _IVM_EVENT = IonEvent(
@@ -39,7 +39,7 @@ _TRIVIAL_DATA = b'DATA'
 
 # Generates trivial write events.
 def _trivial_event(write_event_type):
-    return WriteEvent(
+    return DataEvent(
         write_event_type,
         _TRIVIAL_DATA
     )
@@ -50,12 +50,12 @@ _NEEDS_INPUT_EVENT = _trivial_event(WriteEventType.NEEDS_INPUT)
 
 
 # Generates trivial co-routine results
-def _trivial_result(event_type, delegate):
-    return WriteResult(WriteEvent(event_type, _TRIVIAL_DATA), delegate)
+def _trivial_transition(event_type, delegate):
+    return Transition(DataEvent(event_type, _TRIVIAL_DATA), delegate)
 
-_partial_result = partial(partial_write_result, _TRIVIAL_DATA)
-_complete_result = partial(_trivial_result, WriteEventType.COMPLETE)
-_needs_input_result = partial(_trivial_result, WriteEventType.NEEDS_INPUT)
+_partial_result = partial(partial_transition, _TRIVIAL_DATA)
+_complete_result = partial(_trivial_transition, WriteEventType.COMPLETE)
+_needs_input_result = partial(_trivial_transition, WriteEventType.NEEDS_INPUT)
 
 
 @coroutine

@@ -31,13 +31,12 @@ from io import BytesIO
 from . import symbols
 
 from .util import coroutine, unicode_iter
-from .core import IonEventType, IonType
-from .writer import partial_write_result, writer_trampoline
-from .writer import WriteEvent, WriteEventType, WriteResult
+from .core import DataEvent, Transition, IonEventType, IonType
+from .writer import partial_transition, writer_trampoline
+from .writer import WriteEventType
 
-
-_IVM_WRITER_EVENT = WriteEvent(WriteEventType.COMPLETE, symbols._TEXT_ION_1_0.encode())
-_NOOP_WRITER_EVENT = WriteEvent(WriteEventType.COMPLETE, b'')
+_IVM_WRITER_EVENT = DataEvent(WriteEventType.COMPLETE, symbols._TEXT_ION_1_0.encode())
+_NOOP_WRITER_EVENT = DataEvent(WriteEventType.COMPLETE, b'')
 
 _NULL_TYPE_NAMES = [
     b'null',
@@ -312,29 +311,29 @@ _serialize_container_delimiter = _serialize_container_factory('delimiter', _CONT
 @coroutine
 def _raw_writer_coroutine(depth=0, container_event=None, whence=None):
     has_written_values = False
-    write_result = None
+    transition = None
     while True:
-        ion_event, self = (yield write_result)
+        ion_event, self = (yield transition)
         delegate = self
 
         if has_written_values and not ion_event.event_type.ends_container:
             # TODO This will always emit a delimiter for containers--should make it not do that.
             # Write the delimiter for the next value.
             if depth == 0:
-                yield partial_write_result(_TOP_LEVEL_DELIMITER, self)
+                yield partial_transition(_TOP_LEVEL_DELIMITER, self)
             else:
-                yield partial_write_result(_serialize_container_delimiter(container_event), self)
+                yield partial_transition(_serialize_container_delimiter(container_event), self)
 
         if depth > 0 \
                 and container_event.ion_type is IonType.STRUCT \
                 and ion_event.event_type.begins_value:
             # Write the field name.
-            yield partial_write_result(_serialize_field_name(ion_event), self)
+            yield partial_transition(_serialize_field_name(ion_event), self)
 
         if ion_event.event_type.begins_value:
             # Write the annotations.
             for annotation in ion_event.annotations:
-                yield partial_write_result(_serialize_annotation_value(annotation), self)
+                yield partial_transition(_serialize_annotation_value(annotation), self)
 
         if depth == 0:
             # Serialize at the top-level.
@@ -343,31 +342,31 @@ def _raw_writer_coroutine(depth=0, container_event=None, whence=None):
             elif ion_event.event_type is IonEventType.VERSION_MARKER:
                 writer_event = _IVM_WRITER_EVENT
             elif ion_event.event_type is IonEventType.SCALAR:
-                writer_event = WriteEvent(WriteEventType.COMPLETE, _serialize_scalar(ion_event))
+                writer_event = DataEvent(WriteEventType.COMPLETE, _serialize_scalar(ion_event))
             elif ion_event.event_type is IonEventType.CONTAINER_START:
-                writer_event = WriteEvent(WriteEventType.NEEDS_INPUT, _serialize_container_start(ion_event))
+                writer_event = DataEvent(WriteEventType.NEEDS_INPUT, _serialize_container_start(ion_event))
                 delegate = _raw_writer_coroutine(1, ion_event, self)
             else:
                 raise TypeError('Invalid event: %s' % ion_event)
         else:
             # Serialize within a container.
             if ion_event.event_type is IonEventType.SCALAR:
-                writer_event = WriteEvent(WriteEventType.NEEDS_INPUT, _serialize_scalar(ion_event))
+                writer_event = DataEvent(WriteEventType.NEEDS_INPUT, _serialize_scalar(ion_event))
             elif ion_event.event_type is IonEventType.CONTAINER_START:
-                writer_event = WriteEvent(WriteEventType.NEEDS_INPUT, _serialize_container_start(ion_event))
+                writer_event = DataEvent(WriteEventType.NEEDS_INPUT, _serialize_container_start(ion_event))
                 delegate = _raw_writer_coroutine(depth + 1, ion_event, self)
             elif ion_event.event_type is IonEventType.CONTAINER_END:
                 if depth == 1:
                     write_type = WriteEventType.COMPLETE
                 else:
                     write_type = WriteEventType.NEEDS_INPUT
-                writer_event = WriteEvent(write_type, _serialize_container_end(container_event))
+                writer_event = DataEvent(write_type, _serialize_container_end(container_event))
                 delegate = whence
             else:
                 raise TypeError('Invalid event: %s' % ion_event)
 
         has_written_values = True
-        write_result = WriteResult(writer_event, delegate)
+        transition = Transition(writer_event, delegate)
 
 
 # TODO Add options for text formatting.
@@ -375,7 +374,7 @@ def raw_writer():
     """Returns a raw text writer co-routine.
 
     Yields:
-        WriteEvent: serialization events to write out
+        DataEvent: serialization events to write out
 
         Receives :class:`amazon.ion.core.IonEvent` or ``None`` when the co-routine yields
         ``HAS_PENDING`` :class:`WriteEventType` events.

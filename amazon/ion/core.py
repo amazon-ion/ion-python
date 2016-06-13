@@ -144,3 +144,25 @@ class IonEvent(record(
             annotations,
             self.depth
         )
+
+
+class DataEvent(record('type', 'data')):
+    """Event generated as a result of the writer or as input into the reader.
+
+    Args:
+        type (Enum): The type of event.
+        data (bytes):  The serialized data returned.  If no data is to be serialized,
+            this should be the empty byte string.
+    """
+
+
+class Transition(record('event', 'delegate')):
+    """A pair of event and co-routine delegate.
+
+    This is generally used as a result of a state-machine.
+
+    Args:
+        event (Union[DataEvent]): The event associated with the transition.
+        delegate (Coroutine): The co-routine delegate which can be the same routine from
+            whence this transition came.
+    """

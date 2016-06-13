@@ -19,10 +19,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from .core import IonEventType
-from .util import coroutine
-from .util import record
-from .util import Enum
+from .core import DataEvent, IonEventType, Transition
+from .util import coroutine, record, Enum
 
 
 class WriteEventType(Enum):
@@ -44,37 +42,17 @@ class WriteEventType(Enum):
     COMPLETE = 3
 
 
-class WriteEvent(record('type', 'data')):
-    """IonEvent generated as a result of serialization.
-
-    Args:
-        type (WriteEventType): The type of event.
-        data (bytes):  The serialized data returned.  If no data is to be serialized,
-            this should be the empty byte string.
-    """
-
-
-class WriteResult(record('write_event', 'delegate')):
-    """The result of the write co-routine state machine.
-
-    Args:
-        event (WriteEvent): The event from the writer.
-        delegate (Coroutine): The coroutine to delegate serialization to. May be ``None`` indicating that
-        the current coroutine is to be delegated back to.
-    """
-
-
-def partial_write_result(data, delegate):
-    """Generates a :class:`WriteResult` that has an event indicating ``HAS_PENDING``."""
-    return WriteResult(WriteEvent(WriteEventType.HAS_PENDING, data), delegate)
+def partial_transition(data, delegate):
+    """Generates a :class:`Transition` that has an event indicating ``HAS_PENDING``."""
+    return Transition(DataEvent(WriteEventType.HAS_PENDING, data), delegate)
 
 
 @coroutine
 def writer_trampoline(start):
     """Provides the co-routine trampoline for a writer state machine.
 
-    The given co-routine is a state machine that yields :class:`WriteResult` and takes
-    a pair of :class:`amazon.ion.core.IonEvent` and the co-routine itself.
+    The given co-routine is a state machine that yields :class:`Transition` and takes
+    a :class:`Transition` with a :class:`amazon.ion.core.IonEvent` and the co-routine itself.
 
     Notes:
         A writer delimits its logical flush points with ``WriteEventType.COMPLETE``, depending
@@ -85,24 +63,24 @@ def writer_trampoline(start):
         start: The writer co-routine to initially delegate to.
 
     Yields:
-        WriteEvent: the result of serialization.
+        DataEvent: the result of serialization.
 
-        Receives :class:`amazon.ion.core.IonEvent` to serialize into :class:`WriteEvent`.
+        Receives :class:`amazon.ion.core.IonEvent` to serialize into :class:`DataEvent`.
     """
-    current = WriteResult(None, start)
+    trans = Transition(None, start)
     while True:
-        ion_event = (yield current.write_event)
-        if current.write_event is None:
+        ion_event = (yield trans.event)
+        if trans.event is None:
             if ion_event is None:
                 raise TypeError('Cannot start Writer with no event')
         else:
-            if current.write_event.type is WriteEventType.HAS_PENDING and ion_event is not None:
+            if trans.event.type is WriteEventType.HAS_PENDING and ion_event is not None:
                 raise TypeError('Writer expected to receive no event: %r' % (ion_event,))
-            if current.write_event.type is not WriteEventType.HAS_PENDING and ion_event is None:
+            if trans.event.type is not WriteEventType.HAS_PENDING and ion_event is None:
                 raise TypeError('Writer expected to receive event')
             if ion_event is not None and ion_event.event_type is IonEventType.INCOMPLETE:
                 raise TypeError('Writer cannot receive INCOMPLETE event')
-        current = current.delegate.send((ion_event, current.delegate))
+        trans = trans.delegate.send(Transition(ion_event, trans.delegate))
 
 
 @coroutine
@@ -121,7 +99,7 @@ def blocking_writer(writer, output):
     result_type = None
     while True:
         ion_event = (yield result_type)
-        result_event = WriteEvent(WriteEventType.HAS_PENDING, None)
+        result_event = DataEvent(WriteEventType.HAS_PENDING, None)
         while result_event.type is WriteEventType.HAS_PENDING:
             result_event = writer.send(ion_event)
             result_type = result_event.type
