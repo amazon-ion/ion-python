@@ -19,6 +19,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from math import isnan
 from datetime import datetime, timedelta, tzinfo
 
 from .util import record
@@ -116,6 +117,39 @@ class IonEvent(record(
             associated with the event.
         depth (Optional[int]): The tree depth of the event if applicable.
     """
+    def __eq__(self, other):
+        if not isinstance(other, IonEvent):
+            return False
+
+        if isinstance(self.value, float):
+            if not isinstance(other.value, float):
+                return False
+
+            # Need to deal with NaN appropriately.
+            if self.value != other.value and not (isnan(self.value) and isnan(other.value)):
+                return False
+        else:
+            if self.value != other.value:
+                return False
+
+            # Timestamp precision has additional requirements.
+            if isinstance(self.value, Timestamp) or isinstance(other.value, Timestamp):
+                # Special case for timestamps to capture equivalence over precision.
+                self_precision = getattr(self.value, _TS_PRECISION_FIELD)
+                other_precision = getattr(other.value, _TS_PRECISION_FIELD)
+                if self_precision != other_precision:
+                    return False
+            if isinstance(self.value, datetime):
+                if self.value.utcoffset() != other.value.utcoffset():
+                    return False
+
+        return (self.event_type == other.event_type
+            and self.ion_type == other.ion_type
+            and self.field_name == other.field_name
+            and self.annotations == other.annotations
+            and self.depth == other.depth
+        )
+
     def derive_field_name(self, field_name):
         """Derives a new event from this one setting the ``field_name`` attribute.
 
@@ -173,9 +207,55 @@ class IonEvent(record(
             self.depth
         )
 
+    def derive_depth(self, depth):
+        """Derives a new event from this one setting the ``depth`` attribute.
+
+        Args:
+            depth: (int):
+                The annotations associated with the derived event.
+
+        Returns:
+            IonEvent: The newly generated event.
+        """
+        cls = type(self)
+        return cls(
+            self.event_type,
+            self.ion_type,
+            self.value,
+            self.field_name,
+            self.annotations,
+            depth
+        )
+
+
+class _MemoizingThunk(object):
+    def __init__(self, delegate):
+        self.delegate = delegate
+
+    def __call__(self):
+        if hasattr(self, 'value'):
+            return self.value
+        self.value = self.delegate()
+        return self.value
+
+    def __str__(self):
+        return str(self())
+
+    def __repr__(self):
+        return repr(self())
+
 
 class IonThunkEvent(IonEvent):
-    """An :class:`IonEvent` whose ``value`` attribute is a thunk (descriptor)."""
+    def __new__(cls, *args, **kwargs):
+        if len(args) >= 3:
+            args = list(args)
+            args[2] = _MemoizingThunk(args[2])
+        else:
+            value = kwargs.get('value')
+            if value is not None:
+                kwargs['value'] = _MemoizingThunk(kwargs['value'])
+        return super(IonThunkEvent, cls).__new__(cls, *args, **kwargs)
+
     @property
     def value(self):
         # TODO memoize the materialized value.
@@ -213,11 +293,12 @@ class Transition(record('event', 'delegate')):
 
 _MIN_OFFSET = timedelta(hours=-12)
 _MAX_OFFSET = timedelta(hours=12)
+_ZERO_DELTA = timedelta()
 
 
 class OffsetTZInfo(tzinfo):
     """A trivial UTC offset :class:`tzinfo`."""
-    def __init__(self, delta=timedelta()):
+    def __init__(self, delta=_ZERO_DELTA):
         if delta < _MIN_OFFSET or delta > _MAX_OFFSET:
             raise ValueError('Invalid UTC offset: %s' % delta)
         self.delta = delta
@@ -230,6 +311,14 @@ class OffsetTZInfo(tzinfo):
 
     def utcoffset(self, date_time):
         return self.delta
+
+    def __repr__(self):
+        sign = '+'
+        delta = self.delta
+        if delta < _ZERO_DELTA:
+            sign = '-'
+            delta = _ZERO_DELTA - delta
+        return 'OffsetTZInfo(%s%s)' % (sign, delta)
 
 
 class TimestampPrecision(Enum):
@@ -273,8 +362,9 @@ class Timestamp(datetime):
     __slots__ = [_TS_PRECISION_FIELD]
 
     def __new__(cls, *args, **kwargs):
-        precision = kwargs.get(_TS_PRECISION_FIELD)
-        if precision is not None:
+        precision = None
+        if _TS_PRECISION_FIELD in kwargs:
+            precision = kwargs.get(_TS_PRECISION_FIELD)
             # Make sure we mask this before we construct the datetime.
             del kwargs[_TS_PRECISION_FIELD]
 
@@ -283,8 +373,14 @@ class Timestamp(datetime):
 
         return instance
 
+    def __repr__(self):
+        return 'Timestamp(%04d-%02d-%02dT%02d:%02d:%02d.%06d, %r, %r)' % \
+               (self.year, self.month, self.day,
+                self.hour, self.minute, self.second, self.microsecond,
+                self.tzinfo, self.precision)
+
     @staticmethod
-    def adjust_from_utc_fields(self, *args, **kwargs):
+    def adjust_from_utc_fields(*args, **kwargs):
         """Constructs a timestamp from UTC fields adjusted to the local offset if given."""
         raw_ts = Timestamp(*args, **kwargs)
         offset = raw_ts.utcoffset()
@@ -308,3 +404,33 @@ class Timestamp(datetime):
             raw_ts.tzinfo,
             precision=raw_ts.precision
         )
+
+
+def timestamp(year, month=1, day=1,
+              hour=0, minute=0, second=0, microsecond=0,
+              off_hours=None, off_minutes=None,
+              precision=None):
+    """Shorthand for the :class:`Timestamp` constructor.
+
+    Specifically, converts ``off_hours`` and ``off_minutes`` parameters to a suitable
+    :class:`OffsetTZInfo` instance.
+    """
+    delta = None
+    if off_hours is not None:
+        delta = timedelta(hours=off_hours)
+    if off_minutes is not None:
+        minutes_delta = timedelta(minutes=off_minutes)
+        if delta is None:
+            delta = minutes_delta
+        else:
+            delta += minutes_delta
+
+    tz = None
+    if delta is not None:
+        tz = OffsetTZInfo(delta)
+
+    return Timestamp(
+        year, month, day,
+        hour, minute, second, microsecond,
+        tz, precision=precision
+    )

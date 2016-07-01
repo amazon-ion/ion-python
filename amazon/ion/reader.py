@@ -186,6 +186,7 @@ def reader_trampoline(start):
     trans = Transition(None, start)
     while True:
         trans = trans.delegate.send(Transition(data_event, trans.delegate))
+        data_event = None
         if trans.event is not None:
             # Only yield if there is an event.
             data_event = (yield trans.event)
@@ -195,7 +196,11 @@ def reader_trampoline(start):
             else:
                 if data_event.type is ReadEventType.DATA:
                     raise TypeError('Reader did not expect data')
-            if trans.event.depth == 0 and data_event.type is ReadEventType.SKIP:
+            if data_event.type is ReadEventType.DATA and len(data_event.data) == 0:
+                raise ValueError('Empty data not allowed')
+            if trans.event.depth == 0 \
+                    and trans.event.event_type is not IonEventType.CONTAINER_START \
+                    and data_event.type is ReadEventType.SKIP:
                 raise TypeError('Cannot skip at the top-level')
 
 
