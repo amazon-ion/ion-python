@@ -83,7 +83,7 @@ def test_value_boundaries(p):
 )
 def test_boundaries_signed(p):
     half = _CACHE_SIZE // 2
-    assert_cached_values(p, range(-half - 1, half))  # Go just past the cache boundaries
+    assert_cached_values(p, range(-half - 1, half))  # Go just past the cache boundaries.
 
 
 @parametrize(

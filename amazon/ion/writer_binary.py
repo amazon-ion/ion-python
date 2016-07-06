@@ -75,8 +75,10 @@ def _symbol_table_coroutine(writer_buffer, imports):
         if imports:
             write(_ION_EVENT_RAW_IMPORTS_LIST_START)
             for imported in imports:
-                if imported.table_type is not SHARED_TABLE_TYPE:  # TODO could allow system table as first import
-                    # TODO fail earlier? At creation of managed writer coroutine? Requires two imports iterations...
+                # TODO The system table could be allowed as the first import.
+                if imported.table_type is not SHARED_TABLE_TYPE:
+                    # TODO This should probably fail at creation of the managed writer coroutine, but that currently
+                    # requires two imports iterations.
                     raise IonException('Only shared tables may be imported.')
                 write(_ION_EVENT_STRUCT_START)
                 write(IonEvent(IonEventType.SCALAR, IonType.STRING, imported.name, field_name=SID_NAME))
@@ -106,7 +108,7 @@ def _symbol_table_coroutine(writer_buffer, imports):
         symbol_event, self = (yield write_result)
         if symbol_event.event_type is _SymbolEventType.START_LST:
             write_event = start_lst()
-            local_symbols = SymbolTable(LOCAL_TABLE_TYPE, [], imports=imports)  # initialize map
+            local_symbols = SymbolTable(LOCAL_TABLE_TYPE, [], imports=imports)  # Initialize the map.
         elif symbol_event.event_type is _SymbolEventType.SYMBOL:
             if local_symbols is None:
                 raise IonException('Illegal state: local symbol table not started.')
@@ -118,8 +120,8 @@ def _symbol_table_coroutine(writer_buffer, imports):
             # If there are no local symbols or imports, there is no need for an explicit LST.
             if has_local_symbols or imports:
                 if has_local_symbols:
-                    write(_ION_EVENT_CONTAINER_END)  # end the symbols list
-                write(_ION_EVENT_CONTAINER_END)  # end the symbol table struct
+                    write(_ION_EVENT_CONTAINER_END)  # End the symbols list.
+                write(_ION_EVENT_CONTAINER_END)  # End the symbol table struct.
                 for partial in _drain(symbol_writer, _ION_EVENT_STREAM_END):
                     yield partial_write_result(partial.data, self)
             write_event = _WRITER_EVENT_COMPLETE_EMPTY
@@ -132,7 +134,6 @@ def _symbol_table_coroutine(writer_buffer, imports):
 def _managed_binary_writer_coroutine(imports):
 
     def init():
-        #  TODO consider whether the user and symbol writer buffers should use different block sizes
         _value_writer = _raw_binary_writer(BufferTree())
         _symbol_writer = _raw_symbol_writer(BufferTree(), imports)
         return _value_writer, _symbol_writer
@@ -159,7 +160,7 @@ def _managed_binary_writer_coroutine(imports):
         ion_event, self = (yield write_result)
         if ion_event.event_type is IonEventType.VERSION_MARKER:
             if has_written_values:
-                # TODO could handle this by flushing first
+                # TODO This could be handled by flushing first.
                 raise IonException('Unable to write IVM before STREAM_END')
             else:
                 if ivm_needed:
@@ -176,7 +177,7 @@ def _managed_binary_writer_coroutine(imports):
                 has_written_values = False
             write_event = _WRITER_EVENT_COMPLETE_EMPTY
             ivm_needed = True
-        else:  # intern symbols and delegate to the raw writer
+        else:  # Intern any symbols and delegate to the raw writer.
             if not has_written_values:
                 if ivm_needed:
                     yield partial_write_result(_IVM, self)

@@ -60,10 +60,10 @@ class BufferTree:
     """
     def __init__(self):
         self.__root = None
-        self.__container_lengths = None  # stack of pending container lengths
-        self.__container_nodes = None  # stack of pending container nodes
-        self.__container_node = None  # node representing the currently active container
-        self.current_container_length = None  # length of the currently active container
+        self.__container_lengths = None  # Stack of pending container lengths.
+        self.__container_nodes = None  # Stack of pending container nodes.
+        self.__container_node = None  # Node representing the currently active container.
+        self.current_container_length = None  # Length of the currently active container.
         self.__reset()
 
     def __reset(self):
@@ -104,7 +104,7 @@ class BufferTree:
         """
         if not self.__container_nodes:
             raise ValueError("Attempted to end container with none active.")
-        self.__container_node.add_leaf(_Node(header_buf))  # header needs to be the first node visited on this subtree
+        self.__container_node.add_leaf(_Node(header_buf))  # Header needs to be the first node visited on this subtree.
         self.__container_node = self.__container_nodes.pop()
         parent_container_length = self.__container_lengths.pop()
         self.current_container_length = parent_container_length + self.current_container_length + len(header_buf)

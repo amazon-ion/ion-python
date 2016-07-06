@@ -50,7 +50,7 @@ def assert_ivm(buf, count=1):
 
 def test_implicit_ivm():
     out, writer = new_writer()
-    writer.send(IonEvent(IonEventType.SCALAR, IonType.NULL))  # implicitly writes IVM
+    writer.send(IonEvent(IonEventType.SCALAR, IonType.NULL))  # This implicitly writes the IVM.
     finish(writer)
     buf = out.getvalue()
     assert_ivm(buf)
@@ -58,8 +58,8 @@ def test_implicit_ivm():
 
 def test_one_ivm_per_stream():
     out, writer = new_writer()
-    writer.send(IonEvent(IonEventType.VERSION_MARKER))  # explicitly write IVM
-    writer.send(IonEvent(IonEventType.SCALAR, IonType.NULL))  # if IVM not explicitly written, this would write one
+    writer.send(IonEvent(IonEventType.VERSION_MARKER))  # Explicitly write the IVM.
+    writer.send(IonEvent(IonEventType.SCALAR, IonType.NULL))  # If the IVM not explicitly written, this would write one.
     finish(writer)
     buf = out.getvalue()
     assert_ivm(buf)
