@@ -19,22 +19,9 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from contextlib import contextmanager
-from datetime import tzinfo, timedelta
-
 import pytest
 
-
-class UTCOffset(tzinfo):
-    """A trivial UTC Offset :class:`tzinfo`."""
-    def __init__(self, delta=timedelta()):
-        self.delta = delta
-    def dst(self, date_time):
-        return None
-    def tzname(self, date_time):
-        return None
-    def utcoffset(self, date_time):
-        return self.delta
+from contextlib import contextmanager
 
 
 @contextmanager
@@ -101,4 +88,3 @@ def parametrize(*values):
         return real_decorator(func)
 
     return decorator
-

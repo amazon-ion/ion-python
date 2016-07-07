@@ -27,9 +27,8 @@ from itertools import chain
 from pytest import raises
 
 from tests import is_exception, noop_manager, parametrize
-from tests import UTCOffset
 
-from amazon.ion.core import IonType, IonEvent, IonEventType
+from amazon.ion.core import IonType, IonEvent, IonEventType, OffsetTZInfo
 from amazon.ion.symbols import SymbolToken
 from amazon.ion.util import record
 from amazon.ion.writer import blocking_writer, WriteEventType
@@ -139,8 +138,8 @@ _SIMPLE_SCALARS_MAP = {
         (_DT(2016, 1, 1, 12), b'2016-01-01T12:00:00-00:00'),
         (_DT(2016, 1, 1, 12, 34, 12), b'2016-01-01T12:34:12-00:00'),
         (_DT(2016, 1, 1, 12, 34, 12, 555000), b'2016-01-01T12:34:12.555000-00:00'),
-        (_DT(2016, 1, 1, 12, 34, 12, tzinfo=UTCOffset()), b'2016-01-01T12:34:12+00:00'),
-        (_DT(2016, 1, 1, 12, 34, 12, tzinfo=UTCOffset(timedelta(hours=-7))),
+        (_DT(2016, 1, 1, 12, 34, 12, tzinfo=OffsetTZInfo()), b'2016-01-01T12:34:12+00:00'),
+        (_DT(2016, 1, 1, 12, 34, 12, tzinfo=OffsetTZInfo(timedelta(hours=-7))),
             b'2016-01-01T12:34:12-07:00'),
     ),
     _IT.SYMBOL: (

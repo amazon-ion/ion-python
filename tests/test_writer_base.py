@@ -18,20 +18,17 @@ from __future__ import division
 from __future__ import print_function
 
 from io import BytesIO
-from pytest import raises
 from functools import partial
 
-from tests import is_exception, parametrize
+from tests import parametrize
+from tests.trampoline_util import always_self, moves_to, yields_iter
+from tests.trampoline_util import trampoline_scaffold, TrampolineParameters
 
-from amazon.ion.core import IonEvent, IonEventType, DataEvent, Transition
-from amazon.ion.util import coroutine, record
+from amazon.ion.core import DataEvent, Transition
+from amazon.ion.core import ION_VERSION_MARKER_EVENT
 from amazon.ion.writer import writer_trampoline, blocking_writer, partial_transition
 from amazon.ion.writer import WriteEventType
 
-# Trivial Ion event.
-_IVM_EVENT = IonEvent(
-    event_type=IonEventType.VERSION_MARKER
-)
 
 # Trivial data for write events.
 _TRIVIAL_DATA = b'DATA'
@@ -49,120 +46,88 @@ _COMPLETE_EVENT = _trivial_event(WriteEventType.COMPLETE)
 _NEEDS_INPUT_EVENT = _trivial_event(WriteEventType.NEEDS_INPUT)
 
 
-# Generates trivial co-routine results
-def _trivial_transition(event_type, delegate):
-    return Transition(DataEvent(event_type, _TRIVIAL_DATA), delegate)
+def _trivial_transition(event_type, data, delegate):
+    return Transition(DataEvent(event_type, data), delegate)
+
 
 _partial_result = partial(partial_transition, _TRIVIAL_DATA)
-_complete_result = partial(_trivial_transition, WriteEventType.COMPLETE)
-_needs_input_result = partial(_trivial_transition, WriteEventType.NEEDS_INPUT)
+_complete_result = partial(_trivial_transition, WriteEventType.COMPLETE, _TRIVIAL_DATA)
+_needs_input_result = partial(_trivial_transition, WriteEventType.NEEDS_INPUT, _TRIVIAL_DATA)
 
 
-@coroutine
-def _always_self(result_func):
-    """A simple writer co-routine that yields a result and transitions to itself indefinitely."""
-    ion_event, self = (yield)
-    while True:
-        yield result_func(self)
-
-
-@coroutine
-def _moves_to(target, result_func):
-    """A simple writer co-routine that yields a result and transitions to another co-routine."""
-    ion_event, self = (yield)
-    yield result_func(target)
-
-
-class _P(record('desc', 'coroutine', 'input', 'expected')):
-    def __str__(self):
-        return self.desc
+_P = TrampolineParameters
 
 
 @parametrize(
     _P(
         desc='START WITH NONE',
-        coroutine=_always_self(_partial_result),
+        coroutine=always_self(_partial_result),
         input=[None],
         expected=[TypeError],
     ),
     _P(
         desc='ALWAYS PARTIAL SELF - NORMAL',
-        coroutine=_always_self(_partial_result),
-        input=[_IVM_EVENT] + [None] * 3,
+        coroutine=always_self(_partial_result),
+        input=[ION_VERSION_MARKER_EVENT] + [None] * 3,
         expected=[_PARTIAL_EVENT] * 4
     ),
     _P(
         desc='ALWAYS PARTIAL SELF - NON-NONE',
-        coroutine=_always_self(_partial_result),
-        input=[_IVM_EVENT, _IVM_EVENT],
+        coroutine=always_self(_partial_result),
+        input=[ION_VERSION_MARKER_EVENT, ION_VERSION_MARKER_EVENT],
         expected=[_PARTIAL_EVENT, TypeError]
     ),
     _P(
         desc='ALWAYS COMPLETE SELF - NORMAL',
-        coroutine=_always_self(_complete_result),
-        input=[_IVM_EVENT] * 10,
+        coroutine=always_self(_complete_result),
+        input=[ION_VERSION_MARKER_EVENT] * 10,
         expected=[_COMPLETE_EVENT] * 10,
     ),
     _P(
         desc='ALWAYS COMPLETE SELF - NONE',
-        coroutine=_always_self(_complete_result),
-        input=[_IVM_EVENT, None],
+        coroutine=always_self(_complete_result),
+        input=[ION_VERSION_MARKER_EVENT, None],
         expected=[_COMPLETE_EVENT, TypeError],
     ),
     _P(
         desc='ALWAYS NEEDS INPUT SELF - NORMAL',
-        coroutine=_always_self(_needs_input_result),
-        input=[_IVM_EVENT] * 10,
+        coroutine=always_self(_needs_input_result),
+        input=[ION_VERSION_MARKER_EVENT] * 10,
         expected=[_NEEDS_INPUT_EVENT] * 10,
     ),
     _P(
         desc='ALWAYS NEEDS INPUT SELF - NONE',
-        coroutine=_always_self(_needs_input_result),
-        input=[_IVM_EVENT, None],
+        coroutine=always_self(_needs_input_result),
+        input=[ION_VERSION_MARKER_EVENT, None],
         expected=[_NEEDS_INPUT_EVENT, TypeError],
     ),
     _P(
         desc='MOVES TO',
-        coroutine=_moves_to(_always_self(_complete_result), _needs_input_result),
-        input=[_IVM_EVENT] * 4,
+        coroutine=moves_to(always_self(_complete_result), _needs_input_result),
+        input=[ION_VERSION_MARKER_EVENT] * 4,
         expected=[_NEEDS_INPUT_EVENT] + [_COMPLETE_EVENT] * 3,
     ),
 )
 def test_trampoline(p):
-    trampoline = writer_trampoline(p.coroutine)
-    assert len(p.input) == len(p.expected)
-    for input, expected in zip(p.input, p.expected):
-        if is_exception(expected):
-            with raises(expected):
-                trampoline.send(input)
-        else:
-            output = trampoline.send(input)
-            assert expected == output
-
-
-@coroutine
-def _event_seq(*events):
-    yield
-    for event in events:
-        yield event
+    trampoline_scaffold(writer_trampoline, p)
 
 
 @parametrize(
     _P(
         desc='SINGLE COMPLETE EVENT',
-        coroutine=_event_seq(_COMPLETE_EVENT),
+        coroutine=yields_iter(_COMPLETE_EVENT),
         input=1,
         expected=_TRIVIAL_DATA
     ),
     _P(
         desc='MULTIPLE NEEDS INPUT EVENT',
-        coroutine=_event_seq(*([_NEEDS_INPUT_EVENT] * 4)),
+        coroutine=yields_iter(*([_NEEDS_INPUT_EVENT] * 4)),
         input=4,
         expected=_TRIVIAL_DATA * 4
     ),
     _P(
         desc='PARTIAL THEN COMPLETE EVENT',
-        coroutine=_event_seq(_PARTIAL_EVENT, _COMPLETE_EVENT),
+        coroutine=yields_iter(_PARTIAL_EVENT, _COMPLETE_EVENT),
         input=1,
         expected=_TRIVIAL_DATA * 2
     ),
