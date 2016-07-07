@@ -19,8 +19,9 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import collections
 import six
+
+from collections import namedtuple
 
 
 class _EnumMetaClass(type):
@@ -51,7 +52,6 @@ class _EnumMetaClass(type):
     def __iter__(self):
         """Iterates through the values of the enumeration in no specific order."""
         return six.itervalues(self._enum_members)
-
 
 
 @six.add_metaclass(_EnumMetaClass)
@@ -100,30 +100,35 @@ class _RecordMetaClass(type):
     def __new__(cls, name, bases, attrs):
         if attrs.get('_record_sentinel') is None:
             field_declarations = []
+            has_record_sentinel = False
             for base_class in bases:
-                parent_declarations = getattr(base_class, '_record_fields', [])
-                field_declarations.extend(parent_declarations)
-            names = []
-            defaults = []
+                parent_declarations = getattr(base_class, '_record_fields', None)
+                if parent_declarations is not None:
+                    field_declarations.extend(parent_declarations)
+                    has_record_sentinel = True
+            if has_record_sentinel:
+                # Only mutate the class if we are directly sub-class a record sentinel.
+                names = []
+                defaults = []
 
-            has_defaults = False
-            for field in field_declarations:
-                if isinstance(field, str):
-                    if has_defaults:
-                        raise ValueError('Non-defaulted record field must have default: %s' % field)
-                    names.append(field)
-                elif isinstance(field, tuple) and len(field) == 2:
-                    names.append(field[0])
-                    defaults.append(field[1])
-                    has_defaults = True
-                else:
-                    raise ValueError('Unable to bind record field: %s' % (field,))
+                has_defaults = False
+                for field in field_declarations:
+                    if isinstance(field, str):
+                        if has_defaults:
+                            raise ValueError('Non-defaulted record field must have default: %s' % field)
+                        names.append(field)
+                    elif isinstance(field, tuple) and len(field) == 2:
+                        names.append(field[0])
+                        defaults.append(field[1])
+                        has_defaults = True
+                    else:
+                        raise ValueError('Unable to bind record field: %s' % (field,))
 
-            # Construct actual base type/defaults.
-            base_class = collections.namedtuple(name, names)
-            base_class.__new__.__defaults__ = tuple(defaults)
-            # Eliminate our placeholder(s) in the hierarchy.
-            bases = (base_class,)
+                # Construct actual base type/defaults.
+                base_class = namedtuple(name, names)
+                base_class.__new__.__defaults__ = tuple(defaults)
+                # Eliminate our placeholder(s) in the hierarchy.
+                bases = (base_class,)
 
         return super(_RecordMetaClass, cls).__new__(cls, name, bases, attrs)
 
@@ -156,6 +161,7 @@ def record(*fields):
 
     return RecordType
 
+
 def coroutine(func):
     """Wraps a PEP-342 enhanced generator in a way that avoids boilerplate of the "priming" call to ``next``.
 
@@ -184,6 +190,7 @@ _LOW_SURROGATE_START = 0xDC00
 _LOW_SURROGATE_END = 0xDFFF
 _SURROGATE_START = _HIGH_SURROGATE_START
 _SURROGATE_END = _LOW_SURROGATE_END
+
 
 def unicode_iter(val):
     """Provides an iterator over the *code points* of the given Unicode sequence.
