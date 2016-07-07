@@ -19,6 +19,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from datetime import datetime, timedelta, tzinfo
+
 from .util import record
 from .util import Enum
 
@@ -87,6 +89,11 @@ class IonEventType(Enum):
         """Indicates if the event type terminates a container or stream."""
         return self is IonEventType.STREAM_END or self is IonEventType.CONTAINER_END
 
+    @property
+    def is_stream_signal(self):
+        """Indicates that the event type corresponds to a stream signal."""
+        return self < 0
+
 
 class IonEvent(record(
         'event_type',
@@ -117,7 +124,8 @@ class IonEvent(record(
         Returns:
             IonEvent: The newly generated event.
         """
-        return IonEvent(
+        cls = type(self)
+        return cls(
             self.event_type,
             self.ion_type,
             self.value,
@@ -136,7 +144,8 @@ class IonEvent(record(
         Returns:
             IonEvent: The newly generated event.
         """
-        return IonEvent(
+        cls = type(self)
+        return cls(
             self.event_type,
             self.ion_type,
             self.value,
@@ -144,6 +153,22 @@ class IonEvent(record(
             annotations,
             self.depth
         )
+
+
+class IonThunkEvent(IonEvent):
+    """An :class:`IonEvent` whose ``value`` attribute is a thunk (descriptor)."""
+    @property
+    def value(self):
+        # TODO memoize the materialized value.
+        # We're masking the value field, this gets around that.
+        return self[2]()
+
+# Singletons for structural events
+ION_STREAM_END_EVENT = IonEvent(IonEventType.STREAM_END)
+ION_STREAM_INCOMPLETE_EVENT = IonEvent(IonEventType.INCOMPLETE)
+ION_VERSION_MARKER_EVENT = IonEvent(
+    IonEventType.VERSION_MARKER, ion_type=None, value=(1, 0), depth=0
+)
 
 
 class DataEvent(record('type', 'data')):
@@ -166,3 +191,100 @@ class Transition(record('event', 'delegate')):
         delegate (Coroutine): The co-routine delegate which can be the same routine from
             whence this transition came.
     """
+
+_MIN_OFFSET = timedelta(hours=-12)
+_MAX_OFFSET = timedelta(hours=12)
+
+
+class OffsetTZInfo(tzinfo):
+    """A trivial UTC offset :class:`tzinfo`."""
+    def __init__(self, delta=timedelta()):
+        if delta < _MIN_OFFSET or delta > _MAX_OFFSET:
+            raise ValueError('Invalid UTC offset: %s' % delta)
+        self.delta = delta
+
+    def dst(self, date_time):
+        return timedelta()
+
+    def tzname(self, date_time):
+        return None
+
+    def utcoffset(self, date_time):
+        return self.delta
+
+
+class TimestampPrecision(Enum):
+    """The different levels of precision supported in an Ion timestamp."""
+    YEAR = 0
+    MONTH = 1
+    DAY = 2
+    MINUTE = 3
+    SECOND = 4
+
+    @property
+    def includes_month(self):
+        """Precision has at least the ``month`` field."""
+        return self >= TimestampPrecision.MONTH
+
+    @property
+    def includes_day(self):
+        """Precision has at least the ``day`` field."""
+        return self >= TimestampPrecision.DAY
+
+    @property
+    def includes_minute(self):
+        """Precision has at least the ``minute`` field."""
+        return self >= TimestampPrecision.MINUTE
+
+    @property
+    def includes_second(self):
+        """Precision has at least the ``second`` field."""
+        return self >= TimestampPrecision.SECOND
+
+
+_TS_PRECISION_FIELD = 'precision'
+
+
+class Timestamp(datetime):
+    """Sub-class of :class:`datetime` that supports a precision field
+
+    Notes:
+        The ``precision`` field is passed as a keyword argument of the same name.
+    """
+    __slots__ = [_TS_PRECISION_FIELD]
+
+    def __new__(cls, *args, **kwargs):
+        precision = kwargs.get(_TS_PRECISION_FIELD)
+        if precision is not None:
+            # Make sure we mask this before we construct the datetime.
+            del kwargs[_TS_PRECISION_FIELD]
+
+        instance = super(Timestamp, cls).__new__(cls, *args, **kwargs)
+        setattr(instance, _TS_PRECISION_FIELD, precision)
+
+        return instance
+
+    def adjust_from_utc_fields(self, *args, **kwargs):
+        """Constructs a timestamp from UTC fields adjusted to the local offset if given."""
+        raw_ts = Timestamp(*args, **kwargs)
+        offset = raw_ts.utcoffset()
+        if offset is None or offset == timedelta():
+            return raw_ts
+
+        # XXX This returns a datetime, not a Timestamp (which has our precision if defined)
+        adjusted = raw_ts + offset
+        if raw_ts.precision is None :
+            # No precision means we can just return a regular datetime
+            return adjusted
+
+        return Timestamp(
+            adjusted.year,
+            adjusted.month,
+            adjusted.day,
+            adjusted.hour,
+            adjusted.minute,
+            adjusted.second,
+            adjusted.microsecond,
+            raw_ts.tzinfo,
+            precision=raw_ts.precision
+        )
