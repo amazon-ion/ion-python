@@ -264,6 +264,7 @@ class Timestamp(datetime):
 
         return instance
 
+    @staticmethod
     def adjust_from_utc_fields(self, *args, **kwargs):
         """Constructs a timestamp from UTC fields adjusted to the local offset if given."""
         raw_ts = Timestamp(*args, **kwargs)
