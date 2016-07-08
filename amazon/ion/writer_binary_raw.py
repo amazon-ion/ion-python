@@ -163,29 +163,16 @@ def _write_decimal_value(buf, exponent, coefficient, sign=0):
     return length
 
 
-def digits_to_coefficient(digits):
-    """List of integers representing digits to the base-10 integer representation of those digits."""
-    i = 0
-    integer = 0
-    for digit in reversed(digits):
-        integer += digit * pow(10, i)
-        i += 1
-    return integer
-
-
 def _serialize_decimal(ion_event):
     buf = bytearray()
     value = ion_event.value
     validate_scalar_value(value, Decimal)
-    dec_tuple = value.as_tuple()
-    exponent = dec_tuple.exponent
-    magnitude = digits_to_coefficient(dec_tuple.digits)
-    sign = dec_tuple.sign
-    if not sign and not exponent and not magnitude:
+    sign, digits, exponent = value.as_tuple()
+    coefficient = int(value.scaleb(-exponent).to_integral_value())
+    if not sign and not exponent and not coefficient:
         # The value is 0d0; other forms of zero will fall through.
         buf.append(_Zeros.DECIMAL)
     else:
-        coefficient = sign and -magnitude or magnitude
         value_buf = bytearray()
         length = _write_decimal_value(value_buf, exponent, coefficient, sign)
         _write_length(buf, length, _TypeIds.DECIMAL)
