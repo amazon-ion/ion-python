@@ -214,6 +214,7 @@ def blocking_reader(reader, input, buffer_size=_DEFAULT_BUFFER_SIZE):
     ion_event = None
     while True:
         read_event = (yield ion_event)
+        ion_event = reader.send(read_event)
         while ion_event is not None and ion_event.event_type.is_stream_signal:
             data = input.read(buffer_size)
             if len(data) == 0:
@@ -222,4 +223,4 @@ def blocking_reader(reader, input, buffer_size=_DEFAULT_BUFFER_SIZE):
                     raise EOFError('Premature EOF while parsing')
                 yield ION_STREAM_END_EVENT
                 return
-            ion_event = reader.send(DataEvent(ReadEventType.DATA, data))
+            ion_event = reader.send(read_data_event(data))
