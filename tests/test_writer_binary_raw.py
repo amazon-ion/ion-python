@@ -14,36 +14,44 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import datetime
 from functools import partial
 from io import BytesIO
 
 from itertools import chain
 
-from amazon.ion.core import OffsetTZInfo
+from datetime import datetime, timedelta
+from decimal import Decimal
+
+from amazon.ion.core import OffsetTZInfo, IonEvent, IonType, IonEventType
 from amazon.ion.writer import blocking_writer
 from amazon.ion.writer_binary_raw import _raw_binary_writer, _write_length
 from amazon.ion.writer_buffer import BufferTree
 from tests import parametrize
-from tests.writer_util import assert_writer_events, _D, _E, _ET, _IT, _P, _generate_scalars, _generate_containers
+from tests.writer_util import assert_writer_events, P, generate_scalars, generate_containers
 
+_D = Decimal
+_DT = datetime
+
+_E = IonEvent
+_IT = IonType
+_ET = IonEventType
 
 _P_FAILURES = [
-    _P(
+    P(
         desc="CONTAINER END AT TOP LEVEL",
         events=[
             _E(_ET.CONTAINER_END)
         ],
         expected=TypeError
     ),
-    _P(
+    P(
         desc="CONTAINER START WITH SCALAR VALUE",
         events=[
             _E(_ET.CONTAINER_START, _IT.BOOL, False)
         ],
         expected=TypeError
     ),
-    _P(
+    P(
         desc="STREAM END BELOW TOP LEVEL",
         events=[
             _E(_ET.CONTAINER_START, _IT.LIST),
@@ -52,63 +60,63 @@ _P_FAILURES = [
         ],
         expected=TypeError
     ),
-    _P(
+    P(
         desc="SCALAR WITH CONTAINER VALUE",
         events=[
             _E(_ET.SCALAR, _IT.STRUCT, u'foo')
         ],
         expected=TypeError
     ),
-    _P(
+    P(
         desc="NULL WITH VALUE",
         events=[
             _E(_ET.SCALAR, _IT.NULL, u'foo')
         ],
         expected=TypeError
     ),
-    _P(
+    P(
         desc="INCORRECT TYPE FOR INT",
         events=[
             _E(_ET.SCALAR, _IT.INT, 1.23e4)
         ],
         expected=TypeError
     ),
-    _P(
+    P(
         desc="INCORRECT TYPE FOR FLOAT",
         events=[
             _E(_ET.SCALAR, _IT.FLOAT, _D(42))
         ],
         expected=TypeError
     ),
-    _P(
+    P(
         desc="INCORRECT TYPE FOR DECIMAL",
         events=[
             _E(_ET.SCALAR, _IT.DECIMAL, 1.23e4)
         ],
         expected=TypeError
     ),
-    _P(
+    P(
         desc="INCORRECT TYPE FOR TIMESTAMP",
         events=[
             _E(_ET.SCALAR, _IT.TIMESTAMP, 123456789)
         ],
         expected=TypeError
     ),
-    _P(
+    P(
         desc="INCORRECT TYPE FOR SYMBOL",
         events=[
             _E(_ET.SCALAR, _IT.SYMBOL, u'symbol')
         ],
         expected=TypeError
     ),
-    _P(
+    P(
         desc="INCORRECT TYPE FOR STRING",
         events=[
             _E(_ET.SCALAR, _IT.STRING, 42)
         ],
         expected=TypeError
     ),
-    _P(
+    P(
         desc="IVM EVENT",  # The IVM is handled by the managed binary writer.
         events=[
             _E(_ET.VERSION_MARKER)
@@ -167,10 +175,10 @@ _SIMPLE_SCALARS_MAP = {
     _IT.TIMESTAMP: (
         (None, [0x6F]),
         # TODO Clarify whether there's a valid zero-length Timestamp representation.
-        (datetime.datetime(year=1, month=1, day=1), [0x67, 0xC0, 0x81, 0x81, 0x81, 0x80, 0x80, 0x80]),
-        (datetime.datetime(year=1, month=1, day=1, tzinfo=OffsetTZInfo(datetime.timedelta(minutes=1))),
+        (_DT(year=1, month=1, day=1), [0x67, 0xC0, 0x81, 0x81, 0x81, 0x80, 0x80, 0x80]),
+        (_DT(year=1, month=1, day=1, tzinfo=OffsetTZInfo(timedelta(minutes=1))),
             [0x67, 0x81, 0x81, 0x81, 0x81, 0x80, 0x80, 0x80]),
-        (datetime.datetime(year=1, month=1, day=1, hour=0, minute=0, second=0, microsecond=1),
+        (_DT(year=1, month=1, day=1, hour=0, minute=0, second=0, microsecond=1),
             [0x69, 0xC0, 0x81, 0x81, 0x81, 0x80, 0x80, 0x80, 0xC6, 0x01]),
     ),
     _IT.SYMBOL: (
@@ -258,8 +266,8 @@ _SIMPLE_CONTAINER_MAP = {
 }
 
 
-_generate_simple_scalars = partial(_generate_scalars, _SIMPLE_SCALARS_MAP, True)
-_generate_simple_containers = partial(_generate_containers, _SIMPLE_CONTAINER_MAP, True)
+_generate_simple_scalars = partial(generate_scalars, _SIMPLE_SCALARS_MAP, True)
+_generate_simple_containers = partial(generate_containers, _SIMPLE_CONTAINER_MAP, True)
 
 
 def _generate_annotated_values():
@@ -276,7 +284,7 @@ def _generate_annotated_values():
             _VARUINT_END_BYTE | 10,
             _VARUINT_END_BYTE | 11
         ])
-        yield _P(
+        yield P(
             desc='ANN %s' % value_p.desc,
             events=events + (_E(_ET.STREAM_END),),
             expected=wrapper + value_p.expected,

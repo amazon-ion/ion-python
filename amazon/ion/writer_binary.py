@@ -16,16 +16,16 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from .core import ION_STREAM_END_EVENT, IonEventType, IonType, IonEvent, DataEvent, Transition
 from .exceptions import IonException
 from .symbols import SID_ION_SYMBOL_TABLE, SID_IMPORTS, SHARED_TABLE_TYPE, \
-    SID_NAME, SID_VERSION, SID_MAX_ID, SID_SYMBOLS, SymbolTable, LOCAL_TABLE_TYPE
-from .writer_binary_raw import _raw_binary_writer, _WRITER_EVENT_NEEDS_INPUT_EMPTY
-from .writer_buffer import BufferTree
-from .core import IonEventType, IonType, IonEvent, DataEvent, Transition, ION_STREAM_END_EVENT
+    SID_NAME, SID_VERSION, SID_MAX_ID, SID_SYMBOLS, LOCAL_TABLE_TYPE, SymbolTable
 from .util import coroutine, Enum, record
-from .writer import writer_trampoline, _drain, partial_transition, WriteEventType, NOOP_WRITER_EVENT
+from .writer import NOOP_WRITER_EVENT, writer_trampoline, _drain, partial_transition, WriteEventType
+from .writer_binary_raw import _WRITER_EVENT_NEEDS_INPUT_EMPTY, _raw_binary_writer
+from .writer_buffer import BufferTree
 
-_IVM = bytearray([0xE0, 0x01, 0x00, 0xEA])
+_IVM = b'\xE0\x01\x00\xEA'
 
 
 class _SymbolEventType(Enum):
@@ -174,7 +174,8 @@ def _managed_binary_writer_coroutine(imports):
                 has_written_values = False
             write_event = NOOP_WRITER_EVENT
             ivm_needed = True
-        else:  # Intern any symbols and delegate to the raw writer.
+        else:
+            # Intern any symbols and delegate to the raw writer.
             if not has_written_values:
                 if ivm_needed:
                     yield partial_transition(_IVM, self)

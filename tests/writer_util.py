@@ -14,60 +14,49 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from datetime import datetime
-from decimal import Decimal
 import six
 from pytest import raises
 
-from amazon.ion.core import IonEventType, IonEvent
-from amazon.ion.core import IonType
+from amazon.ion.core import ION_STREAM_END_EVENT, IonEventType, IonEvent
 from amazon.ion.util import record
 from amazon.ion.writer import WriteEventType
 from tests import is_exception
 from tests import noop_manager
 
-
-_D = Decimal
-_DT = datetime
-
-_E = IonEvent
-_IT = IonType
-_ET = IonEventType
-
-_STREAM_END_EVENT = (_E(_ET.STREAM_END),)
+_STREAM_END_EVENT = (ION_STREAM_END_EVENT,)
 
 
-class _P(record('desc', 'events', 'expected')):
+class P(record('desc', 'events', 'expected')):
     def __str__(self):
         return self.desc
 
 
 def _scalar_p(ion_type, value, expected, force_stream_end):
-    events = (_E(_ET.SCALAR, ion_type, value),)
+    events = (IonEvent(IonEventType.SCALAR, ion_type, value),)
     if force_stream_end:
         events += _STREAM_END_EVENT
-    return _P(
+    return P(
         desc='SCALAR %s - %s' % (ion_type.name, expected),
         events=events,
         expected=expected,
     )
 
 
-def _generate_scalars(scalars_map, force_stream_end=False):
+def generate_scalars(scalars_map, force_stream_end=False):
     for ion_type, values in six.iteritems(scalars_map):
         for native, expected in values:
             yield _scalar_p(ion_type, native, expected, force_stream_end)
 
 
-def _generate_containers(containers_map, force_stream_end=False):
+def generate_containers(containers_map, force_stream_end=False):
     for ion_type, container in six.iteritems(containers_map):
         for container_value_events, expected in container:
-            start_event = _E(_ET.CONTAINER_START, ion_type)
-            end_event = _E(_ET.CONTAINER_END, ion_type)
+            start_event = IonEvent(IonEventType.CONTAINER_START, ion_type)
+            end_event = IonEvent(IonEventType.CONTAINER_END, ion_type)
             events = (start_event,) + container_value_events + (end_event,)
             if force_stream_end:
                 events += _STREAM_END_EVENT
-            yield _P(
+            yield P(
                 desc='EMPTY %s' % ion_type.name,
                 events=events,
                 expected=expected,

@@ -26,13 +26,13 @@ from __future__ import print_function
 # "UInt" - applies only to the UInt field - the unsigned, fixed-length field
 # "VarUInt" - applies only to the VarUInt field - the unsigned, variable-length field
 
-__VARIABLE_END_BIT_MASK = 0b10000000  # Both VarInt and VarUInt
+_VARIABLE_END_BIT_MASK = 0b10000000  # Both VarInt and VarUInt
 
-__INT_SIGN_BIT_MASK = 0b10000000  # fixed Int only
-__VARINT_SIGN_BIT_MASK = 0b01000000  # VarInt only
+_INT_SIGN_BIT_MASK = 0b10000000  # fixed Int only
+_VARINT_SIGN_BIT_MASK = 0b01000000  # VarInt only
 
-__VARIABLE_BITS_PER_OCTET = 7  # Both VarInt and VarUInt (has end bit) (exclusive of first octet)
-__FIXED_BITS_PER_OCTET = 8  # Both fixed Int and fixed UInt (exclusive of first octet)
+_VARIABLE_BITS_PER_OCTET = 7  # Both VarInt and VarUInt (has end bit) (exclusive of first octet)
+_FIXED_BITS_PER_OCTET = 8  # Both fixed Int and fixed UInt (exclusive of first octet)
 
 
 def _write_varint(buf, value):
@@ -49,8 +49,8 @@ def _write_varint(buf, value):
 
 
 def _write_varint_uncached(buf, value):
-    return _write_signed_uncached(buf, value, __VARINT_SIGN_BIT_MASK, __VARIABLE_BITS_PER_OCTET,
-                                  __VARIABLE_END_BIT_MASK)
+    return _write_signed_uncached(buf, value, _VARINT_SIGN_BIT_MASK, _VARIABLE_BITS_PER_OCTET,
+                                  _VARIABLE_END_BIT_MASK)
 
 
 def _write_int(buf, value):
@@ -67,7 +67,7 @@ def _write_int(buf, value):
 
 
 def _write_int_uncached(buf, value):
-    return _write_signed_uncached(buf, value, __INT_SIGN_BIT_MASK, __FIXED_BITS_PER_OCTET)
+    return _write_signed_uncached(buf, value, _INT_SIGN_BIT_MASK, _FIXED_BITS_PER_OCTET)
 
 
 def _write_signed(buf, value, cached_func, uncached_func):
@@ -100,7 +100,7 @@ def _write_varuint(buf, value):
 
 
 def _write_varuint_uncached(buf, value):
-    return _write_base(buf, value, __VARIABLE_BITS_PER_OCTET, __VARIABLE_END_BIT_MASK)
+    return _write_base(buf, value, _VARIABLE_BITS_PER_OCTET, _VARIABLE_END_BIT_MASK)
 
 
 def _write_uint(buf, value):
@@ -117,7 +117,7 @@ def _write_uint(buf, value):
 
 
 def _write_uint_uncached(buf, value):
-    return _write_base(buf, value, __FIXED_BITS_PER_OCTET)
+    return _write_base(buf, value, _FIXED_BITS_PER_OCTET)
 
 
 def _write_unsigned(buf, value, cached_func, uncached_func):

@@ -16,37 +16,38 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import struct
-from decimal import Decimal
+
 from datetime import datetime
+from decimal import Decimal
 from functools import partial
 
 import six
+import struct
 
-from .writer_binary_raw_fields import _write_varuint, _write_uint, _write_varint, _write_int
 from .core import IonEventType, IonType, DataEvent, Transition
 from .util import coroutine, Enum
-from .writer import writer_trampoline, partial_transition, WriteEventType, serialize_scalar, validate_scalar_value, \
-    illegal_state_null, NOOP_WRITER_EVENT
+from .writer import NOOP_WRITER_EVENT, writer_trampoline, partial_transition, WriteEventType, serialize_scalar, \
+    validate_scalar_value, illegal_state_null
+from .writer_binary_raw_fields import _write_varuint, _write_uint, _write_varint, _write_int
 
 
 class _TypeIds(Enum):
-    null = 0x00
-    bool_false = 0x10
-    bool_true = 0x11
-    pos_int = 0x20
-    neg_int = 0x30
-    float = 0x40
-    decimal = 0x50
-    timestamp = 0x60
-    symbol = 0x70
-    string = 0x80
-    clob = 0x90
-    blob = 0xA0
-    list = 0xB0
-    sexp = 0xC0
-    struct = 0xD0
-    annotation_wrapper = 0xE0
+    NULL = 0x00
+    BOOL_FALSE = 0x10
+    BOOL_TRUE = 0x11
+    POS_INT = 0x20
+    NEG_INT = 0x30
+    FLOAT = 0x40
+    DECIMAL = 0x50
+    TIMESTAMP = 0x60
+    SYMBOL = 0x70
+    STRING = 0x80
+    CLOB = 0x90
+    BLOB = 0xA0
+    LIST = 0xB0
+    SEXP = 0xC0
+    STRUCT = 0xD0
+    ANNOTATION_WRAPPER = 0xE0
 
 
 class _Zeros(Enum):
@@ -56,12 +57,12 @@ class _Zeros(Enum):
         Blob, clob, list, and sexp also have single-octet encodings, but the current implementation handles these
         implicitly.
     """
-    int = _TypeIds.pos_int | 0x0  # Int zero is always encoded using the positive type ID.
-    float = _TypeIds.float | 0x0  # Represents zero.
-    decimal = _TypeIds.decimal | 0x0  # Represents 0d0.
-    string = _TypeIds.string | 0x0  # Represents the zero-length (empty) string.
-    symbol = _TypeIds.symbol | 0x0  # Represents symbol zero.
-    struct = _TypeIds.struct | 0x0  # Represents a struct with zero fields.
+    INT = _TypeIds.POS_INT  # Int zero is always encoded using the positive type ID.
+    FLOAT = _TypeIds.FLOAT  # Represents zero.
+    DECIMAL = _TypeIds.DECIMAL  # Represents 0d0.
+    STRING = _TypeIds.STRING  # Represents the zero-length (empty) string.
+    SYMBOL = _TypeIds.SYMBOL  # Represents symbol zero.
+    STRUCT = _TypeIds.STRUCT  # Represents a struct with zero fields.
 
 _VARINT_NEG_ZERO = 0xC0  # This refers to the variable-length signed integer subfield.
 _INT_NEG_ZERO = 0x80  # This refers to the fixed-length signed integer subfield.
@@ -77,23 +78,23 @@ def _null(tid):
 
 
 _NULLS = [
-    _null(_TypeIds.null),
-    _null(_TypeIds.bool_false),
-    _null(_TypeIds.pos_int),
-    _null(_TypeIds.float),
-    _null(_TypeIds.decimal),
-    _null(_TypeIds.timestamp),
-    _null(_TypeIds.symbol),
-    _null(_TypeIds.string),
-    _null(_TypeIds.clob),
-    _null(_TypeIds.blob),
-    _null(_TypeIds.list),
-    _null(_TypeIds.sexp),
-    _null(_TypeIds.struct)
+    _null(_TypeIds.NULL),
+    _null(_TypeIds.BOOL_FALSE),
+    _null(_TypeIds.POS_INT),
+    _null(_TypeIds.FLOAT),
+    _null(_TypeIds.DECIMAL),
+    _null(_TypeIds.TIMESTAMP),
+    _null(_TypeIds.SYMBOL),
+    _null(_TypeIds.STRING),
+    _null(_TypeIds.CLOB),
+    _null(_TypeIds.BLOB),
+    _null(_TypeIds.LIST),
+    _null(_TypeIds.SEXP),
+    _null(_TypeIds.STRUCT)
 ]
 
-_BOOL_TRUE = bytearray([_TypeIds.bool_true])
-_BOOL_FALSE = bytearray([_TypeIds.bool_false])
+_BOOL_TRUE = bytearray([_TypeIds.BOOL_TRUE])
+_BOOL_FALSE = bytearray([_TypeIds.BOOL_FALSE])
 
 
 def _serialize_bool(ion_event):
@@ -123,13 +124,13 @@ def _serialize_int(ion_event):
     value = ion_event.value
     validate_scalar_value(value, six.integer_types)
     if value == 0:
-        buf.append(_Zeros.int)
+        buf.append(_Zeros.INT)
     else:
         if value < 0:
             value = -value
-            tid = _TypeIds.neg_int
+            tid = _TypeIds.NEG_INT
         else:
-            tid = _TypeIds.pos_int
+            tid = _TypeIds.POS_INT
         _write_int_value(buf, tid, value)
     return buf
 
@@ -139,21 +140,23 @@ def _serialize_float(ion_event):
     float_value = ion_event.value
     validate_scalar_value(float_value, float)
     # TODO Assess whether abbreviated encoding of zero is beneficial; it's allowed by spec.
-    if float_value.is_integer() and float_value == 0:
-        buf.append(_Zeros.float)
+    if float_value.is_integer() and float_value == 0.0:
+        buf.append(_Zeros.FLOAT)
     else:
         # TODO Add an option for 32-bit representation (length=4) per the spec.
-        buf.append(_TypeIds.float | _LENGTH_FLOAT_64)
-        encoded = struct.pack('>d', float_value)  # '>' specifies big-endian encoding.
+        buf.append(_TypeIds.FLOAT | _LENGTH_FLOAT_64)
+        encoded = struct.pack('>d', float_value)
         buf.extend(encoded)
     return buf
 
 
 def _write_decimal_value(buf, exponent, coefficient, sign=0):
     length = _write_varint(buf, exponent)
-    if coefficient:  # The coefficient is non-zero, so the coefficient field is required.
+    if coefficient:
+        # The coefficient is non-zero, so the coefficient field is required.
         length += _write_int(buf, coefficient)
-    elif sign:  # The coefficient is negative zero.
+    elif sign:
+        # The coefficient is negative zero.
         buf.append(_INT_NEG_ZERO)
         length += 1
     # Else the coefficient is positive zero and the field is omitted.
@@ -178,13 +181,14 @@ def _serialize_decimal(ion_event):
     exponent = dec_tuple.exponent
     magnitude = digits_to_coefficient(dec_tuple.digits)
     sign = dec_tuple.sign
-    if not sign and not exponent and not magnitude:  # The value is 0d0; other forms of zero will fall through.
-        buf.append(_Zeros.decimal)
+    if not sign and not exponent and not magnitude:
+        # The value is 0d0; other forms of zero will fall through.
+        buf.append(_Zeros.DECIMAL)
     else:
         coefficient = sign and -magnitude or magnitude
         value_buf = bytearray()
         length = _write_decimal_value(value_buf, exponent, coefficient, sign)
-        _write_length(buf, length, _TypeIds.decimal)
+        _write_length(buf, length, _TypeIds.DECIMAL)
         buf.extend(value_buf)
     return buf
 
@@ -194,10 +198,10 @@ def _serialize_string(ion_event):
     value = ion_event.value
     validate_scalar_value(value, six.text_type)
     if not value:
-        buf.append(_Zeros.string)
+        buf.append(_Zeros.STRING)
     else:
         value_buf = value.encode('utf-8')
-        _write_length(buf, len(value_buf), _TypeIds.string)
+        _write_length(buf, len(value_buf), _TypeIds.STRING)
         buf.extend(value_buf)
     return buf
 
@@ -207,9 +211,9 @@ def _serialize_symbol(ion_event):
     sid = ion_event.value
     validate_scalar_value(sid, six.integer_types)
     if sid == 0:
-        buf.append(_Zeros.symbol)
+        buf.append(_Zeros.SYMBOL)
     else:
-        _write_int_value(buf, _TypeIds.symbol, sid)
+        _write_int_value(buf, _TypeIds.SYMBOL, sid)
     return buf
 
 
@@ -221,8 +225,8 @@ def _serialize_lob_value(event, tid):
     return buf
 
 
-_serialize_blob = partial(_serialize_lob_value, tid=_TypeIds.blob)
-_serialize_clob = partial(_serialize_lob_value, tid=_TypeIds.clob)
+_serialize_blob = partial(_serialize_lob_value, tid=_TypeIds.BLOB)
+_serialize_clob = partial(_serialize_lob_value, tid=_TypeIds.CLOB)
 
 
 _MICROSECOND_DECIMAL_EXPONENT = -6  # There are 1e6 microseconds per second.
@@ -251,7 +255,7 @@ def _serialize_timestamp(ion_event):
     microsecond = dt.microsecond
     if microsecond != 0:
         length += _write_decimal_value(value_buf, _MICROSECOND_DECIMAL_EXPONENT, microsecond)
-    _write_length(buf, length, _TypeIds.timestamp)
+    _write_length(buf, length, _TypeIds.TIMESTAMP)
     buf.extend(value_buf)
     return buf
 
@@ -282,7 +286,7 @@ def _serialize_annotation_wrapper(output_buf, annotations):
     header = bytearray()
     length_buf = bytearray()
     length = _write_varuint(length_buf, annot_length) + annot_length + value_length
-    _write_length(header, length, _TypeIds.annotation_wrapper)
+    _write_length(header, length, _TypeIds.ANNOTATION_WRAPPER)
     header.extend(length_buf)
     header.extend(annot_length_buf)
     output_buf.end_container(header)
@@ -294,15 +298,15 @@ def _serialize_container(output_buf, ion_event):
     header = bytearray()
     if ion_type is IonType.STRUCT:
         if length == 0:
-            header.append(_Zeros.struct)
+            header.append(_Zeros.STRUCT)
         else:
             # TODO Support sorted field name symbols, per the spec.
-            header.append(_TypeIds.struct | _LENGTH_FIELD_INDICATOR)
+            header.append(_TypeIds.STRUCT | _LENGTH_FIELD_INDICATOR)
             _write_varuint(header, length)
     else:
-        tid = _TypeIds.list
+        tid = _TypeIds.LIST
         if ion_type is IonType.SEXP:
-            tid = _TypeIds.sexp
+            tid = _TypeIds.SEXP
         _write_length(header, length, tid)
     output_buf.end_container(header)
 
