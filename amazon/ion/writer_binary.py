@@ -19,13 +19,11 @@ from __future__ import print_function
 from .exceptions import IonException
 from .symbols import SID_ION_SYMBOL_TABLE, SID_IMPORTS, SHARED_TABLE_TYPE, \
     SID_NAME, SID_VERSION, SID_MAX_ID, SID_SYMBOLS, SymbolTable, LOCAL_TABLE_TYPE
-from .writer_binary_raw import _raw_binary_writer, _WRITER_EVENT_NEEDS_INPUT_EMPTY,\
-    _WRITER_EVENT_COMPLETE_EMPTY
+from .writer_binary_raw import _raw_binary_writer, _WRITER_EVENT_NEEDS_INPUT_EMPTY
 from .writer_buffer import BufferTree
-from .core import IonEventType, IonType, IonEvent, DataEvent, Transition
+from .core import IonEventType, IonType, IonEvent, DataEvent, Transition, ION_STREAM_END_EVENT
 from .util import coroutine, Enum, record
-from .writer import writer_trampoline, _drain, partial_transition, WriteEventType
-
+from .writer import writer_trampoline, _drain, partial_transition, WriteEventType, NOOP_WRITER_EVENT
 
 _IVM = bytearray([0xE0, 0x01, 0x00, 0xEA])
 
@@ -58,7 +56,7 @@ _SYMBOL_EVENT_START_LST = _SymbolEvent(_SymbolEventType.START_LST)
 _SYMBOL_EVENT_FINISH = _SymbolEvent(_SymbolEventType.FINISH)
 
 _ION_EVENT_STRUCT_START = IonEvent(IonEventType.CONTAINER_START, IonType.STRUCT)
-_ION_EVENT_STREAM_END = IonEvent(IonEventType.STREAM_END)
+_ION_EVENT_STREAM_END = ION_STREAM_END_EVENT
 _ION_EVENT_CONTAINER_END = IonEvent(IonEventType.CONTAINER_END)
 _ION_EVENT_RAW_LST_STRUCT_START = IonEvent(
     IonEventType.CONTAINER_START, IonType.STRUCT, annotations=[SID_ION_SYMBOL_TABLE])
@@ -123,7 +121,7 @@ def _symbol_table_coroutine(writer_buffer, imports):
                 write(_ION_EVENT_CONTAINER_END)  # End the symbol table struct.
                 for partial in _drain(symbol_writer, _ION_EVENT_STREAM_END):
                     yield partial_transition(partial.data, self)
-            write_event = _WRITER_EVENT_COMPLETE_EMPTY
+            write_event = NOOP_WRITER_EVENT
         else:
             raise TypeError('Invalid event: %s' % symbol_event)
         write_result = Transition(write_event, self)
@@ -174,7 +172,7 @@ def _managed_binary_writer_coroutine(imports):
                     yield partial_transition(partial.data, self)
                 value_writer, symbol_writer = init()
                 has_written_values = False
-            write_event = _WRITER_EVENT_COMPLETE_EMPTY
+            write_event = NOOP_WRITER_EVENT
             ivm_needed = True
         else:  # Intern any symbols and delegate to the raw writer.
             if not has_written_values:

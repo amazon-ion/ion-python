@@ -271,6 +271,13 @@ _P_TOP_LEVEL = [
         ],
         expected=TypeError,
     ),
+    _P(
+        desc="NULL WITH VALUE",
+        events=[
+            _E(_ET.SCALAR, _IT.NULL, u'foo')
+        ],
+        expected=TypeError
+    ),
 ]
 
 

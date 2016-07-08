@@ -26,7 +26,8 @@ import six
 from .writer_binary_raw_fields import _write_varuint, _write_uint, _write_varint, _write_int
 from .core import IonEventType, IonType, DataEvent, Transition
 from .util import coroutine, Enum
-from .writer import writer_trampoline, partial_transition, WriteEventType
+from .writer import writer_trampoline, partial_transition, WriteEventType, serialize_scalar, validate_scalar_value, \
+    illegal_state_null, NOOP_WRITER_EVENT
 
 
 class _TypeIds(Enum):
@@ -70,32 +71,36 @@ _LENGTH_FIELD_THRESHOLD = 14
 _LENGTH_FIELD_INDICATOR = 0x0E
 _NULL_INDICATOR = 0x0F
 
+
+def _null(tid):
+    return bytearray([tid | _NULL_INDICATOR])
+
+
 _NULLS = [
-    _TypeIds.null | _NULL_INDICATOR,
-    _TypeIds.bool_false | _NULL_INDICATOR,
-    _TypeIds.pos_int | _NULL_INDICATOR,
-    _TypeIds.float | _NULL_INDICATOR,
-    _TypeIds.decimal | _NULL_INDICATOR,
-    _TypeIds.timestamp | _NULL_INDICATOR,
-    _TypeIds.symbol | _NULL_INDICATOR,
-    _TypeIds.string | _NULL_INDICATOR,
-    _TypeIds.clob | _NULL_INDICATOR,
-    _TypeIds.blob | _NULL_INDICATOR,
-    _TypeIds.list | _NULL_INDICATOR,
-    _TypeIds.sexp | _NULL_INDICATOR,
-    _TypeIds.struct | _NULL_INDICATOR
+    _null(_TypeIds.null),
+    _null(_TypeIds.bool_false),
+    _null(_TypeIds.pos_int),
+    _null(_TypeIds.float),
+    _null(_TypeIds.decimal),
+    _null(_TypeIds.timestamp),
+    _null(_TypeIds.symbol),
+    _null(_TypeIds.string),
+    _null(_TypeIds.clob),
+    _null(_TypeIds.blob),
+    _null(_TypeIds.list),
+    _null(_TypeIds.sexp),
+    _null(_TypeIds.struct)
 ]
 
+_BOOL_TRUE = bytearray([_TypeIds.bool_true])
+_BOOL_FALSE = bytearray([_TypeIds.bool_false])
 
-def _serialize_null(buf, ion_event):
-    buf.append(_NULLS[ion_event.ion_type])
 
-
-def _serialize_bool(buf, ion_event):
+def _serialize_bool(ion_event):
     if ion_event.value:
-        buf.append(_TypeIds.bool_true)
+        return _BOOL_TRUE
     else:
-        buf.append(_TypeIds.bool_false)
+        return _BOOL_FALSE
 
 
 def _write_length(buf, length, tid):
@@ -113,37 +118,35 @@ def _write_int_value(buf, tid, value):
     buf.extend(value_buf)
 
 
-# TODO This can be consolidated with writer_text's _serialize_scalar_from_string_representation_factory validation.
-def _validate_scalar_value(value, expected_type):
-    if not isinstance(value, expected_type):
-        raise TypeError('Expected type %s, found %s.' % (expected_type, type(value)))
-
-
-def _serialize_int(buf, ion_event):
+def _serialize_int(ion_event):
+    buf = bytearray()
     value = ion_event.value
-    _validate_scalar_value(value, six.integer_types)
+    validate_scalar_value(value, six.integer_types)
     if value == 0:
         buf.append(_Zeros.int)
-        return
-    if value < 0:
-        value = -value
-        tid = _TypeIds.neg_int
     else:
-        tid = _TypeIds.pos_int
-    _write_int_value(buf, tid, value)
+        if value < 0:
+            value = -value
+            tid = _TypeIds.neg_int
+        else:
+            tid = _TypeIds.pos_int
+        _write_int_value(buf, tid, value)
+    return buf
 
 
-def _serialize_float(buf, ion_event):
+def _serialize_float(ion_event):
+    buf = bytearray()
     float_value = ion_event.value
-    _validate_scalar_value(float_value, float)
+    validate_scalar_value(float_value, float)
     # TODO Assess whether abbreviated encoding of zero is beneficial; it's allowed by spec.
     if float_value.is_integer() and float_value == 0:
         buf.append(_Zeros.float)
-        return
-    # TODO Add an option for 32-bit representation (length=4) per the spec.
-    buf.append(_TypeIds.float | _LENGTH_FLOAT_64)
-    encoded = struct.pack('>d', float_value)  # '>' specifies big-endian encoding.
-    buf.extend(encoded)
+    else:
+        # TODO Add an option for 32-bit representation (length=4) per the spec.
+        buf.append(_TypeIds.float | _LENGTH_FLOAT_64)
+        encoded = struct.pack('>d', float_value)  # '>' specifies big-endian encoding.
+        buf.extend(encoded)
+    return buf
 
 
 def _write_decimal_value(buf, exponent, coefficient, sign=0):
@@ -167,47 +170,56 @@ def digits_to_coefficient(digits):
     return integer
 
 
-def _serialize_decimal(buf, ion_event):
+def _serialize_decimal(ion_event):
+    buf = bytearray()
     value = ion_event.value
-    _validate_scalar_value(value, Decimal)
+    validate_scalar_value(value, Decimal)
     dec_tuple = value.as_tuple()
     exponent = dec_tuple.exponent
     magnitude = digits_to_coefficient(dec_tuple.digits)
     sign = dec_tuple.sign
     if not sign and not exponent and not magnitude:  # The value is 0d0; other forms of zero will fall through.
         buf.append(_Zeros.decimal)
-        return
-    coefficient = sign and -magnitude or magnitude
-    value_buf = bytearray()
-    length = _write_decimal_value(value_buf, exponent, coefficient, sign)
-    _write_length(buf, length, _TypeIds.decimal)
-    buf.extend(value_buf)
+    else:
+        coefficient = sign and -magnitude or magnitude
+        value_buf = bytearray()
+        length = _write_decimal_value(value_buf, exponent, coefficient, sign)
+        _write_length(buf, length, _TypeIds.decimal)
+        buf.extend(value_buf)
+    return buf
 
 
-def _serialize_string(buf, ion_event):
+def _serialize_string(ion_event):
+    buf = bytearray()
     value = ion_event.value
-    _validate_scalar_value(value, six.text_type)
+    validate_scalar_value(value, six.text_type)
     if not value:
         buf.append(_Zeros.string)
-        return
-    value_buf = value.encode('utf-8')
-    _write_length(buf, len(value_buf), _TypeIds.string)
-    buf.extend(value_buf)
+    else:
+        value_buf = value.encode('utf-8')
+        _write_length(buf, len(value_buf), _TypeIds.string)
+        buf.extend(value_buf)
+    return buf
 
 
-def _serialize_symbol(buf, ion_event):
+def _serialize_symbol(ion_event):
+    buf = bytearray()
     sid = ion_event.value
-    _validate_scalar_value(sid, six.integer_types)
+    validate_scalar_value(sid, six.integer_types)
     if sid == 0:
         buf.append(_Zeros.symbol)
-        return
-    _write_int_value(buf, _TypeIds.symbol, sid)
+    else:
+        _write_int_value(buf, _TypeIds.symbol, sid)
+    return buf
 
 
-def _serialize_lob_value(buf, event, tid):
+def _serialize_lob_value(event, tid):
+    buf = bytearray()
     value = event.value
     _write_length(buf, len(value), tid)
     buf.extend(value)
+    return buf
+
 
 _serialize_blob = partial(_serialize_lob_value, tid=_TypeIds.blob)
 _serialize_clob = partial(_serialize_lob_value, tid=_TypeIds.clob)
@@ -216,9 +228,10 @@ _serialize_clob = partial(_serialize_lob_value, tid=_TypeIds.clob)
 _MICROSECOND_DECIMAL_EXPONENT = -6  # There are 1e6 microseconds per second.
 
 
-def _serialize_timestamp(buf, ion_event):
+def _serialize_timestamp(ion_event):
+    buf = bytearray()
     dt = ion_event.value
-    _validate_scalar_value(dt, datetime)
+    validate_scalar_value(dt, datetime)
     value_buf = bytearray()
     if dt.tzinfo is None:
         value_buf.append(_VARINT_NEG_ZERO)  # This signifies an unknown local offset.
@@ -240,9 +253,11 @@ def _serialize_timestamp(buf, ion_event):
         length += _write_decimal_value(value_buf, _MICROSECOND_DECIMAL_EXPONENT, microsecond)
     _write_length(buf, length, _TypeIds.timestamp)
     buf.extend(value_buf)
+    return buf
+
 
 _SERIALIZE_SCALAR_JUMP_TABLE = {
-    IonType.NULL: _serialize_null,
+    IonType.NULL: illegal_state_null,
     IonType.BOOL: _serialize_bool,
     IonType.INT: _serialize_int,
     IonType.FLOAT: _serialize_float,
@@ -255,14 +270,7 @@ _SERIALIZE_SCALAR_JUMP_TABLE = {
 }
 
 
-# TODO This can be consolidated into a common implementation for text/binary.
-def _serialize_scalar(buf, ion_event):
-    ion_type = ion_event.ion_type
-    if ion_event.value is None:
-        return _serialize_null(buf, ion_event)
-    if ion_type.is_container:
-        raise TypeError('Expected scalar type in event: %s' % (ion_event,))
-    _SERIALIZE_SCALAR_JUMP_TABLE[ion_type](buf, ion_event)
+_serialize_scalar = partial(serialize_scalar, jump_table=_SERIALIZE_SCALAR_JUMP_TABLE, null_table=_NULLS)
 
 
 def _serialize_annotation_wrapper(output_buf, annotations):
@@ -300,7 +308,6 @@ def _serialize_container(output_buf, ion_event):
 
 
 _WRITER_EVENT_NEEDS_INPUT_EMPTY = DataEvent(WriteEventType.NEEDS_INPUT, b'')
-_WRITER_EVENT_COMPLETE_EMPTY = DataEvent(WriteEventType.COMPLETE, b'')
 
 
 @coroutine
@@ -324,8 +331,7 @@ def _raw_writer_coroutine(writer_buffer, depth=0, container_event=None,
         if ion_event.event_type.begins_value and curr_annotations:
             writer_buffer.start_container()
         if ion_event.event_type is IonEventType.SCALAR:
-            scalar_buffer = bytearray()
-            _serialize_scalar(scalar_buffer, ion_event)
+            scalar_buffer = _serialize_scalar(ion_event)
             writer_buffer.add_scalar_value(scalar_buffer)
             if curr_annotations:
                 _serialize_annotation_wrapper(writer_buffer, curr_annotations)
@@ -334,7 +340,7 @@ def _raw_writer_coroutine(writer_buffer, depth=0, container_event=None,
                 fail()
             for partial_value in writer_buffer.drain():
                 yield partial_transition(partial_value, self)
-            writer_event = _WRITER_EVENT_COMPLETE_EMPTY
+            writer_event = NOOP_WRITER_EVENT
         elif ion_event.event_type is IonEventType.CONTAINER_START:
             if not ion_event.ion_type.is_container:
                 raise TypeError('Expected container type')

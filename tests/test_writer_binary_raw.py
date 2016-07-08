@@ -60,6 +60,13 @@ _P_FAILURES = [
         expected=TypeError
     ),
     _P(
+        desc="NULL WITH VALUE",
+        events=[
+            _E(_ET.SCALAR, _IT.NULL, u'foo')
+        ],
+        expected=TypeError
+    ),
+    _P(
         desc="INCORRECT TYPE FOR INT",
         events=[
             _E(_ET.SCALAR, _IT.INT, 1.23e4)
