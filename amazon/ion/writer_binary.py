@@ -22,10 +22,9 @@ from .symbols import SID_ION_SYMBOL_TABLE, SID_IMPORTS, SHARED_TABLE_TYPE, \
 from .writer_binary_raw import _raw_binary_writer, _WRITER_EVENT_NEEDS_INPUT_EMPTY,\
     _WRITER_EVENT_COMPLETE_EMPTY
 from .writer_buffer import BufferTree
-from .core import IonEventType, IonType, IonEvent
+from .core import IonEventType, IonType, IonEvent, DataEvent, Transition
 from .util import coroutine, Enum, record
-from .writer import writer_trampoline, partial_write_result, _drain
-from .writer import WriteEvent, WriteEventType, WriteResult
+from .writer import writer_trampoline, _drain, partial_transition, WriteEventType
 
 
 _IVM = bytearray([0xE0, 0x01, 0x00, 0xEA])
@@ -95,7 +94,7 @@ def _symbol_table_coroutine(writer_buffer, imports):
         if token is None:
             token = local_symbols.intern(symbol_text)  # This duplicates the 'get' call...
             write(IonEvent(IonEventType.SCALAR, IonType.STRING, token.text))
-        return WriteEvent(WriteEventType.NEEDS_INPUT, token.sid)
+        return DataEvent(WriteEventType.NEEDS_INPUT, token.sid)
 
     # TODO support extending the current LST (by importing it)
     # TODO symtab locking?
@@ -123,11 +122,11 @@ def _symbol_table_coroutine(writer_buffer, imports):
                     write(_ION_EVENT_CONTAINER_END)  # End the symbols list.
                 write(_ION_EVENT_CONTAINER_END)  # End the symbol table struct.
                 for partial in _drain(symbol_writer, _ION_EVENT_STREAM_END):
-                    yield partial_write_result(partial.data, self)
+                    yield partial_transition(partial.data, self)
             write_event = _WRITER_EVENT_COMPLETE_EMPTY
         else:
             raise TypeError('Invalid event: %s' % symbol_event)
-        write_result = WriteResult(write_event, self)
+        write_result = Transition(write_event, self)
 
 
 @coroutine
@@ -164,15 +163,15 @@ def _managed_binary_writer_coroutine(imports):
                 raise IonException('Unable to write IVM before STREAM_END')
             else:
                 if ivm_needed:
-                    yield partial_write_result(_IVM, self)
+                    yield partial_transition(_IVM, self)
                 ivm_needed = False
             write_event = _WRITER_EVENT_NEEDS_INPUT_EMPTY
         elif ion_event.event_type is IonEventType.STREAM_END:
             if has_written_values:
                 for partial in _drain(symbol_writer, _SYMBOL_EVENT_FINISH):
-                    yield partial_write_result(partial.data, self)
+                    yield partial_transition(partial.data, self)
                 for partial in _drain(value_writer, _ION_EVENT_STREAM_END):
-                    yield partial_write_result(partial.data, self)
+                    yield partial_transition(partial.data, self)
                 value_writer, symbol_writer = init()
                 has_written_values = False
             write_event = _WRITER_EVENT_COMPLETE_EMPTY
@@ -180,13 +179,13 @@ def _managed_binary_writer_coroutine(imports):
         else:  # Intern any symbols and delegate to the raw writer.
             if not has_written_values:
                 if ivm_needed:
-                    yield partial_write_result(_IVM, self)
+                    yield partial_transition(_IVM, self)
                 ivm_needed = False
                 symbol_writer.send(_SYMBOL_EVENT_START_LST)
                 has_written_values = True
             ion_event = intern_symbols(ion_event)
             write_event = value_writer.send(ion_event)
-        write_result = WriteResult(write_event, self)
+        write_result = Transition(write_event, self)
 
 
 def _raw_symbol_writer(writer_buffer, imports):
@@ -199,7 +198,7 @@ def _raw_symbol_writer(writer_buffer, imports):
                                                                     writer.
 
     Yields:
-        WriteEvent: serialization events to write out
+        DataEvent: serialization events to write out
 
         Receives :class:`amazon.ion.core.IonEvent`.
     """
@@ -214,7 +213,7 @@ def binary_writer(imports=None):
                                                                     writer.
 
     Yields:
-        WriteEvent: serialization events to write out
+        DataEvent: serialization events to write out
 
         Receives :class:`amazon.ion.core.IonEvent`.
     """

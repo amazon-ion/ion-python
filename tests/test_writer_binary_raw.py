@@ -20,10 +20,11 @@ from io import BytesIO
 
 from itertools import chain
 
+from amazon.ion.core import OffsetTZInfo
 from amazon.ion.writer import blocking_writer
 from amazon.ion.writer_binary_raw import _raw_binary_writer, _write_length
 from amazon.ion.writer_buffer import BufferTree
-from tests import parametrize, UTCOffset
+from tests import parametrize
 from tests.writer_util import assert_writer_events, _D, _E, _ET, _IT, _P, _generate_scalars, _generate_containers
 
 
@@ -160,7 +161,7 @@ _SIMPLE_SCALARS_MAP = {
         (None, [0x6F]),
         # TODO Clarify whether there's a valid zero-length Timestamp representation.
         (datetime.datetime(year=1, month=1, day=1), [0x67, 0xC0, 0x81, 0x81, 0x81, 0x80, 0x80, 0x80]),
-        (datetime.datetime(year=1, month=1, day=1, tzinfo=UTCOffset(datetime.timedelta(minutes=1))),
+        (datetime.datetime(year=1, month=1, day=1, tzinfo=OffsetTZInfo(datetime.timedelta(minutes=1))),
             [0x67, 0x81, 0x81, 0x81, 0x81, 0x80, 0x80, 0x80]),
         (datetime.datetime(year=1, month=1, day=1, hour=0, minute=0, second=0, microsecond=1),
             [0x69, 0xC0, 0x81, 0x81, 0x81, 0x80, 0x80, 0x80, 0xC6, 0x01]),

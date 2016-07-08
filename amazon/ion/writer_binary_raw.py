@@ -24,10 +24,9 @@ from functools import partial
 import six
 
 from .writer_binary_raw_fields import _write_varuint, _write_uint, _write_varint, _write_int
-from .core import IonEventType, IonType
-from .util import coroutine, unicode_iter, Enum
-from .writer import writer_trampoline, partial_write_result
-from .writer import WriteEvent, WriteEventType, WriteResult
+from .core import IonEventType, IonType, DataEvent, Transition
+from .util import coroutine, Enum
+from .writer import writer_trampoline, partial_transition, WriteEventType
 
 
 class _TypeIds(Enum):
@@ -300,8 +299,8 @@ def _serialize_container(output_buf, ion_event):
     output_buf.end_container(header)
 
 
-_WRITER_EVENT_NEEDS_INPUT_EMPTY = WriteEvent(WriteEventType.NEEDS_INPUT)
-_WRITER_EVENT_COMPLETE_EMPTY = WriteEvent(WriteEventType.COMPLETE)
+_WRITER_EVENT_NEEDS_INPUT_EMPTY = DataEvent(WriteEventType.NEEDS_INPUT, b'')
+_WRITER_EVENT_COMPLETE_EMPTY = DataEvent(WriteEventType.COMPLETE, b'')
 
 
 @coroutine
@@ -334,7 +333,7 @@ def _raw_writer_coroutine(writer_buffer, depth=0, container_event=None,
             if depth != 0:
                 fail()
             for partial_value in writer_buffer.drain():
-                yield partial_write_result(partial_value, self)
+                yield partial_transition(partial_value, self)
             writer_event = _WRITER_EVENT_COMPLETE_EMPTY
         elif ion_event.event_type is IonEventType.CONTAINER_START:
             if not ion_event.ion_type.is_container:
@@ -352,14 +351,14 @@ def _raw_writer_coroutine(writer_buffer, depth=0, container_event=None,
             delegate = whence
         else:
             fail()
-        write_result = WriteResult(writer_event, delegate)
+        write_result = Transition(writer_event, delegate)
 
 
 def _raw_binary_writer(writer_buffer):
     """Returns a raw binary writer co-routine.
 
     Yields:
-        WriteEvent: serialization events to write out
+        DataEvent: serialization events to write out
 
         Receives :class:`amazon.ion.core.IonEvent`.
     """
