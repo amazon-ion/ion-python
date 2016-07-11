@@ -154,6 +154,25 @@ class IonEvent(record(
             self.depth
         )
 
+    def derive_value(self, value):
+        """Derives a new event from this one setting the ``value`` attribute.
+
+        Args:
+            value: (any):
+                The value associated with the derived event.
+
+        Returns:
+            IonEvent: The newly generated non-thunk event.
+        """
+        return IonEvent(
+            self.event_type,
+            self.ion_type,
+            value,
+            self.field_name,
+            self.annotations,
+            self.depth
+        )
+
 
 class IonThunkEvent(IonEvent):
     """An :class:`IonEvent` whose ``value`` attribute is a thunk (descriptor)."""

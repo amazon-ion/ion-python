@@ -22,21 +22,24 @@ from __future__ import print_function
 import base64
 import math
 import re
+from functools import partial
+
 import six
 
 from datetime import datetime
 from decimal import Decimal
 from io import BytesIO
 
+from amazon.ion.symbols import SymbolToken
 from . import symbols
 
 from .util import coroutine, unicode_iter
 from .core import DataEvent, Transition, IonEventType, IonType
-from .writer import partial_transition, writer_trampoline
+from .writer import partial_transition, writer_trampoline, serialize_scalar, validate_scalar_value, \
+    illegal_state_null, NOOP_WRITER_EVENT
 from .writer import WriteEventType
 
 _IVM_WRITER_EVENT = DataEvent(WriteEventType.COMPLETE, symbols._TEXT_ION_1_0.encode())
-_NOOP_WRITER_EVENT = DataEvent(WriteEventType.COMPLETE, b'')
 
 _NULL_TYPE_NAMES = [
     b'null',
@@ -53,10 +56,6 @@ _NULL_TYPE_NAMES = [
     b'null.sexp',
     b'null.struct',
 ]
-
-
-def _serialize_null(ion_event):
-    return _NULL_TYPE_NAMES[ion_event.ion_type]
 
 
 def _serialize_bool(ion_event):
@@ -79,8 +78,7 @@ def _serialize_scalar_from_string_representation_factory(type_name, types, str_f
     """
     def serialize(ion_event):
         value = ion_event.value
-        if not isinstance(value, types):
-            raise TypeError('Unexpected value for %s event: %s' % (type_name, ion_event))
+        validate_scalar_value(value, types)
         return six.b(str_func(value))
     serialize.__name__ = '_serialize_' + type_name
     return serialize
@@ -203,8 +201,7 @@ def _serialize_symbol_value(value, suffix=b''):
             return b'$%d%s' % (value.sid, suffix)
     except AttributeError:
         text = value
-    if not isinstance(text, six.text_type):
-        raise TypeError('Expected Unicode or SymbolToken for symbolic value')
+    validate_scalar_value(text, (six.text_type, type(SymbolToken)))
     return _bytes_text(unicode_iter(text), _SINGLE_QUOTE, suffix=suffix)
 
 
@@ -215,8 +212,7 @@ def _serialize_symbol(ion_event):
 def _serialize_string(ion_event):
     # TODO Support multi-line strings.
     value = ion_event.value
-    if not isinstance(value, six.text_type):
-        raise TypeError('Expected Unicode type for string value')
+    validate_scalar_value(value, six.text_type)
     return _bytes_text(unicode_iter(value), _DOUBLE_QUOTE)
 
 
@@ -235,7 +231,7 @@ def _serialize_blob(ion_event):
 
 
 _SERIALIZE_SCALAR_JUMP_TABLE = {
-    IonType.NULL: _serialize_null,
+    IonType.NULL: illegal_state_null,
     IonType.BOOL: _serialize_bool,
     IonType.INT: _serialize_int,
     IonType.FLOAT: _serialize_float,
@@ -248,13 +244,7 @@ _SERIALIZE_SCALAR_JUMP_TABLE = {
 }
 
 
-def _serialize_scalar(ion_event):
-    ion_type = ion_event.ion_type
-    if ion_event.value is None:
-        return _serialize_null(ion_event)
-    if ion_type.is_container:
-        raise TypeError('Expected scalar type in event: %s' % (ion_event,))
-    return _SERIALIZE_SCALAR_JUMP_TABLE[ion_type](ion_event)
+_serialize_scalar = partial(serialize_scalar, jump_table=_SERIALIZE_SCALAR_JUMP_TABLE, null_table=_NULL_TYPE_NAMES)
 
 
 _TOP_LEVEL_DELIMITER = b' '
@@ -338,7 +328,7 @@ def _raw_writer_coroutine(depth=0, container_event=None, whence=None):
         if depth == 0:
             # Serialize at the top-level.
             if ion_event.event_type is IonEventType.STREAM_END:
-                writer_event = _NOOP_WRITER_EVENT
+                writer_event = NOOP_WRITER_EVENT
             elif ion_event.event_type is IonEventType.VERSION_MARKER:
                 writer_event = _IVM_WRITER_EVENT
             elif ion_event.event_type is IonEventType.SCALAR:

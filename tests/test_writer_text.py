@@ -17,23 +17,25 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from functools import partial
+
 import six
 
 from base64 import b64encode
-from datetime import datetime, timedelta
-from decimal import Decimal
+from datetime import timedelta, datetime
 from io import BytesIO
 from itertools import chain
-from pytest import raises
 
-from tests import is_exception, noop_manager, parametrize
+from decimal import Decimal
 
-from amazon.ion.core import IonType, IonEvent, IonEventType, OffsetTZInfo
+from amazon.ion.core import OffsetTZInfo, IonEvent, IonType, IonEventType
+
+from tests import parametrize
+
 from amazon.ion.symbols import SymbolToken
-from amazon.ion.util import record
-from amazon.ion.writer import blocking_writer, WriteEventType
+from amazon.ion.writer import blocking_writer
 from amazon.ion.writer_text import raw_writer
-
+from tests.writer_util import assert_writer_events, WriterParameter, generate_scalars, generate_containers
 
 _D = Decimal
 _DT = datetime
@@ -41,19 +43,7 @@ _DT = datetime
 _E = IonEvent
 _IT = IonType
 _ET = IonEventType
-
-
-class _P(record('desc', 'events', 'expected')):
-    def __str__(self):
-        return self.desc
-
-
-def _scalar_p(ion_type, value, expected):
-    return _P(
-        desc='SCALAR %s - %s' % (ion_type.name, expected),
-        events=(_E(_ET.SCALAR, ion_type, value),),
-        expected=expected,
-    )
+_P = WriterParameter
 
 
 def _convert_symbol_pairs(symbol_pairs):
@@ -167,29 +157,29 @@ _SIMPLE_SCALARS_MAP = {
     ),
 }
 
-
-def _generate_simple_scalars():
-    for ion_type, values in six.iteritems(_SIMPLE_SCALARS_MAP):
-        for native, expected in values:
-            yield _scalar_p(ion_type, native, expected)
-
 _EMPTY_CONTAINER_MAP = {
-    _IT.LIST: b'[]',
-    _IT.SEXP: b'()',
-    _IT.STRUCT: b'{}',
+    _IT.LIST: (
+        (
+            (),
+            b'[]',
+        ),
+    ),
+    _IT.SEXP: (
+        (
+            (),
+            b'()',
+        ),
+    ),
+    _IT.STRUCT: (
+        (
+            (),
+            b'{}',
+        ),
+    ),
 }
 
-
-def _generate_empty_containers():
-    for ion_type, expected in six.iteritems(_EMPTY_CONTAINER_MAP):
-        start_event = _E(_ET.CONTAINER_START, ion_type)
-        end_event = _E(_ET.CONTAINER_END, ion_type)
-        events = (start_event, end_event)
-        yield _P(
-            desc='EMPTY %s' % ion_type.name,
-            events=events,
-            expected=expected,
-        )
+_generate_simple_scalars = partial(generate_scalars, _SIMPLE_SCALARS_MAP)
+_generate_empty_containers = partial(generate_containers, _EMPTY_CONTAINER_MAP)
 
 _SIMPLE_ANNOTATIONS = (
     SymbolToken(None, 4), # System symbol 'name'.
@@ -214,7 +204,7 @@ _SIMPLE_FIELD_NAME = u'field'
 _TOKEN_FIELD_NAME = SymbolToken(None, 4) # System symbol 'name'.
 
 
-def _generate_containers(*generators, **opts):
+def _generate_simple_containers(*generators, **opts):
     """Composes the empty tests with the simple scalars to make singletons."""
     repeat = opts.get('repeat', 1)
     targets = tuple(chain(*generators))
@@ -290,7 +280,19 @@ _P_TOP_LEVEL = [
         ],
         expected=TypeError,
     ),
+    _P(
+        desc="NULL WITH VALUE",
+        events=[
+            _E(_ET.SCALAR, _IT.NULL, u'foo')
+        ],
+        expected=TypeError
+    ),
 ]
+
+
+def new_writer():
+    buf = BytesIO()
+    return buf, blocking_writer(raw_writer(), buf)
 
 
 @parametrize(
@@ -299,35 +301,20 @@ _P_TOP_LEVEL = [
         _generate_simple_scalars(),
         _generate_empty_containers(),
         _generate_annotated_values(),
-        _generate_containers(
+        _generate_simple_containers(
             _generate_simple_scalars(),
             _generate_empty_containers(),
             _generate_annotated_values(),
             # Add an extra level of depth.
-            _generate_containers(
+            _generate_simple_containers(
                 _generate_empty_containers(),
             )
         ),
-        _generate_containers(
+        _generate_simple_containers(
             _generate_annotated_values(),
             repeat=4
         ),
     ))
 )
 def test_raw_writer(p):
-    writer = raw_writer()
-    buf = BytesIO()
-    buf_writer = blocking_writer(writer, buf)
-
-    ctx = noop_manager()
-    if is_exception(p.expected):
-        ctx = raises(p.expected)
-
-    result_type = None
-    with ctx:
-        for event in p.events:
-            result_type = buf_writer.send(event)
-
-    if not is_exception(p.expected):
-        assert result_type is WriteEventType.COMPLETE
-        assert p.expected == buf.getvalue()
+    assert_writer_events(p, new_writer)
