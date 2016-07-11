@@ -2,6 +2,8 @@
 An implementation of [Amazon Ion](https://amznlabs.github.io/ion-docs/)
 for Python.
 
+[![Build Status](https://travis-ci.org/amznlabs/ion-python.svg?branch=master)](https://travis-ci.org/amznlabs/ion-python)
+
 This package is designed to work with **Python 2.6+** and **Python 3.3+**
 
 ***This package is an early work in progress under active development, and is not (yet)
