@@ -6,6 +6,7 @@
 /.idea
 /.cache
 /.eggs
+/venv
 /build
 /dist
 /amazon.ion.egg-info
