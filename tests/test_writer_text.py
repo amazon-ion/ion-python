@@ -35,7 +35,7 @@ from tests import parametrize
 from amazon.ion.symbols import SymbolToken
 from amazon.ion.writer import blocking_writer
 from amazon.ion.writer_text import raw_writer
-from tests.writer_util import assert_writer_events, P, generate_scalars, generate_containers
+from tests.writer_util import assert_writer_events, WriterParameter, generate_scalars, generate_containers
 
 _D = Decimal
 _DT = datetime
@@ -43,6 +43,7 @@ _DT = datetime
 _E = IonEvent
 _IT = IonType
 _ET = IonEventType
+_P = WriterParameter
 
 
 def _convert_symbol_pairs(symbol_pairs):
@@ -192,7 +193,7 @@ _SIMPLE_ANNOTATIONS_ENCODED = br"$4::'\x00'::'\uff4e'::'\U0001f4a9'::"
 def _generate_annotated_values():
     for value_p in chain(_generate_simple_scalars(), _generate_empty_containers()):
         events = (value_p.events[0].derive_annotations(_SIMPLE_ANNOTATIONS),) + value_p.events[1:]
-        yield P(
+        yield _P(
             desc='ANN %s' % value_p.desc,
             events=events,
             expected=_SIMPLE_ANNOTATIONS_ENCODED + value_p.expected,
@@ -234,7 +235,7 @@ def _generate_simple_containers(*generators, **opts):
 
                 expected = b_start + delim.join([value_expected] * repeat) + b_end
 
-                yield P(
+                yield _P(
                     desc='SINGLETON %s %r' % (start_event.ion_type.name, expected),
                     events=events,
                     expected=expected
@@ -242,14 +243,14 @@ def _generate_simple_containers(*generators, **opts):
 
 
 _P_TOP_LEVEL = [
-    P(
+    _P(
         desc='TOP-LEVEL IVM',
         events=[
             _E(_ET.VERSION_MARKER),
         ],
         expected=b'$ion_1_0',
     ),
-    P(
+    _P(
         desc='TOP-LEVEL IVM x2',
         events=[
             _E(_ET.VERSION_MARKER),
@@ -258,28 +259,28 @@ _P_TOP_LEVEL = [
         ],
         expected=b'$ion_1_0 $ion_1_0',
     ),
-    P(
+    _P(
         desc='TOP-LEVEL STREAM END',
         events=[
             _E(_ET.STREAM_END),
         ],
         expected=b'',
     ),
-    P(
+    _P(
         desc='TOP-LEVEL INCOMPLETE',
         events=[
             _E(_ET.INCOMPLETE),
         ],
         expected=TypeError,
     ),
-    P(
+    _P(
         desc='TOP-LEVEL CONTAINER_END',
         events=[
             _E(_ET.CONTAINER_END, _IT.LIST),
         ],
         expected=TypeError,
     ),
-    P(
+    _P(
         desc="NULL WITH VALUE",
         events=[
             _E(_ET.SCALAR, _IT.NULL, u'foo')

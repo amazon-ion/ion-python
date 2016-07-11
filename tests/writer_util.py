@@ -26,7 +26,7 @@ from tests import noop_manager
 _STREAM_END_EVENT = (ION_STREAM_END_EVENT,)
 
 
-class P(record('desc', 'events', 'expected')):
+class WriterParameter(record('desc', 'events', 'expected')):
     def __str__(self):
         return self.desc
 
@@ -35,7 +35,7 @@ def _scalar_p(ion_type, value, expected, force_stream_end):
     events = (IonEvent(IonEventType.SCALAR, ion_type, value),)
     if force_stream_end:
         events += _STREAM_END_EVENT
-    return P(
+    return WriterParameter(
         desc='SCALAR %s - %s' % (ion_type.name, expected),
         events=events,
         expected=expected,
@@ -56,14 +56,14 @@ def generate_containers(containers_map, force_stream_end=False):
             events = (start_event,) + container_value_events + (end_event,)
             if force_stream_end:
                 events += _STREAM_END_EVENT
-            yield P(
-                desc='EMPTY %s' % ion_type.name,
+            yield WriterParameter(
+                desc='CONTAINER %s' % ion_type.name,
                 events=events,
                 expected=expected,
             )
 
 
-def assert_writer_events(p, new_writer, conversion=lambda x: x):
+def assert_writer_events(p, new_writer):
     buf, buf_writer = new_writer()
 
     ctx = noop_manager()
@@ -77,5 +77,5 @@ def assert_writer_events(p, new_writer, conversion=lambda x: x):
 
     if not is_exception(p.expected):
         assert result_type is WriteEventType.COMPLETE
-        assert conversion(p.expected) == buf.getvalue()
+        assert p.expected == buf.getvalue()
 

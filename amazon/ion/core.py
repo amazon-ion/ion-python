@@ -122,7 +122,7 @@ class IonEvent(record(
         Args:
             field_name (Union[amazon.ion.symbols.SymbolToken, unicode]): The field name to set.
         Returns:
-            IonEvent: The newly generated non-thunk event.
+            IonEvent: The newly generated event.
         """
         cls = type(self)
         return cls(
@@ -142,7 +142,7 @@ class IonEvent(record(
                 The annotations associated with the derived event.
 
         Returns:
-            IonEvent: The newly generated non-thunk event.
+            IonEvent: The newly generated event.
         """
         cls = type(self)
         return cls(
