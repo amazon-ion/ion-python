@@ -1,0 +1,14 @@
+language: python
+python:
+  # TODO Fix assertion around float string representation (non-normalized in 2.6)
+  #- "2.6"
+  - "2.7"
+  # TODO Fix bytes % bytes compatibility.
+  #- "3.3"
+  #- "3.4"
+  - "3.5"
+  - "pypy"
+install:
+  - "pip install -r requirements.txt"
+  - "pip install ."
+script: py.test
