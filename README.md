@@ -26,6 +26,42 @@ You can also run the tests through `setup.py` or `py.test` directly.
 $ python setup.py test
 ```
 
+### Tox Setup
+In order to verify that all platforms we support work with Ion Python, we use a combination
+of [tox](http://tox.readthedocs.io/en/latest/) with [pyenv](https://github.com/yyuu/pyenv).
+
+Install relevant versions of Python:
+
+```
+$ for V in 2.6.9 2.7.12 3.3.6 3.4.5 3.5.2 pypy-5.3.1; do pyenv install $V; done
+```
+
+Note that on Mac OS X, you may need to change the `CFLAGS`:
+
+```
+$ for V in 2.6.9 2.7.12 3.3.6 3.4.5 3.5.2 pypy-5.3.1; do
+    CFLAGS="-I$(xcrun --show-sdk-path)/usr/include" pyenv install $V; done
+```
+
+Once you have these installations, add them as a local `pyenv` configuration
+
+```
+$ pyenv local 2.6.9 2.7.12 3.3.6 3.4.5 3.5.2 pypy-5.3.1
+```
+
+Assuming you have `pyenv` properly set up (making sure `pyenv init` is evaluated into your shell),
+you can now run `tox`:
+
+```
+# Run tox for all versions of python which executes py.test.
+$ tox
+
+# Run tox for just Python 2.7 and 3.5.
+$ tox -e py27,py35
+
+# Run tox for a specific version and run py.test with high verbosity.
+$ tox -e py27 -- -vv
+```
 
 ## TODO
 Here are some, rather critical, things that need to be implemented:

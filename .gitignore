@@ -3,9 +3,11 @@
 *~
 *#
 *.swp
+/.python-version
 /.idea
 /.cache
 /.eggs
+/.tox
 /venv
 /build
 /dist
