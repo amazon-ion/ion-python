@@ -54,7 +54,7 @@ def _convert_symbol_pairs(symbol_pairs):
 
 def _convert_clob_pairs(clob_pairs):
     for value, literal in clob_pairs:
-        yield (value, b'{{%s}}' % b64encode(value))
+        yield (value, b'{{' + b64encode(value) + b'}}')
 
 
 _SIMPLE_SYMBOLS=(
@@ -234,9 +234,11 @@ def _generate_simple_containers(*generators, **opts):
                 if field_name is not None:
                     value_event = value_event.derive_field_name(field_name)
                     if isinstance(field_name, SymbolToken):
-                        value_expected = b'$%d:%s' % (field_name.sid, value_expected)
+                        value_expected = \
+                            (u'$%d:'% field_name.sid).encode() + value_expected
                     else:
-                        value_expected = b"'%s':%s" % (field_name.encode(), value_expected)
+                        value_expected = \
+                            b"'" + field_name.encode() + b"':" + value_expected
                 # Make sure to compose the rest of the value (if not scalar, i.e. empty containers).
                 value_events = (value_event,) + value_p.events[1:]
                 events = (start_event,) + (value_events * repeat) + (end_event,)

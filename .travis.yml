@@ -2,9 +2,8 @@ language: python
 python:
   - "2.6"
   - "2.7"
-  # TODO Fix bytes % bytes compatibility.
-  #- "3.3"
-  #- "3.4"
+  - "3.3"
+  - "3.4"
   - "3.5"
   - "pypy"
 install:

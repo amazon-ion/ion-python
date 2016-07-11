@@ -165,10 +165,10 @@ def _escape(code_point):
     if escape is not None:
         return escape
     if code_point <= _2B_ESCAPE_MAX:
-        return br'\x%02x' % code_point
+        return (u'\\x%02x' % code_point).encode()
     if code_point <= _4B_ESCAPE_MAX:
-        return br'\u%04x' % code_point
-    return br'\U%08x' % code_point
+        return (u'\\u%04x' % code_point).encode()
+    return (u'\\U%08x' % code_point).encode()
 
 
 def _bytes_text(code_point_iter, quote, prefix=b'', suffix=b''):
@@ -198,7 +198,7 @@ def _serialize_symbol_value(value, suffix=b''):
     try:
         text = value.text
         if text is None:
-            return b'$%d%s' % (value.sid, suffix)
+            return (u'$%d' % value.sid).encode() + suffix
     except AttributeError:
         text = value
     validate_scalar_value(text, (six.text_type, type(SymbolToken)))
