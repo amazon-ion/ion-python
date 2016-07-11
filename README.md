@@ -7,6 +7,24 @@ This package is designed to work with **Python 2.6+** and **Python 3.3+**
 ***This package is an early work in progress under active development, and is not (yet)
 considered a complete implementation of Ion.***
 
+## Development
+It is recommended to use `virtualenv` to create a clean environment to build/test Ion Python.
+
+```
+$ virtualenv venv
+...
+$ . venv/bin/activate
+$ pip install -r requirements.txt
+$ pip install -e .
+```
+
+You can also run the tests through `setup.py` or `py.test` directly.
+
+```
+$ python setup.py test
+```
+
+
 ## TODO
 Here are some, rather critical, things that need to be implemented:
 
@@ -16,7 +34,6 @@ Here are some, rather critical, things that need to be implemented:
 
 In addition, there are build, deployment, or release tasks that are required:
 
-* Add [Travis CI](https://docs.travis-ci.com/user/languages/python) integration.
 * Add support for [code coverage](http://coverage.readthedocs.io/en/latest/) reporting.
     * Publish coverage to something like [Coverage.io](https://coveralls.io/)
 * Provide proper documentation generation via [Sphinx](http://www.sphinx-doc.org/en/stable/).
