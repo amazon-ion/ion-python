@@ -16,6 +16,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from .util import bit_length
+
 # Whenever the following words are used in variable or method names, their meaning is as defined below.
 # "Signed" - applies only to Int and VarInt - the signed fields (sign bit in first octet)
 # "Unsigned" - applies only to UInt and VarUInt - the unsigned fields (no sign bit)
@@ -144,7 +146,7 @@ def _write_base(buf, value, bits_per_octet, end_bit=0, sign_bit=0, is_signed=Fal
     if value == 0:
         buf.append(sign_bit | end_bit)
         return 1
-    num_bits = value.bit_length()
+    num_bits = bit_length(value)
     num_octets = num_bits // bits_per_octet
     # 'remainder' is the number of value bits in the first octet.
     remainder = num_bits % bits_per_octet

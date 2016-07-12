@@ -25,7 +25,7 @@ import six
 import struct
 
 from .core import IonEventType, IonType, DataEvent, Transition
-from .util import coroutine, Enum
+from .util import coroutine, total_seconds, Enum
 from .writer import NOOP_WRITER_EVENT, writer_trampoline, partial_transition, WriteEventType, serialize_scalar, \
     validate_scalar_value, illegal_state_null
 from .writer_binary_raw_fields import _write_varuint, _write_uint, _write_varint, _write_int
@@ -228,7 +228,7 @@ def _serialize_timestamp(ion_event):
         value_buf.append(_VARINT_NEG_ZERO)  # This signifies an unknown local offset.
         length = 1
     else:
-        length = _write_varint(value_buf, int(dt.utcoffset().total_seconds()) // 60)
+        length = _write_varint(value_buf, int(total_seconds(dt.utcoffset()) // 60))
     length += _write_varuint(value_buf, dt.year)
     # The lack of validation here is because datetime defaults these to 0, not None, and None is not an
     # acceptable value for any of the following fields. As such, all timestamps generated here will have

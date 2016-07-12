@@ -36,7 +36,7 @@ def _scalar_p(ion_type, value, expected, force_stream_end):
     if force_stream_end:
         events += _STREAM_END_EVENT
     return WriterParameter(
-        desc='SCALAR %s - %s' % (ion_type.name, expected),
+        desc='SCALAR %s - %r - %r' % (ion_type.name, value, expected),
         events=events,
         expected=expected,
     )
@@ -57,7 +57,7 @@ def generate_containers(containers_map, force_stream_end=False):
             if force_stream_end:
                 events += _STREAM_END_EVENT
             yield WriterParameter(
-                desc='CONTAINER %s' % ion_type.name,
+                desc='CONTAINER %s - %r' % (ion_type.name, expected),
                 events=events,
                 expected=expected,
             )

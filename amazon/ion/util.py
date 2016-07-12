@@ -20,6 +20,7 @@ from __future__ import division
 from __future__ import print_function
 
 import six
+import sys
 
 from collections import namedtuple
 
@@ -223,3 +224,20 @@ def unicode_iter(val):
                 raise ValueError('Unpaired high surrogate at end of Unicode sequence: %r' % val)
         else:
             yield code_point
+
+
+if sys.version_info < (2, 7):
+    def bit_length(value):
+        return len(bin(value)) - 2
+
+    def total_seconds(td):
+        return (td.microseconds + (td.seconds + td.days * 24 * 3600) * 10 ** 6) / 10 ** 6
+else:
+    def bit_length(value):
+        return value.bit_length()
+
+    def total_seconds(td):
+        return td.total_seconds()
+
+bit_length.__doc__ = 'Returns the bit length of an integer'
+total_seconds.__doc__ = 'Timedelta ``total_seconds`` with backported support in Python 2.6'

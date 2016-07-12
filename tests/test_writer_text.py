@@ -20,6 +20,7 @@ from __future__ import print_function
 from functools import partial
 
 import six
+import sys
 
 from base64 import b64encode
 from datetime import timedelta, datetime
@@ -78,6 +79,14 @@ _SIMPLE_CLOBS=(
 )
 _SIMPLE_BLOBS=tuple(_convert_clob_pairs(_SIMPLE_CLOBS))
 
+if sys.version_info < (2, 7):
+    # Python < 2.7 was not good at some float irrationals.
+    _FLOAT_1_1_ENC = b'1.1000000000000001e0'
+    _FLOAT_2_E_NEG_15_ENC = b'2.0000000000000002e-15'
+else:
+    _FLOAT_1_1_ENC = b'1.1e0'
+    _FLOAT_2_E_NEG_15_ENC = b'2e-15'
+
 _SIMPLE_SCALARS_MAP = {
     _IT.NULL:(
         (None, b'null'),
@@ -106,9 +115,8 @@ _SIMPLE_SCALARS_MAP = {
         (0.0, b'0.0e0'),
         (1.0, b'1.0e0'),
         (-9007199254740991.0, b'-9007199254740991.0e0'),
-        (2.0e-15, b'2e-15'),
-        # Python is good at shortening the representation for these irrationals
-        (1.1, b'1.1e0'),
+        (2.0e-15, _FLOAT_2_E_NEG_15_ENC),
+        (1.1, _FLOAT_1_1_ENC),
         (1.1999999999999999555910790149937383830547332763671875e0, b'1.2e0'),
     ),
     _IT.DECIMAL: (
