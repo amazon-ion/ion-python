@@ -49,6 +49,10 @@ Once you have these installations, add them as a local `pyenv` configuration
 $ pyenv local 2.6.9 2.7.12 3.3.6 3.4.5 3.5.2 pypy-5.3.1
 ```
 
+At the time of this writing, on Mac OS X, you may have problems with `pyenv` and `pypy`.
+On this platform, it is probably easier to have `pypy` not managed by `pyenv` and install
+and use it directly from `brew`.
+
 Assuming you have `pyenv` properly set up (making sure `pyenv init` is evaluated into your shell),
 you can now run `tox`:
 
