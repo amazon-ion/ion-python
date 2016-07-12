@@ -784,6 +784,9 @@ _bind_length_handlers(_CONTAINER_TIDS, _container_start_handler, _ALL_LENGTH_LNS
 _bind_length_handlers([_TypeID.ANNOTATION], _annotation_handler, _ANNOTATION_LENGTH_LNS)
 _bind_length_handlers([_TypeID.NULL], _nop_pad_handler, _ALL_LENGTH_LNS)
 
+# Make immutable.
+_HANDLER_DISPATCH_TABLE = tuple(_HANDLER_DISPATCH_TABLE)
+
 
 def raw_reader(queue=None):
     """Returns a raw binary reader co-routine.

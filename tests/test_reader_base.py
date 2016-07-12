@@ -42,6 +42,7 @@ _P = TrampolineParameters
 
 _TRIVIAL_DATA_EVENT = read_data_event(b'DATA')
 
+
 @parametrize(
     _P(
         desc='START WITH NONE',
