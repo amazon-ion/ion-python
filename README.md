@@ -63,8 +63,11 @@ $ tox
 # Run tox for just Python 2.7 and 3.5.
 $ tox -e py27,py35
 
-# Run tox for a specific version and run py.test with high verbosity.
-$ tox -e py27 -- -vv
+# Run tox for a specific version and run py.test with high verbosity
+$ tox -e py27 -- py.test -vv
+
+# Run tox for a specific version and just the virtual env REPL.
+$ tox -e py27 -- python
 ```
 
 ## TODO
