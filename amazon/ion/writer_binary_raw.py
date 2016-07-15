@@ -1,13 +1,16 @@
 # Copyright 2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #
-# Licensed under the Apache License, Version 2.0 (the "License"). You may not use this file except in compliance
-# with the License. A copy of the License is located at:
+# Licensed under the Apache License, Version 2.0 (the "License").
+# You may not use this file except in compliance with the License.
+# A copy of the License is located at:
 #
 #    http://aws.amazon.com/apache2.0/
 #
-# or in the "license" file accompanying this file. This file is distributed on an "AS IS" BASIS, WITHOUT
-# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language
-# governing permissions and limitations under the License.
+# or in the "license" file accompanying this file. This file is
+# distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS
+# OF ANY KIND, either express or implied. See the License for the
+# specific language governing permissions and limitations under the
+# License.
 
 """Writer for raw binary Ion values, without symbol table management."""
 
@@ -26,8 +29,9 @@ import struct
 
 from .core import IonEventType, IonType, DataEvent, Transition
 from .util import coroutine, total_seconds, Enum
-from .writer import NOOP_WRITER_EVENT, writer_trampoline, partial_transition, WriteEventType, serialize_scalar, \
-    validate_scalar_value, illegal_state_null
+from .writer import NOOP_WRITER_EVENT, WriteEventType, \
+                    writer_trampoline, partial_transition, serialize_scalar, \
+                    validate_scalar_value, illegal_state_null
 from .writer_binary_raw_fields import _write_varuint, _write_uint, _write_varint, _write_int
 
 
@@ -54,8 +58,8 @@ class _Zeros(Enum):
     """Single-octet encodings, represented by the type ID and a length nibble of zero.
 
     Notes:
-        Blob, clob, list, and sexp also have single-octet encodings, but the current implementation handles these
-        implicitly.
+        Blob, clob, list, and sexp also have single-octet encodings, but the current
+        implementation handles these implicitly.
     """
     INT = _TypeIds.POS_INT  # Int zero is always encoded using the positive type ID.
     FLOAT = _TypeIds.FLOAT  # Represents zero.
@@ -230,10 +234,10 @@ def _serialize_timestamp(ion_event):
     else:
         length = _write_varint(value_buf, int(total_seconds(dt.utcoffset()) // 60))
     length += _write_varuint(value_buf, dt.year)
-    # The lack of validation here is because datetime defaults these to 0, not None, and None is not an
-    # acceptable value for any of the following fields. As such, all timestamps generated here will have
-    # at least second precision. If a different object is used to represent timestamps, additional
-    # validation logic may be required.
+    # The lack of validation here is because datetime defaults these to 0, not None,
+    # and None is not an acceptable value for any of the following fields. As such, all
+    # timestamps generated here will have at least second precision. If a different object
+    # is used to represent timestamps, additional validation logic may be required.
     length += _write_varuint(value_buf, dt.month)
     length += _write_varuint(value_buf, dt.day)
     length += _write_varuint(value_buf, dt.hour)
@@ -261,7 +265,9 @@ _SERIALIZE_SCALAR_JUMP_TABLE = {
 }
 
 
-_serialize_scalar = partial(serialize_scalar, jump_table=_SERIALIZE_SCALAR_JUMP_TABLE, null_table=_NULLS)
+_serialize_scalar = partial(
+    serialize_scalar, jump_table=_SERIALIZE_SCALAR_JUMP_TABLE, null_table=_NULLS
+)
 
 
 def _serialize_annotation_wrapper(output_buf, annotations):
@@ -314,7 +320,8 @@ def _raw_writer_coroutine(writer_buffer, depth=0, container_event=None,
         delegate = self
         curr_annotations = ion_event.annotations
         writer_event = _WRITER_EVENT_NEEDS_INPUT_EMPTY
-        if depth > 0 and container_event.ion_type is IonType.STRUCT and ion_event.event_type.begins_value:
+        if depth > 0 and container_event.ion_type is IonType.STRUCT \
+                and ion_event.event_type.begins_value:
             # A field name symbol ID is required at this position.
             sid_buffer = bytearray()
             _write_varuint(sid_buffer, ion_event.field_name)  # Write the field name's symbol ID.

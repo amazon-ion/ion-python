@@ -1,13 +1,16 @@
 # Copyright 2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #
-# Licensed under the Apache License, Version 2.0 (the "License"). You may not use this file except in compliance
-# with the License. A copy of the License is located at:
+# Licensed under the Apache License, Version 2.0 (the "License").
+# You may not use this file except in compliance with the License.
+# A copy of the License is located at:
 #
 #    http://aws.amazon.com/apache2.0/
 #
-# or in the "license" file accompanying this file. This file is distributed on an "AS IS" BASIS, WITHOUT
-# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language
-# governing permissions and limitations under the License.
+# or in the "license" file accompanying this file. This file is
+# distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS
+# OF ANY KIND, either express or implied. See the License for the
+# specific language governing permissions and limitations under the
+# License.
 
 # Python 2/3 compatibility
 from __future__ import absolute_import
@@ -16,18 +19,18 @@ from __future__ import print_function
 
 from functools import partial
 from io import BytesIO
-
 from itertools import chain
-
 from datetime import datetime, timedelta
 from decimal import Decimal
+
+from tests import parametrize
+from tests.writer_util import assert_writer_events, generate_scalars, generate_containers, \
+                              WriterParameter
 
 from amazon.ion.core import OffsetTZInfo, IonEvent, IonType, IonEventType
 from amazon.ion.writer import blocking_writer
 from amazon.ion.writer_binary_raw import _raw_binary_writer, _write_length
 from amazon.ion.writer_buffer import BufferTree
-from tests import parametrize
-from tests.writer_util import assert_writer_events, WriterParameter, generate_scalars, generate_containers
 
 _D = Decimal
 _DT = datetime
