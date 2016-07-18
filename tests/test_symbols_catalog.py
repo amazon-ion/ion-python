@@ -17,12 +17,13 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import pytest
+from pytest import raises
 
-import tests
+from tests import parametrize, is_exception
 
 import amazon.ion.symbols as symbols
 
+from amazon.ion.exceptions import CannotSubstituteTable
 from amazon.ion.util import record
 
 
@@ -42,7 +43,7 @@ FOO_2_TABLE = symbols.shared_symbol_table(
     symbols=FOO_2_TEXTS
 )
 
-#Note the gap in version
+# Note the gap in version.
 FOO_4_TEXTS = (u'ff', u'gg', u'hh')
 FOO_4_TABLE = symbols.shared_symbol_table(
     name=u'foo',
@@ -61,7 +62,7 @@ class _P(record('desc', 'name', 'version', 'max_id', 'expected')):
         return '{p.desc} - {p.name}, {p.version}, {p.max_id}'.format(p=self)
 
 
-@tests.parametrize(
+@parametrize(
     _P(
         desc='EXACT MATCH',
         name=u'foo',
@@ -105,15 +106,39 @@ class _P(record('desc', 'name', 'version', 'max_id', 'expected')):
         max_id=4,
         expected=symbols.substitute_symbol_table(FOO_2_TABLE, version=2, max_id=4),
     ),
+    _P(
+        desc='EXACT MATCH, NO MAX ID',
+        name=u'foo',
+        version=2,
+        max_id=None,
+        expected=FOO_2_TABLE,
+    ),
+    _P(
+        desc='NO MATCH, NO MAX ID',
+        name=u'bar',
+        version=1,
+        max_id=None,
+        expected=CannotSubstituteTable,
+    ),
+    _P(
+        desc='NAME MATCH, NO MAX ID',
+        name=u'foo',
+        version=3,
+        max_id=None,
+        expected=CannotSubstituteTable,
+    ),
 )
 def test_catalog(p):
     catalog = symbols.SymbolTableCatalog()
     for table in REGISTER_TABLES:
         catalog.register(table)
 
-    resolved = catalog.resolve(p.name, p.version, p.max_id)
-
-    assert p.expected == resolved
+    if is_exception(p.expected):
+        with raises(p.expected):
+            catalog.resolve(p.name, p.version, p.max_id)
+    else:
+        resolved = catalog.resolve(p.name, p.version, p.max_id)
+        assert p.expected == resolved
 
 
 class _P(record('desc', 'table', ('expected', ValueError))):
@@ -121,7 +146,7 @@ class _P(record('desc', 'table', ('expected', ValueError))):
         return self.desc
 
 
-@tests.parametrize(
+@parametrize(
     _P(
         desc='SYSTEM',
         table=symbols.SYSTEM_SYMBOL_TABLE
@@ -140,5 +165,5 @@ class _P(record('desc', 'table', ('expected', ValueError))):
 )
 def test_catalog_bad_register(p):
     catalog = symbols.SymbolTableCatalog()
-    with pytest.raises(p.expected):
+    with raises(p.expected):
         catalog.register(p.table)

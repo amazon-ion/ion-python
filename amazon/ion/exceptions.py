@@ -22,4 +22,7 @@ from __future__ import print_function
 
 class IonException(Exception):
     """Root exception for Ion Python."""
-    pass
+
+
+class CannotSubstituteTable(IonException):
+    """Indicates a problem with resolving symbols tables."""

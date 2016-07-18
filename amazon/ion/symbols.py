@@ -25,17 +25,18 @@ from itertools import chain
 from itertools import islice
 from itertools import repeat
 
+from .exceptions import CannotSubstituteTable
 from .util import record
 
-_TEXT_ION = u'$ion'
-_TEXT_ION_1_0 = u'$ion_1_0'
-_TEXT_ION_SYMBOL_TABLE = u'$ion_symbol_table'
-_TEXT_NAME = u'name'
-_TEXT_VERSION = u'version'
-_TEXT_IMPORTS = u'imports'
-_TEXT_SYMBOLS = u'symbols'
-_TEXT_MAX_ID = u'max_id'
-_TEXT_ION_SHARED_SYMBOL_TABLE = u'$ion_shared_symbol_table'
+TEXT_ION = u'$ion'
+TEXT_ION_1_0 = u'$ion_1_0'
+TEXT_ION_SYMBOL_TABLE = u'$ion_symbol_table'
+TEXT_NAME = u'name'
+TEXT_VERSION = u'version'
+TEXT_IMPORTS = u'imports'
+TEXT_SYMBOLS = u'symbols'
+TEXT_MAX_ID = u'max_id'
+TEXT_ION_SHARED_SYMBOL_TABLE = u'$ion_shared_symbol_table'
 
 SID_ION = 1
 SID_ION_1_0 = 2
@@ -90,21 +91,21 @@ class SymbolToken(record('text', 'sid', 'location')):
 
 def _system_symbol_token(text, sid):
     """Defines an Ion 1.0 system symbol token."""
-    return SymbolToken(text, sid, ImportLocation(_TEXT_ION, sid))
+    return SymbolToken(text, sid, ImportLocation(TEXT_ION, sid))
 
 
 SYMBOL_ZERO_TOKEN = SymbolToken(None, 0)
 
 _SYSTEM_SYMBOL_TOKENS = (
-    _system_symbol_token(_TEXT_ION, SID_ION),
-    _system_symbol_token(_TEXT_ION_1_0, SID_ION_1_0),
-    _system_symbol_token(_TEXT_ION_SYMBOL_TABLE, SID_ION_SYMBOL_TABLE),
-    _system_symbol_token(_TEXT_NAME, SID_NAME),
-    _system_symbol_token(_TEXT_VERSION, SID_VERSION),
-    _system_symbol_token(_TEXT_IMPORTS, SID_IMPORTS),
-    _system_symbol_token(_TEXT_SYMBOLS, SID_SYMBOLS),
-    _system_symbol_token(_TEXT_MAX_ID, SID_MAX_ID),
-    _system_symbol_token(_TEXT_ION_SHARED_SYMBOL_TABLE, SID_ION_SHARED_SYMBOL_TABLE),
+    _system_symbol_token(TEXT_ION, SID_ION),
+    _system_symbol_token(TEXT_ION_1_0, SID_ION_1_0),
+    _system_symbol_token(TEXT_ION_SYMBOL_TABLE, SID_ION_SYMBOL_TABLE),
+    _system_symbol_token(TEXT_NAME, SID_NAME),
+    _system_symbol_token(TEXT_VERSION, SID_VERSION),
+    _system_symbol_token(TEXT_IMPORTS, SID_IMPORTS),
+    _system_symbol_token(TEXT_SYMBOLS, SID_SYMBOLS),
+    _system_symbol_token(TEXT_MAX_ID, SID_MAX_ID),
+    _system_symbol_token(TEXT_ION_SHARED_SYMBOL_TABLE, SID_ION_SHARED_SYMBOL_TABLE),
 )
 
 
@@ -158,8 +159,8 @@ class SymbolTable(object):
             raise ValueError('Shared symbol tables must have a name and >= 1 version')
         if table_type.is_local and (name is not None or version is not None):
             raise ValueError('Local symbol tables cannot have a name or version')
-        if table_type.is_system and (name != _TEXT_ION):
-            raise ValueError('System symbol tables must be named "%s"' % _TEXT_ION)
+        if table_type.is_system and (name != TEXT_ION):
+            raise ValueError('System symbol tables must be named "%s"' % TEXT_ION)
         if name is not None and not isinstance(name, six.text_type):
             raise TypeError('Shared symbol tables must have a unicode name: %r' % name)
 
@@ -183,7 +184,13 @@ class SymbolTable(object):
                     if table_type.is_shared:
                         self.__add_shared(token)
                     else:
-                        self.__add_import(token)
+                        if not table.table_type.is_local \
+                                or token.location is None \
+                                or token.location.name != TEXT_ION:
+                            # TODO Determine if this code should handle LST as import.
+                            # If the import is a local symbol table, we need to ignore system
+                            # imports.  This supports LST append.
+                            self.__add_import(token)
 
         # System symbols are bootstrapped
         if not table_type.is_system:
@@ -365,23 +372,24 @@ class SymbolTable(object):
 SYSTEM_SYMBOL_TABLE = SymbolTable(
     table_type=SYSTEM_TABLE_TYPE,
     symbols=_SYSTEM_SYMBOL_TOKENS,
-    name=_TEXT_ION,
+    name=TEXT_ION,
     version=1
 )
 
 
-def local_symbol_table(imports=None):
+def local_symbol_table(imports=None, symbols=()):
     """Constructs a local symbol table.
 
     Args:
         imports (Optional[SymbolTable]): Shared symbol tables to import.
+        symbols (Optional[Iterable[Unicode]]): Initial local symbols to add.
 
     Returns:
-        SymbolTable: A mutable local symbol table with no local symbols.
+        SymbolTable: A mutable local symbol table with the seeded local symbols.
     """
     return SymbolTable(
         table_type=LOCAL_TABLE_TYPE,
-        symbols=(),
+        symbols=symbols,
         imports=imports
     )
 
@@ -499,7 +507,7 @@ class SymbolTableCatalog(object):
         if not table.table_type.is_shared:
             raise ValueError('Cannot add local table to catalog')
         if table.is_substitute:
-            raise ValueError('Cannot add substute table to catalog')
+            raise ValueError('Cannot add substitute table to catalog')
 
         versions = self.__tables.get(table.name)
         if versions is None:
@@ -513,7 +521,9 @@ class SymbolTableCatalog(object):
         Args:
             name (unicode): The name of the table to resolve.
             version (int): The version of the table to resolve.
-            max_id (int): The maximum ID of the table requested.
+            max_id (Optional[int]): The maximum ID of the table requested.
+                May be ``None`` in which case an exact match on ``name`` and ``version``
+                is required.
 
         Returns:
             SymbolTable: The *closest* matching symbol table.  This is either an exact match,
@@ -525,11 +535,15 @@ class SymbolTableCatalog(object):
             raise TypeError('Version must be an int: %r' % version)
         if version <= 0:
             raise ValueError('Version must be positive: %s' % version)
-        if max_id < 0:
+        if max_id is not None and max_id < 0:
             raise ValueError('Max ID must be zero or positive: %s' % max_id)
 
         versions = self.__tables.get(name)
         if versions is None:
+            if max_id is None:
+                raise CannotSubstituteTable(
+                    'Found no table for %s, but no max_id' % name
+                )
             return placeholder_symbol_table(name, version, max_id)
 
         table = versions.get(version)
@@ -539,7 +553,12 @@ class SymbolTableCatalog(object):
             keys.sort()
             table = versions[keys[-1]]
 
-        if table.version == version and table.max_id == max_id:
+        if table.version == version and (max_id is None or table.max_id == max_id):
             return table
+
+        if max_id is None:
+            raise CannotSubstituteTable(
+                'Found match for %s, but not version %d, and no max_id' % (name, version)
+            )
 
         return substitute_symbol_table(table, version, max_id)

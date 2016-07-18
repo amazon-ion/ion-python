@@ -39,7 +39,7 @@ from .writer import partial_transition, writer_trampoline, serialize_scalar, val
     illegal_state_null, NOOP_WRITER_EVENT
 from .writer import WriteEventType
 
-_IVM_WRITER_EVENT = DataEvent(WriteEventType.COMPLETE, symbols._TEXT_ION_1_0.encode())
+_IVM_WRITER_EVENT = DataEvent(WriteEventType.COMPLETE, symbols.TEXT_ION_1_0.encode())
 
 _NULL_TYPE_NAMES = [
     b'null',

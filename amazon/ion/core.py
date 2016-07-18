@@ -159,13 +159,14 @@ class IonEvent(record(
             IonEvent: The newly generated event.
         """
         cls = type(self)
+        # We use ordinals to avoid thunk materialization.
         return cls(
-            self.event_type,
-            self.ion_type,
-            self.value,
+            self[0],
+            self[1],
+            self[2],
             field_name,
-            self.annotations,
-            self.depth
+            self[4],
+            self[5]
         )
 
     def derive_annotations(self, annotations):
@@ -179,13 +180,14 @@ class IonEvent(record(
             IonEvent: The newly generated event.
         """
         cls = type(self)
+        # We use ordinals to avoid thunk materialization.
         return cls(
-            self.event_type,
-            self.ion_type,
-            self.value,
-            self.field_name,
+            self[0],
+            self[1],
+            self[2],
+            self[3],
             annotations,
-            self.depth
+            self[5]
         )
 
     def derive_value(self, value):
@@ -218,17 +220,19 @@ class IonEvent(record(
             IonEvent: The newly generated event.
         """
         cls = type(self)
+        # We use ordinals to avoid thunk materialization.
         return cls(
-            self.event_type,
-            self.ion_type,
-            self.value,
-            self.field_name,
-            self.annotations,
+            self[0],
+            self[1],
+            self[2],
+            self[3],
+            self[4],
             depth
         )
 
 
-class _MemoizingThunk(object):
+class MemoizingThunk(object):
+    """A :class:`callable` that invokes a ``delegate`` and caches and returns the result."""
     def __init__(self, delegate):
         self.delegate = delegate
 
@@ -246,19 +250,19 @@ class _MemoizingThunk(object):
 
 
 class IonThunkEvent(IonEvent):
+    """An :class:`IonEvent` whose ``value`` field is a thunk."""
     def __new__(cls, *args, **kwargs):
         if len(args) >= 3:
             args = list(args)
-            args[2] = _MemoizingThunk(args[2])
+            args[2] = MemoizingThunk(args[2])
         else:
             value = kwargs.get('value')
             if value is not None:
-                kwargs['value'] = _MemoizingThunk(kwargs['value'])
+                kwargs['value'] = MemoizingThunk(kwargs['value'])
         return super(IonThunkEvent, cls).__new__(cls, *args, **kwargs)
 
     @property
     def value(self):
-        # TODO memoize the materialized value.
         # We're masking the value field, this gets around that.
         return self[2]()
 
