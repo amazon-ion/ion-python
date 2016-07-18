@@ -24,6 +24,14 @@ import pytest
 from contextlib import contextmanager
 
 
+def listify(iter_func):
+    """Takes an iterator function and returns a function that materializes it into a list."""
+    def delegate(*args, **kwargs):
+        return list(iter_func(*args, **kwargs))
+    delegate.__name__ = iter_func.__name__
+    return delegate
+
+
 @contextmanager
 def noop_manager():
     """A no-op context manager"""
