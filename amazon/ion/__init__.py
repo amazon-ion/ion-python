@@ -23,8 +23,16 @@ __version__ = '0.1.0'
 __all__ = [
     'core',
     'exceptions',
+    'reader',
+    'reader_binary',
+    'reader_managed',
+    'simple_types',
     'symbols',
     'util',
     'writer',
+    'writer_binary',
+    'writer_binary_raw',
+    'writer_binary_raw_fields',
+    'writer_buffer',
     'writer_text',
 ]
