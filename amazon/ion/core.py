@@ -135,8 +135,8 @@ class IonEvent(record(
             # Timestamp precision has additional requirements.
             if isinstance(self.value, Timestamp) or isinstance(other.value, Timestamp):
                 # Special case for timestamps to capture equivalence over precision.
-                self_precision = getattr(self.value, _TS_PRECISION_FIELD)
-                other_precision = getattr(other.value, _TS_PRECISION_FIELD)
+                self_precision = getattr(self.value, TIMESTAMP_PRECISION_FIELD, None)
+                other_precision = getattr(other.value, TIMESTAMP_PRECISION_FIELD, None)
                 if self_precision != other_precision:
                     return False
             if isinstance(self.value, datetime):
@@ -354,7 +354,7 @@ class TimestampPrecision(Enum):
         return self >= TimestampPrecision.SECOND
 
 
-_TS_PRECISION_FIELD = 'precision'
+TIMESTAMP_PRECISION_FIELD = 'precision'
 
 
 class Timestamp(datetime):
@@ -363,17 +363,17 @@ class Timestamp(datetime):
     Notes:
         The ``precision`` field is passed as a keyword argument of the same name.
     """
-    __slots__ = [_TS_PRECISION_FIELD]
+    __slots__ = [TIMESTAMP_PRECISION_FIELD]
 
     def __new__(cls, *args, **kwargs):
         precision = None
-        if _TS_PRECISION_FIELD in kwargs:
-            precision = kwargs.get(_TS_PRECISION_FIELD)
+        if TIMESTAMP_PRECISION_FIELD in kwargs:
+            precision = kwargs.get(TIMESTAMP_PRECISION_FIELD)
             # Make sure we mask this before we construct the datetime.
-            del kwargs[_TS_PRECISION_FIELD]
+            del kwargs[TIMESTAMP_PRECISION_FIELD]
 
         instance = super(Timestamp, cls).__new__(cls, *args, **kwargs)
-        setattr(instance, _TS_PRECISION_FIELD, precision)
+        setattr(instance, TIMESTAMP_PRECISION_FIELD, precision)
 
         return instance
 

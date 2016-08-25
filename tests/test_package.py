@@ -18,12 +18,15 @@ from __future__ import division
 from __future__ import print_function
 
 import sys
+import traceback
 
 _IMPORT_ALL = None
 try:
     from amazon.ion import *
 except:
+    traceback.print_exc()
     _IMPORT_ALL = sys.exc_info()
+
 
 def test_import_all():
     assert _IMPORT_ALL is None
