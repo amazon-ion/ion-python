@@ -27,6 +27,7 @@ __all__ = [
     'reader_binary',
     'reader_managed',
     'simple_types',
+    'simpleion',
     'symbols',
     'util',
     'writer',

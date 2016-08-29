@@ -192,11 +192,13 @@ def _create_lst_params(
                 (NEXT, e_symbol(_sid(10))),
                 (NEXT, e_symbol(_sid(11))),
                 (NEXT, e_symbol(_sid(12))),
+                (NEXT, e_symbol(None)),
             ],
             outer=[
                 (NEXT, e_symbol(_tok(u'a', 10))),
                 (NEXT, e_symbol(_tok(u'b', 11))),
                 (NEXT, e_symbol(_tok(u'c', 12))),
+                (NEXT, e_symbol(None)),
             ],
         ),
         _P(

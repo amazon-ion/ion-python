@@ -110,7 +110,7 @@ def _managed_thunk_event(ctx, ion_event):
 
     def value_thunk():
         value = ion_event.value
-        if ion_type is IonType.SYMBOL:
+        if ion_type is IonType.SYMBOL and value is not None:
             value = ctx.resolve(value)
         return value
 
@@ -309,6 +309,7 @@ def managed_reader(reader, catalog=None):
 
                     elif ion_type is IonType.SYMBOL \
                             and len(ion_event.annotations) == 0 \
+                            and ion_event.value is not None \
                             and ctx.resolve(ion_event.value).text == TEXT_ION_1_0:
                         assert symbol_trans.delegate is None
 

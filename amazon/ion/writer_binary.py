@@ -19,11 +19,13 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import six
+
 from .core import ION_STREAM_END_EVENT, IonEventType, IonType, IonEvent, DataEvent, Transition
 from .exceptions import IonException
 from .symbols import SID_ION_SYMBOL_TABLE, SID_IMPORTS, SHARED_TABLE_TYPE, \
                      SID_NAME, SID_VERSION, SID_MAX_ID, SID_SYMBOLS, LOCAL_TABLE_TYPE, \
-                     SymbolTable
+                     SymbolTable, _SYSTEM_SYMBOL_TOKENS
 from .util import coroutine, Enum, record
 from .writer import NOOP_WRITER_EVENT, writer_trampoline, partial_transition, WriteEventType, \
                     _drain
@@ -47,7 +49,7 @@ class _SymbolEventType(Enum):
     FINISH = 2
 
 
-class _SymbolEvent(record('event_type', ('symbol_text', None))):
+class _SymbolEvent(record('event_type', ('symbol', None))):
     """Symbol event used by the managed writer coroutine to trigger an action in the symbol
     table coroutine.
 
@@ -55,9 +57,12 @@ class _SymbolEvent(record('event_type', ('symbol_text', None))):
 
     Args:
         event_type (_SymbolEventType): The type of symbol event.
-        symbol_text (Optional[unicode]): The symbol text associated with the event.
+        symbol (Optional[SymbolToken | unicode]): The symbol token or text associated with the event.
     """
 
+
+def _system_token(sid):
+    return _SYSTEM_SYMBOL_TOKENS[sid - 1]
 
 _SYMBOL_EVENT_START_LST = _SymbolEvent(_SymbolEventType.START_LST)
 _SYMBOL_EVENT_FINISH = _SymbolEvent(_SymbolEventType.FINISH)
@@ -66,11 +71,11 @@ _ION_EVENT_STRUCT_START = IonEvent(IonEventType.CONTAINER_START, IonType.STRUCT)
 _ION_EVENT_STREAM_END = ION_STREAM_END_EVENT
 _ION_EVENT_CONTAINER_END = IonEvent(IonEventType.CONTAINER_END)
 _ION_EVENT_RAW_LST_STRUCT_START = IonEvent(
-    IonEventType.CONTAINER_START, IonType.STRUCT, annotations=[SID_ION_SYMBOL_TABLE])
+    IonEventType.CONTAINER_START, IonType.STRUCT, annotations=[_system_token(SID_ION_SYMBOL_TABLE)])
 _ION_EVENT_RAW_IMPORTS_LIST_START = IonEvent(
-    IonEventType.CONTAINER_START, IonType.LIST, field_name=SID_IMPORTS)
+    IonEventType.CONTAINER_START, IonType.LIST, field_name=_system_token(SID_IMPORTS))
 _ION_EVENT_RAW_SYMBOLS_LIST_START = IonEvent(
-    IonEventType.CONTAINER_START, IonType.LIST, field_name=SID_SYMBOLS)
+    IonEventType.CONTAINER_START, IonType.LIST, field_name=_system_token(SID_SYMBOLS))
 
 
 @coroutine
@@ -88,23 +93,35 @@ def _symbol_table_coroutine(writer_buffer, imports):
                     raise IonException('Only shared tables may be imported.')
                 write(_ION_EVENT_STRUCT_START)
                 write(IonEvent(
-                    IonEventType.SCALAR, IonType.STRING, imported.name, field_name=SID_NAME))
+                    IonEventType.SCALAR, IonType.STRING, imported.name, field_name=_system_token(SID_NAME)))
                 write(IonEvent(
-                    IonEventType.SCALAR, IonType.INT, imported.version, field_name=SID_VERSION))
+                    IonEventType.SCALAR, IonType.INT, imported.version, field_name=_system_token(SID_VERSION)))
                 write(IonEvent(
-                    IonEventType.SCALAR, IonType.INT, imported.max_id, field_name=SID_MAX_ID))
+                    IonEventType.SCALAR, IonType.INT, imported.max_id, field_name=_system_token(SID_MAX_ID)))
                 write(_ION_EVENT_CONTAINER_END)
             write(_ION_EVENT_CONTAINER_END)
         return _WRITER_EVENT_NEEDS_INPUT_EMPTY
 
-    def write_symbol(symbol_text):
-        if symbol_text is None:
+    def write_symbol(symbol):
+        if symbol is None:
             raise IonException('Illegal state: local symbol event with None symbol.')
-        token = local_symbols.get(symbol_text)
+        try:
+            key = symbol.sid
+            symbol_text = symbol.text
+            if key is None:
+                key = symbol_text
+        except AttributeError:
+            assert isinstance(symbol, six.text_type)
+            key = symbol
+            symbol_text = symbol
+        token = local_symbols.get(key)
         if token is None:
+            assert symbol_text is not None
             token = local_symbols.intern(symbol_text)  # This duplicates the 'get' call...
             write(IonEvent(IonEventType.SCALAR, IonType.STRING, token.text))
-        return DataEvent(WriteEventType.NEEDS_INPUT, token.sid)
+        if symbol_text != token.text:
+            raise ValueError('Requested SymbolToken %r did not match mapping (%r) in LST.' % (symbol, token))
+        return DataEvent(WriteEventType.NEEDS_INPUT, token)
 
     # TODO support extending the current LST (by importing it)
     # TODO symtab locking?
@@ -124,7 +141,7 @@ def _symbol_table_coroutine(writer_buffer, imports):
             if not has_local_symbols:
                 write(_ION_EVENT_RAW_SYMBOLS_LIST_START)
                 has_local_symbols = True
-            write_event = write_symbol(symbol_event.symbol_text)
+            write_event = write_symbol(symbol_event.symbol)
         elif symbol_event.event_type is _SymbolEventType.FINISH:
             # If there are no local symbols or imports, there is no need for an explicit LST.
             if has_local_symbols or imports:

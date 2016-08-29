@@ -27,7 +27,8 @@ from functools import partial
 import six
 import struct
 
-from .core import IonEventType, IonType, DataEvent, Transition
+from amazon.ion.symbols import SymbolToken
+from .core import IonEventType, IonType, DataEvent, Transition, TimestampPrecision
 from .util import coroutine, total_seconds, Enum
 from .writer import NOOP_WRITER_EVENT, WriteEventType, \
                     writer_trampoline, partial_transition, serialize_scalar, \
@@ -199,8 +200,9 @@ def _serialize_string(ion_event):
 
 def _serialize_symbol(ion_event):
     buf = bytearray()
-    sid = ion_event.value
-    validate_scalar_value(sid, six.integer_types)
+    token = ion_event.value
+    validate_scalar_value(token, SymbolToken)
+    sid = token.sid
     if sid == 0:
         buf.append(_Zeros.SYMBOL)
     else:
@@ -226,26 +228,40 @@ _MICROSECOND_DECIMAL_EXPONENT = -6  # There are 1e6 microseconds per second.
 def _serialize_timestamp(ion_event):
     buf = bytearray()
     dt = ion_event.value
+    try:
+        precision = dt.precision
+        if precision is None:  # TODO should we push this defaulting be pushed into Timestamp itself?
+            precision = TimestampPrecision.SECOND
+    except AttributeError:
+        precision = TimestampPrecision.SECOND
     validate_scalar_value(dt, datetime)
     value_buf = bytearray()
     if dt.tzinfo is None:
         value_buf.append(_VARINT_NEG_ZERO)  # This signifies an unknown local offset.
         length = 1
     else:
-        length = _write_varint(value_buf, int(total_seconds(dt.utcoffset()) // 60))
+        # Normalize to UTC and write the offset field.
+        offset = dt.utcoffset()
+        dt -= offset
+        length = _write_varint(value_buf, int(total_seconds(offset) // 60))
     length += _write_varuint(value_buf, dt.year)
-    # The lack of validation here is because datetime defaults these to 0, not None,
-    # and None is not an acceptable value for any of the following fields. As such, all
-    # timestamps generated here will have at least second precision. If a different object
-    # is used to represent timestamps, additional validation logic may be required.
-    length += _write_varuint(value_buf, dt.month)
-    length += _write_varuint(value_buf, dt.day)
-    length += _write_varuint(value_buf, dt.hour)
-    length += _write_varuint(value_buf, dt.minute)
-    length += _write_varuint(value_buf, dt.second)
-    microsecond = dt.microsecond
-    if microsecond != 0:
-        length += _write_decimal_value(value_buf, _MICROSECOND_DECIMAL_EXPONENT, microsecond)
+    if precision.includes_month:
+        length += _write_varuint(value_buf, dt.month)
+    if precision.includes_day:
+        length += _write_varuint(value_buf, dt.day)
+    if precision.includes_minute:
+        length += _write_varuint(value_buf, dt.hour)
+        length += _write_varuint(value_buf, dt.minute)
+    if precision.includes_second:
+        length += _write_varuint(value_buf, dt.second)
+        coefficient = dt.microsecond
+        if coefficient:
+            exponent = _MICROSECOND_DECIMAL_EXPONENT
+            # This optimizes the size of the fractional encoding.
+            while coefficient % 10 == 0:
+                coefficient //= 10
+                exponent += 1
+            length += _write_decimal_value(value_buf, exponent, coefficient)
     _write_length(buf, length, _TypeIds.TIMESTAMP)
     buf.extend(value_buf)
     return buf
@@ -275,7 +291,7 @@ def _serialize_annotation_wrapper(output_buf, annotations):
     annot_length_buf = bytearray()
     annot_length = 0
     for annotation in annotations:
-        annot_length += _write_varuint(annot_length_buf, annotation)
+        annot_length += _write_varuint(annot_length_buf, annotation.sid)
     header = bytearray()
     length_buf = bytearray()
     length = _write_varuint(length_buf, annot_length) + annot_length + value_length
@@ -324,7 +340,7 @@ def _raw_writer_coroutine(writer_buffer, depth=0, container_event=None,
                 and ion_event.event_type.begins_value:
             # A field name symbol ID is required at this position.
             sid_buffer = bytearray()
-            _write_varuint(sid_buffer, ion_event.field_name)  # Write the field name's symbol ID.
+            _write_varuint(sid_buffer, ion_event.field_name.sid)  # Write the field name's symbol ID.
             writer_buffer.add_scalar_value(sid_buffer)
         if ion_event.event_type.begins_value and curr_annotations:
             writer_buffer.start_container()

@@ -27,8 +27,11 @@ import six
 
 from decimal import Decimal
 
-from .core import Timestamp
+from amazon.ion.symbols import SymbolToken
+from .core import Timestamp, IonEvent, IonType
 from .core import TIMESTAMP_PRECISION_FIELD
+
+from .writer_text import _NULL_TYPE_NAMES
 
 
 class _IonNature(object):
@@ -62,11 +65,16 @@ class _IonNature(object):
         Args:
             ion_event (IonEvent): The event to construct the native value from.
         """
-        args, kwargs = cls._to_constructor_args(ion_event.value)
+        if ion_event.value is not None:
+            args, kwargs = cls._to_constructor_args(ion_event.value)
+        else:
+            # if value is None (i.e. this is a container event), args must be empty or initialization of the
+            # underlying container will fail.
+            args, kwargs = (), {}
         value = cls(*args, **kwargs)
         value.ion_event = ion_event
         value.ion_type = ion_event.ion_type
-        value.ion_annotations = tuple(x.text for x in ion_event.annotations)
+        value.ion_annotations = ion_event.annotations
         return value
 
     @classmethod
@@ -78,12 +86,34 @@ class _IonNature(object):
             value (Any): The value to construct from, generally of type ``cls``.
             annotations (Sequence[unicode]):  The sequence Unicode strings decorating this value.
         """
-        args, kwargs = cls._to_constructor_args(value)
-        value = cls(*args, **kwargs)
+        if value is None:
+            value = IonPyNull()
+        else:
+            args, kwargs = cls._to_constructor_args(value)
+            value = cls(*args, **kwargs)
         value.ion_event = None
         value.ion_type = ion_type
         value.ion_annotations = annotations
         return value
+
+    def to_event(self, event_type, field_name=None, depth=None):
+        """Constructs an IonEvent from this _IonNature value.
+
+        Args:
+            event_type (IonEventType): The type of the resulting event.
+            field_name (Optional[text]): The field name associated with this value, if any.
+            depth (Optional[int]): The depth of this value.
+
+        Returns:
+            An IonEvent with the properties from this value.
+        """
+        if self.ion_event is None:
+            value = self
+            if isinstance(self, IonPyNull):
+                value = None
+            self.ion_event = IonEvent(event_type, ion_type=self.ion_type, value=value, field_name=field_name,
+                                      annotations=self.ion_annotations, depth=depth)
+        return self.ion_event
 
 
 def _ion_type_for(name, base_cls):
@@ -100,11 +130,35 @@ if six.PY2:
 else:
     IonPyInt = _ion_type_for('IonPyInt', int)
 
+
 IonPyBool = IonPyInt
 IonPyFloat = _ion_type_for('IonPyFloat', float)
 IonPyDecimal = _ion_type_for('IonPyDecimal', Decimal)
 IonPyText = _ion_type_for('IonPyText', six.text_type)
 IonPyBytes = _ion_type_for('IonPyBytes', six.binary_type)
+
+
+class IonPySymbol(SymbolToken, _IonNature):
+    def __init__(self, *args, **kwargs):
+        super(IonPySymbol, self).__init__(*args, **kwargs)
+
+    @staticmethod
+    def _to_constructor_args(st):
+        try:
+            args = (st.text, st.sid, st.location)
+        except AttributeError:
+            args = (st, None, None)
+        kwargs = {}
+        return args, kwargs
+
+    def __eq__(self, other):
+        if isinstance(other, SymbolToken):
+            if other.text == self.text and other.sid == self.sid:
+                return True
+        elif isinstance(other, IonPyText):
+            if other.ion_type is IonType.SYMBOL and other == self.text:
+                return True
+        return False
 
 
 class IonPyTimestamp(Timestamp, _IonNature):
