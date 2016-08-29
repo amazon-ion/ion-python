@@ -11,29 +11,19 @@
 # OF ANY KIND, either express or implied. See the License for the
 # specific language governing permissions and limitations under the
 # License.
+from io import BytesIO
 
-# Python 2/3 compatibility
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from amazon.ion.core import IonType
+from amazon.ion.simple_types import IonPyDict, IonPyText, IonPyList
+from amazon.ion.simpleion import dump, load
 
-__author__ = 'Amazon.com, Inc.'
-__version__ = '0.1.0'
 
-__all__ = [
-    'core',
-    'exceptions',
-    'reader',
-    'reader_binary',
-    'reader_managed',
-    'simple_types',
-    'simpleion',
-    'symbols',
-    'util',
-    'writer',
-    'writer_binary',
-    'writer_binary_raw',
-    'writer_binary_raw_fields',
-    'writer_buffer',
-    'writer_text',
-]
+def test_roundtrip():
+    bar = IonPyText.from_value(IonType.STRING, 'bar', annotations=('str',))
+    lst = IonPyList.from_value(IonType.LIST, [True, None, 1.23e4])
+    dct = IonPyDict.from_value(IonType.STRUCT, {"foo": bar, "baz": 123, "lst": lst}, annotations=('annot1', 'annot2'))
+    out = BytesIO()
+    dump(dct, out)
+    out.seek(0)
+    res = load(out)
+    print("%r" % (res,))

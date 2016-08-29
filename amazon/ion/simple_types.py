@@ -27,7 +27,7 @@ import six
 
 from decimal import Decimal
 
-from .core import Timestamp
+from .core import Timestamp, IonEvent
 from .core import TIMESTAMP_PRECISION_FIELD
 
 
@@ -62,7 +62,12 @@ class _IonNature(object):
         Args:
             ion_event (IonEvent): The event to construct the native value from.
         """
-        args, kwargs = cls._to_constructor_args(ion_event.value)
+        if ion_event.value is not None:
+            args, kwargs = cls._to_constructor_args(ion_event.value)
+        else:
+            # if value is None (i.e. this is a container event), args must be empty or initialization of the
+            # underlying container will fail.
+            args, kwargs = (), {}
         value = cls(*args, **kwargs)
         value.ion_event = ion_event
         value.ion_type = ion_event.ion_type
@@ -85,11 +90,39 @@ class _IonNature(object):
         value.ion_annotations = annotations
         return value
 
+    def to_event(self, event_type, field_name=None, depth=None):
+        """Constructs an IonEvent from this _IonNature value.
+
+        Args:
+            event_type (IonEventType): The type of the resulting event.
+            field_name (Optional[text]): The field name associated with this value, if any.
+            depth (Optional[int]): The depth of this value.
+
+        Returns:
+            An IonEvent with the properties from this value.
+        """
+        if self.ion_event is not None:
+            return self.ion_event
+        else:
+            return IonEvent(event_type, ion_type=self.ion_type, value=self, field_name=field_name,
+                            annotations=self.ion_annotations, depth=depth)
+
+    def annotation_str(self):
+        out = ''
+        for annotation in self.ion_annotations:
+            out += annotation + '::'
+        return out
+
 
 def _ion_type_for(name, base_cls):
     class IonPyValueType(base_cls, _IonNature):
         def __init__(self, *args, **kwargs):
             super(IonPyValueType, self).__init__(*args, **kwargs)
+
+        def __str__(self):
+            return self.annotation_str() + super(IonPyValueType, self).__repr__()
+
+        __repr__ = __str__
 
     IonPyValueType.__name__ = name
     return IonPyValueType
@@ -140,6 +173,11 @@ class IonPyNull(_IonNature):
 
     def __bool__(self):
         return False
+
+    def __str__(self):
+        return self.annotation_str() + 'null'
+
+    __repr__ = __str__
 
     @staticmethod
     def _to_constructor_args(value):
