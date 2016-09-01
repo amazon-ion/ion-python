@@ -27,8 +27,11 @@ import six
 
 from decimal import Decimal
 
-from .core import Timestamp, IonEvent
+from amazon.ion.symbols import SymbolToken
+from .core import Timestamp, IonEvent, IonType
 from .core import TIMESTAMP_PRECISION_FIELD
+
+from .writer_text import _NULL_TYPE_NAMES
 
 
 class _IonNature(object):
@@ -83,8 +86,11 @@ class _IonNature(object):
             value (Any): The value to construct from, generally of type ``cls``.
             annotations (Sequence[unicode]):  The sequence Unicode strings decorating this value.
         """
-        args, kwargs = cls._to_constructor_args(value)
-        value = cls(*args, **kwargs)
+        if value is None:
+            value = IonPyNull()
+        else:
+            args, kwargs = cls._to_constructor_args(value)
+            value = cls(*args, **kwargs)
         value.ion_event = None
         value.ion_type = ion_type
         value.ion_annotations = annotations
@@ -101,11 +107,13 @@ class _IonNature(object):
         Returns:
             An IonEvent with the properties from this value.
         """
-        if self.ion_event is not None:
-            return self.ion_event
-        else:
-            return IonEvent(event_type, ion_type=self.ion_type, value=self, field_name=field_name,
-                            annotations=self.ion_annotations, depth=depth)
+        if self.ion_event is None:
+            value = self
+            if isinstance(self, IonPyNull):
+                value = None
+            self.ion_event = IonEvent(event_type, ion_type=self.ion_type, value=value, field_name=field_name,
+                                      annotations=self.ion_annotations, depth=depth)
+        return self.ion_event
 
     def annotation_str(self):
         out = ''
@@ -133,11 +141,40 @@ if six.PY2:
 else:
     IonPyInt = _ion_type_for('IonPyInt', int)
 
-IonPyBool = IonPyInt
+
+class IonPyBool(IonPyInt):
+    def __str__(self):
+        return self.annotation_str() + str(bool(self)).lower()  # TODO ion representation or python representation?
+
+    __repr__ = __str__
+
 IonPyFloat = _ion_type_for('IonPyFloat', float)
 IonPyDecimal = _ion_type_for('IonPyDecimal', Decimal)
 IonPyText = _ion_type_for('IonPyText', six.text_type)
 IonPyBytes = _ion_type_for('IonPyBytes', six.binary_type)
+
+
+class IonPySymbol(SymbolToken, _IonNature):
+    def __init__(self, *args, **kwargs):
+        super(IonPySymbol, self).__init__(*args, **kwargs)
+
+    @staticmethod
+    def _to_constructor_args(st):
+        try:
+            args = (st.text, st.sid, st.location)
+        except AttributeError:
+            args = (st, None, None)
+        kwargs = {}
+        return args, kwargs
+
+    def __eq__(self, other):
+        if isinstance(other, SymbolToken):
+            if other.text == self.text and other.sid == self.sid:
+                return True
+        elif isinstance(other, IonPyText):
+            if other.ion_type is IonType.SYMBOL and other == self.text:
+                return True
+        return False
 
 
 class IonPyTimestamp(Timestamp, _IonNature):
@@ -175,7 +212,7 @@ class IonPyNull(_IonNature):
         return False
 
     def __str__(self):
-        return self.annotation_str() + 'null'
+        return self.annotation_str() + str(_NULL_TYPE_NAMES[self.ion_type], 'utf-8')
 
     __repr__ = __str__
 
