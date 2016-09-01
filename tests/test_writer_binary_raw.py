@@ -20,14 +20,15 @@ from __future__ import print_function
 from functools import partial
 from io import BytesIO
 from itertools import chain
-from datetime import datetime, timedelta
+from datetime import datetime
 from decimal import Decimal
 
+from amazon.ion.symbols import SymbolToken
 from tests import parametrize
 from tests.writer_util import assert_writer_events, generate_scalars, generate_containers, \
-                              WriterParameter
+                              WriterParameter, SIMPLE_SCALARS_MAP, ION_ENCODED_INT_ZERO, VARUINT_END_BYTE
 
-from amazon.ion.core import OffsetTZInfo, IonEvent, IonType, IonEventType
+from amazon.ion.core import IonEvent, IonType, IonEventType
 from amazon.ion.writer import blocking_writer
 from amazon.ion.writer_binary_raw import _raw_binary_writer, _write_length
 from amazon.ion.writer_buffer import BufferTree
@@ -129,103 +130,6 @@ _P_FAILURES = [
     ),
 ]
 
-_SIMPLE_SCALARS_MAP = {
-    _IT.NULL: (
-        (None, b'\x0F'),
-    ),
-    _IT.BOOL: (
-        (None, b'\x1F'),
-        (False, b'\x10'),
-        (True, b'\x11')
-    ),
-    _IT.INT: (
-        (None, b'\x2F'),
-        (0, b'\x20'),
-        (1, b'\x21\x01'),
-        (-1, b'\x31\x01'),
-        (0xFFFFFFFF, b'\x24\xFF\xFF\xFF\xFF'),
-        (-0xFFFFFFFF, b'\x34\xFF\xFF\xFF\xFF'),
-        (0xFFFFFFFFFFFFFFFF, b'\x28\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF'),
-        (-0xFFFFFFFFFFFFFFFF, b'\x38\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF'),
-        (0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,
-         b'\x2E\x90\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF'),
-        (-0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,
-         b'\x3E\x90\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF'),
-    ),
-    _IT.FLOAT: (
-        (None, b'\x4F'),
-        (0e0, b'\x40'),
-        (1e0, b'\x48\x3F\xF0\x00\x00\x00\x00\x00\x00'),
-        (-1e0, b'\x48\xBF\xF0\x00\x00\x00\x00\x00\x00'),
-        (1e1, b'\x48\x40\x24\x00\x00\x00\x00\x00\x00'),
-        (-1e1, b'\x48\xC0\x24\x00\x00\x00\x00\x00\x00'),
-        (float('inf'), b'\x48\x7F\xF0\x00\x00\x00\x00\x00\x00'),
-        (float('-inf'), b'\x48\xFF\xF0\x00\x00\x00\x00\x00\x00'),
-    ),
-    _IT.DECIMAL: (
-        (None, b'\x5F'),
-        (_D(0), b'\x50'),
-        (_D(0).copy_negate(), b'\x52\x80\x80'),
-        (_D("1e1"), b'\x52\x81\x01'),
-        (_D("1e0"), b'\x52\x80\x01'),
-        (_D("1e-1"), b'\x52\xC1\x01'),
-        (_D("0e-1"), b'\x51\xC1'),
-        (_D("0e1"), b'\x51\x81'),
-        (_D("-1e1"), b'\x52\x81\x81'),
-        (_D("-1e0"), b'\x52\x80\x81'),
-        (_D("-1e-1"), b'\x52\xC1\x81'),
-        (_D("-0e-1"), b'\x52\xC1\x80'),
-        (_D("-0e1"), b'\x52\x81\x80'),
-    ),
-    _IT.TIMESTAMP: (
-        (None, b'\x6F'),
-        # TODO Clarify whether there's a valid zero-length Timestamp representation.
-        (_DT(year=1, month=1, day=1), b'\x67\xC0\x81\x81\x81\x80\x80\x80'),
-        (_DT(year=1, month=1, day=1, tzinfo=OffsetTZInfo(timedelta(minutes=1))),
-         b'\x67\x81\x81\x81\x81\x80\x80\x80'),
-        (_DT(year=1, month=1, day=1, hour=0, minute=0, second=0, microsecond=1),
-         b'\x69\xC0\x81\x81\x81\x80\x80\x80\xC6\x01'),
-    ),
-    _IT.SYMBOL: (
-        (None, b'\x7F'),
-        (0, b'\x70'),
-        (1, b'\x71\x01'),
-    ),
-    _IT.STRING: (
-        (None, b'\x8F'),
-        (u'', b'\x80'),
-        (u'abc', b'\x83abc'),
-        (u'abcdefghijklmno', b'\x8E\x8Fabcdefghijklmno'),
-        (u'a\U0001f4a9c', b'\x86' + bytearray([b for b in u'a\U0001f4a9c'.encode('utf-8')])),
-        (u'a\u0009\x0a\x0dc', b'\x85' + bytearray([b for b in 'a\t\n\rc'.encode('utf-8')])),
-    ),
-    _IT.CLOB: (
-        (None, b'\x9F'),
-        (b'', b'\x90'),
-        (b'abc', b'\x93' + b'abc'),
-        (b'abcdefghijklmno', b'\x9E\x8Fabcdefghijklmno'),
-    ),
-    _IT.BLOB: (
-        (None, b'\xAF'),
-        (b'', b'\xA0'),
-        (b'abc', b'\xA3' + b'abc'),
-        (b'abcdefghijklmno', b'\xAE\x8Fabcdefghijklmno'),
-    ),
-    _IT.LIST: (
-        (None, b'\xBF'),
-    ),
-    _IT.SEXP: (
-        (None, b'\xCF'),
-    ),
-    _IT.STRUCT: (
-        (None, b'\xDF'),
-    ),
-}
-
-_ION_ENCODED_INT_ZERO = 0x20
-_VARUINT_END_BYTE = 0x80
-
-
 _SIMPLE_CONTAINER_MAP = {
     _IT.LIST: (
         (
@@ -236,7 +140,7 @@ _SIMPLE_CONTAINER_MAP = {
             (_E(_ET.SCALAR, _IT.INT, 0),),
             bytearray([
                 0xB0 | 0x01,  # Int value 0 fits in 1 byte.
-                _ION_ENCODED_INT_ZERO
+                ION_ENCODED_INT_ZERO
             ])
         ),
     ),
@@ -249,7 +153,7 @@ _SIMPLE_CONTAINER_MAP = {
             (_E(_ET.SCALAR, _IT.INT, 0),),
             bytearray([
                 0xC0 | 0x01,  # Int value 0 fits in 1 byte.
-                _ION_ENCODED_INT_ZERO
+                ION_ENCODED_INT_ZERO
             ])
         ),
     ),
@@ -259,25 +163,26 @@ _SIMPLE_CONTAINER_MAP = {
             b'\xD0'
         ),
         (
-            (_E(_ET.SCALAR, _IT.INT, 0, field_name=10),),
+            (_E(_ET.SCALAR, _IT.INT, 0, field_name=SymbolToken(None, 10)),),
             bytearray([
                 0xDE,  # The lower nibble may vary by implementation. It does not indicate actual length unless it's 0.
-                _VARUINT_END_BYTE | 2,  # # Field name 10 and value 0 each fit in 1 byte.
-                _VARUINT_END_BYTE | 10,
-                _ION_ENCODED_INT_ZERO
+                VARUINT_END_BYTE | 2,  # Field name 10 and value 0 each fit in 1 byte.
+                VARUINT_END_BYTE | 10,
+                ION_ENCODED_INT_ZERO
             ])
         ),
     ),
 }
 
 
-_generate_simple_scalars = partial(generate_scalars, _SIMPLE_SCALARS_MAP, True)
+_generate_simple_scalars = partial(generate_scalars, SIMPLE_SCALARS_MAP, True)
 _generate_simple_containers = partial(generate_containers, _SIMPLE_CONTAINER_MAP, True)
 
 
 def _generate_annotated_values():
     for value_p in chain(_generate_simple_scalars(), _generate_simple_containers()):
-        events = (value_p.events[0].derive_annotations([10, 11]),) + value_p.events[1:]
+        events = (value_p.events[0].derive_annotations(
+            [SymbolToken(None, 10), SymbolToken(None, 11)]),) + value_p.events[1:]
         annot_length = 2  # 10 and 11 each fit in one VarUInt byte
         annot_length_length = 1  # 2 fits in one VarUInt byte
         value_length = len(value_p.expected)
@@ -285,9 +190,9 @@ def _generate_annotated_values():
         wrapper = []
         _write_length(wrapper, length_field, 0xE0)
         wrapper.extend([
-            _VARUINT_END_BYTE | annot_length,
-            _VARUINT_END_BYTE | 10,
-            _VARUINT_END_BYTE | 11
+            VARUINT_END_BYTE | annot_length,
+            VARUINT_END_BYTE | 10,
+            VARUINT_END_BYTE | 11
         ])
         yield _P(
             desc='ANN %s' % value_p.desc,
