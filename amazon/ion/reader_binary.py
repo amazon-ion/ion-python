@@ -193,6 +193,7 @@ def _parse_decimal(buf):
         # Handle the zero cases--especially negative zero
         value = Decimal((sign_bit, (0,), exponent))
     else:
+        coefficient *= sign_bit and -1 or 1
         value = Decimal(coefficient).scaleb(exponent)
 
     return value

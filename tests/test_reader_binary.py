@@ -17,6 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from datetime import timedelta
 from decimal import Decimal
 from itertools import chain
 from random import Random
@@ -26,7 +27,7 @@ from tests import parametrize, listify
 from tests.reader_util import reader_scaffold, ReaderParameter
 from tests.event_aliases import *
 
-from amazon.ion.core import IonType, timestamp, TimestampPrecision
+from amazon.ion.core import IonType, timestamp, TimestampPrecision, OffsetTZInfo
 from amazon.ion.exceptions import IonException
 from amazon.ion.reader import read_data_event, ReadEventType
 from amazon.ion.reader_binary import raw_reader, _TypeID, _CONTAINER_TIDS, _TID_VALUE_TYPE_TABLE
@@ -130,6 +131,16 @@ _TOP_LEVEL_VALUES = (
     (b'\x54\x07\xE8\x00\x00', e_decimal(Decimal('0e1000'))),
     (b'\x52\x81\x01', e_decimal(Decimal('1e1'))),
     (b'\x53\xD4\x04\xD2', e_decimal(Decimal('1234e-20'))),
+    (b'\x52\x80\x80', e_decimal(Decimal(0).copy_negate())),
+    (b'\x52\x80\x01', e_decimal(Decimal('1e0'))),
+    (b'\x52\xC1\x01', e_decimal(Decimal('1e-1'))),
+    (b'\x51\xC1', e_decimal(Decimal('0e-1'))),
+    (b'\x51\x81', e_decimal(Decimal('0e1'))),
+    (b'\x52\x81\x81', e_decimal(Decimal('-1e1'))),
+    (b'\x52\x80\x81', e_decimal(Decimal('-1e0'))),
+    (b'\x52\xC1\x81', e_decimal(Decimal('-1e-1'))),
+    (b'\x52\xC1\x80', e_decimal(Decimal('-0e-1'))),
+    (b'\x52\x81\x80', e_decimal(Decimal('-0e1'))),
 
     (b'\x6F', e_timestamp()),
     (b'\x63\xC0\x0F\xE0', e_timestamp(_ts(2016, precision=_PREC_YEAR))), # -00:00
@@ -151,8 +162,20 @@ _TOP_LEVEL_VALUES = (
         e_timestamp(_ts(2016, 2, 2, 0, 0, 30, off_hours=-7, precision=_PREC_SECOND))
     ),
     (
-        b'\x6B\x43\xA4\x0F\xE0\x82\x82\x87\x80\x9E\xC3\x81',
+        b'\x6B\x43\xA4\x0F\xE0\x82\x82\x87\x80\x9E\xC3\x01',
         e_timestamp(_ts(2016, 2, 2, 0, 0, 30, 1000, off_hours=-7, precision=_PREC_SECOND))
+    ),
+    (
+        b'\x67\xC0\x81\x81\x81\x80\x80\x80',
+        e_timestamp(_ts(year=1, month=1, day=1, precision=_PREC_SECOND))
+    ),
+    (
+        b'\x67\xC1\x81\x81\x81\x80\x81\x80',
+        e_timestamp(_ts(year=1, month=1, day=1, off_minutes=-1, precision=_PREC_SECOND))
+    ),
+    (
+        b'\x69\xC0\x81\x81\x81\x80\x80\x80\xC6\x01',
+        e_timestamp(_ts(year=1, month=1, day=1, hour=0, minute=0, second=0, microsecond=1, precision=_PREC_SECOND))
     ),
 
     (b'\x7F', e_symbol()),
