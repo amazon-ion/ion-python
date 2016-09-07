@@ -24,7 +24,7 @@ from amazon.ion.writer_binary import _IVM
 from amazon.ion.core import IonType, IonEvent, IonEventType, OffsetTZInfo
 from amazon.ion.simple_types import IonPyDict, IonPyText, IonPyList, IonPyNull, IonPyBool, IonPyInt, IonPyFloat, \
     IonPyDecimal, IonPyTimestamp, IonPyBytes, IonPySymbol, _IonNature
-from amazon.ion.simpleion import dump, load, _ion_type
+from amazon.ion.simpleion import dump, load, _ion_type, _TYPE_TABLE
 from amazon.ion.util import record
 from amazon.ion.writer_binary_raw import _serialize_symbol, _write_length
 from tests.writer_util import VARUINT_END_BYTE, ION_ENCODED_INT_ZERO, SIMPLE_SCALARS_MAP
@@ -35,21 +35,6 @@ class Parameter(record('desc', 'obj', 'expected', 'has_symbols', ('stream', Fals
     def __str__(self):
         return self.desc
 
-_TYPE_TABLE = [
-    IonPyNull,
-    IonPyBool,
-    IonPyInt,
-    IonPyFloat,
-    IonPyDecimal,
-    IonPyTimestamp,
-    IonPySymbol,
-    IonPyText,
-    IonPyBytes,
-    IonPyBytes,
-    IonPyList,
-    IonPyList,
-    IonPyDict
-]
 
 _SIMPLE_CONTAINER_MAP = {
     IonType.LIST: (

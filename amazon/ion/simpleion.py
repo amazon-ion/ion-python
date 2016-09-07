@@ -30,7 +30,7 @@ from .reader import blocking_reader, NEXT_EVENT
 from .reader_binary import raw_reader
 from .reader_managed import managed_reader
 from .simple_types import IonPyList, IonPyDict, IonPyNull, IonPyBool, IonPyInt, IonPyFloat, IonPyDecimal, \
-    IonPyTimestamp, IonPyText, IonPyBytes, _IonNature, IonPySymbol
+    IonPyTimestamp, IonPyText, IonPyBytes, _IonNature, IonPySymbol, is_null
 from .symbols import SymbolToken
 from .writer import blocking_writer
 from .writer_binary import binary_writer
@@ -83,36 +83,32 @@ def _ion_type(obj):
 
 
 def _dump(obj, writer, field=None):
-    if obj is None:
-        event = IonEvent(IonEventType.SCALAR, IonType.NULL, field_name=field)
-    elif obj is True:
-        event = IonEvent(IonEventType.SCALAR, IonType.BOOL, True, field_name=field)
-    elif obj is False:
-        event = IonEvent(IonEventType.SCALAR, IonType.BOOL, False, field_name=field)
-    elif isinstance(obj, dict):
-        if isinstance(obj, _IonNature):
+    null = is_null(obj)
+    try:
+        ion_type = obj.ion_type
+        ion_nature = True
+    except AttributeError:
+        ion_type = _ion_type(obj)
+        ion_nature = False
+    if not null and ion_type.is_container:
+        if ion_nature:
             event = obj.to_event(IonEventType.CONTAINER_START, field_name=field)
         else:
-            event = IonEvent(IonEventType.CONTAINER_START, IonType.STRUCT, field_name=field)
+            event = IonEvent(IonEventType.CONTAINER_START, ion_type, field_name=field)
         writer.send(event)
-        for field, val in six.iteritems(obj):
-            _dump(val, writer, field)
-        event = _ION_CONTAINER_END_EVENT
-    elif isinstance(obj, list):
-        if isinstance(obj, _IonNature):
-            event = obj.to_event(IonEventType.CONTAINER_START, field_name=field)
+        if ion_type is IonType.STRUCT:
+            for field, val in six.iteritems(obj):
+                _dump(val, writer, field)
         else:
-            event = IonEvent(IonEventType.CONTAINER_START, IonType.LIST, field_name=field)
-        writer.send(event)
-        for elem in obj:
-            _dump(elem, writer)
+            for elem in obj:
+                _dump(elem, writer)
         event = _ION_CONTAINER_END_EVENT
     else:
         # obj is a scalar value
-        if isinstance(obj, _IonNature):
+        if ion_nature:
             event = obj.to_event(IonEventType.SCALAR, field_name=field)
         else:
-            event = IonEvent(IonEventType.SCALAR, _ion_type(obj), obj, field_name=field)
+            event = IonEvent(IonEventType.SCALAR, ion_type, obj, field_name=field)
     writer.send(event)
 
 
@@ -135,6 +131,23 @@ def load(fp, catalog=None, single_value=True, encoding='utf-8', cls=None, object
     return out
 
 
+_TYPE_TABLE = [
+    IonPyNull,
+    IonPyBool,
+    IonPyInt,
+    IonPyFloat,
+    IonPyDecimal,
+    IonPyTimestamp,
+    IonPySymbol,
+    IonPyText,
+    IonPyBytes,
+    IonPyBytes,
+    IonPyList,
+    IonPyList,
+    IonPyDict
+]
+
+
 def _load(out, reader, end_type=IonEventType.STREAM_END, in_struct=False):
 
     def add(obj):
@@ -146,39 +159,17 @@ def _load(out, reader, end_type=IonEventType.STREAM_END, in_struct=False):
 
     event = reader.send(NEXT_EVENT)
     while event.event_type is not end_type:
+        ion_type = event.ion_type
         if event.event_type is IonEventType.CONTAINER_START:
-            # TODO any difference between list and sexp?
-            if event.ion_type is IonType.LIST or event.ion_type is IonType.SEXP:
-                lst = IonPyList.from_event(event)
-                _load(lst, reader, IonEventType.CONTAINER_END)
-                add(lst)
-            elif event.ion_type is IonType.STRUCT:
-                dct = IonPyDict.from_event(event)
-                _load(dct, reader, IonEventType.CONTAINER_END, True)
-                add(dct)
-            else:
-                raise ValueError("Illegal IonType for %r: %r " % (event.event_type, event.ion_type))
+            container = _TYPE_TABLE[ion_type].from_event(event)
+            _load(container, reader, IonEventType.CONTAINER_END, ion_type is IonType.STRUCT)
+            add(container)
         elif event.event_type is IonEventType.SCALAR:
-            if event.value is None or event.ion_type is IonType.NULL or event.ion_type.is_container:
-                add(IonPyNull.from_event(event))
-            elif event.ion_type is IonType.BOOL:
-                add(IonPyBool.from_event(event))
-            elif event.ion_type is IonType.INT:
-                add(IonPyInt.from_event(event))
-            elif event.ion_type is IonType.FLOAT:
-                add(IonPyFloat.from_event(event))
-            elif event.ion_type is IonType.DECIMAL:
-                add(IonPyDecimal.from_event(event))
-            elif event.ion_type is IonType.TIMESTAMP:
-                add(IonPyTimestamp.from_event(event))
-            elif event.ion_type is IonType.STRING:
-                add(IonPyText.from_event(event))
-            elif event.ion_type is IonType.SYMBOL:
-                add(IonPySymbol.from_event(event))
-            elif event.ion_type is IonType.BLOB or event.ion_type is IonType.CLOB:
-                add(IonPyBytes.from_event(event))
+            if event.value is None or ion_type is IonType.NULL or event.ion_type.is_container:
+                scalar = IonPyNull.from_event(event)
             else:
-                raise ValueError("Illegal IonType for %r: %r " % (event.event_type, event.ion_type))
+                scalar = _TYPE_TABLE[ion_type].from_event(event)
+            add(scalar)
         event = reader.send(NEXT_EVENT)
 
 
