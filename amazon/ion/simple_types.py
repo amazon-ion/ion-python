@@ -115,22 +115,11 @@ class _IonNature(object):
                                       annotations=self.ion_annotations, depth=depth)
         return self.ion_event
 
-    def annotation_str(self):
-        out = ''
-        for annotation in self.ion_annotations:
-            out += annotation + '::'
-        return out
-
 
 def _ion_type_for(name, base_cls):
     class IonPyValueType(base_cls, _IonNature):
         def __init__(self, *args, **kwargs):
             super(IonPyValueType, self).__init__(*args, **kwargs)
-
-        def __str__(self):
-            return self.annotation_str() + super(IonPyValueType, self).__repr__()
-
-        __repr__ = __str__
 
     IonPyValueType.__name__ = name
     return IonPyValueType
@@ -142,12 +131,7 @@ else:
     IonPyInt = _ion_type_for('IonPyInt', int)
 
 
-class IonPyBool(IonPyInt):
-    def __str__(self):
-        return self.annotation_str() + str(bool(self)).lower()  # TODO ion representation or python representation?
-
-    __repr__ = __str__
-
+IonPyBool = IonPyInt
 IonPyFloat = _ion_type_for('IonPyFloat', float)
 IonPyDecimal = _ion_type_for('IonPyDecimal', Decimal)
 IonPyText = _ion_type_for('IonPyText', six.text_type)
@@ -210,11 +194,6 @@ class IonPyNull(_IonNature):
 
     def __bool__(self):
         return False
-
-    def __str__(self):
-        return self.annotation_str() + str(_NULL_TYPE_NAMES[self.ion_type], 'utf-8')
-
-    __repr__ = __str__
 
     @staticmethod
     def _to_constructor_args(value):

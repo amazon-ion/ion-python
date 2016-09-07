@@ -24,7 +24,7 @@ from amazon.ion.writer_binary import _IVM
 from amazon.ion.core import IonType, IonEvent, IonEventType, OffsetTZInfo
 from amazon.ion.simple_types import IonPyDict, IonPyText, IonPyList, IonPyNull, IonPyBool, IonPyInt, IonPyFloat, \
     IonPyDecimal, IonPyTimestamp, IonPyBytes, IonPySymbol, _IonNature
-from amazon.ion.simpleion import dump, load, _ion_type, _TYPE_TABLE
+from amazon.ion.simpleion import dump, load, _ion_type, _FROM_ION_TYPE
 from amazon.ion.util import record
 from amazon.ion.writer_binary_raw import _serialize_symbol, _write_length
 from tests.writer_util import VARUINT_END_BYTE, ION_ENCODED_INT_ZERO, SIMPLE_SCALARS_MAP
@@ -136,7 +136,7 @@ def generate_scalars(scalars_map, preceding_symbols=0):
                 yield Parameter(IonType.SYMBOL.name + ' ' + native,
                                 IonPyText.from_value(IonType.SYMBOL, native), symbol_expected, True)
             yield Parameter(ion_type.name + ' ' + str(native), native, native_expected, has_symbols)
-            wrapper = _TYPE_TABLE[ion_type].from_value(ion_type, native)  # TODO add some annotations
+            wrapper = _FROM_ION_TYPE[ion_type].from_value(ion_type, native)  # TODO add some annotations
             yield Parameter(repr(wrapper), wrapper, expected, has_symbols)
 
 
@@ -276,15 +276,15 @@ def _generate_roundtrips(roundtrips):
         yield obj
         if not isinstance(obj, _IonNature):
             ion_type = _ion_type(obj)
-            yield _TYPE_TABLE[ion_type].from_value(ion_type, obj)
+            yield _FROM_ION_TYPE[ion_type].from_value(ion_type, obj)
         else:
             ion_type = obj.ion_type
         if isinstance(obj, IonPyNull):
             obj = None
-        yield _TYPE_TABLE[ion_type].from_value(ion_type, obj, annotations=('annot1', 'annot2'))
+        yield _FROM_ION_TYPE[ion_type].from_value(ion_type, obj, annotations=('annot1', 'annot2'))
         if isinstance(obj, list):
-            yield _TYPE_TABLE[ion_type].from_value(IonType.SEXP, obj)
-            yield _TYPE_TABLE[ion_type].from_value(IonType.SEXP, obj, annotations=('annot1', 'annot2'))
+            yield _FROM_ION_TYPE[ion_type].from_value(IonType.SEXP, obj)
+            yield _FROM_ION_TYPE[ion_type].from_value(IonType.SEXP, obj, annotations=('annot1', 'annot2'))
 
 
 def _assert_roundtrip(before, after):
@@ -294,7 +294,7 @@ def _assert_roundtrip(before, after):
         out = obj
         if not isinstance(out, _IonNature):
             ion_type = _ion_type(out)
-            out = _TYPE_TABLE[ion_type].from_value(ion_type, out)
+            out = _FROM_ION_TYPE[ion_type].from_value(ion_type, out)
         if isinstance(out, dict):
             update = {}
             for field, value in six.iteritems(out):
