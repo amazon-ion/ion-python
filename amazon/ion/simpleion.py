@@ -54,6 +54,34 @@ def dump(obj, fp, imports=None, sequence_as_stream=False, skipkeys=False, ensure
     writer.send(ION_STREAM_END_EVENT)
 
 
+def _ion_type(obj):
+    if obj is None:
+        ion_type = IonType.NULL
+    elif obj is True or obj is False:
+        ion_type = IonType.BOOL
+    elif isinstance(obj, six.integer_types):
+        ion_type = IonType.INT
+    elif isinstance(obj, float):
+        ion_type = IonType.FLOAT
+    elif isinstance(obj, six.text_type):
+        ion_type = IonType.STRING
+    elif isinstance(obj, Decimal):
+        ion_type = IonType.DECIMAL
+    elif isinstance(obj, datetime):  # TODO accept 'Timestamp' too?
+        ion_type = IonType.TIMESTAMP
+    elif isinstance(obj, six.binary_type):
+        ion_type = IonType.BLOB
+    elif isinstance(obj, SymbolToken):
+        ion_type = IonType.SYMBOL
+    elif isinstance(obj, list):
+        ion_type = IonType.LIST
+    elif isinstance(obj, dict):
+        ion_type = IonType.STRUCT
+    else:
+        raise ValueError('Unknown scalar type %r' % (type(obj),))
+    return ion_type
+
+
 def _dump(obj, writer, field=None):
     if obj is None:
         event = IonEvent(IonEventType.SCALAR, IonType.NULL, field_name=field)
@@ -84,23 +112,7 @@ def _dump(obj, writer, field=None):
         if isinstance(obj, _IonNature):
             event = obj.to_event(IonEventType.SCALAR, field_name=field)
         else:
-            if isinstance(obj, six.integer_types):
-                ion_type = IonType.INT
-            elif isinstance(obj, float):
-                ion_type = IonType.FLOAT
-            elif isinstance(obj, six.text_type):
-                ion_type = IonType.STRING
-            elif isinstance(obj, Decimal):
-                ion_type = IonType.DECIMAL
-            elif isinstance(obj, datetime):
-                ion_type = IonType.TIMESTAMP
-            elif isinstance(obj, six.binary_type):
-                ion_type = IonType.BLOB
-            elif isinstance(obj, SymbolToken):
-                ion_type = IonType.SYMBOL
-            else:
-                raise ValueError('Unknown scalar type %r' % (type(obj),))
-            event = IonEvent(IonEventType.SCALAR, ion_type, obj, field_name=field)
+            event = IonEvent(IonEventType.SCALAR, _ion_type(obj), obj, field_name=field)
     writer.send(event)
 
 
