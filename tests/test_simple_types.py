@@ -28,7 +28,7 @@ from amazon.ion.util import record
 from amazon.ion.symbols import SymbolToken
 from amazon.ion.simple_types import is_null, IonPyNull, IonPyBool, IonPyInt, IonPyFloat, \
                                     IonPyDecimal, IonPyTimestamp, IonPyText, IonPyBytes, \
-                                    IonPyList, IonPyDict
+                                    IonPyList, IonPyDict, IonPySymbol
 
 _TEST_FIELD_NAME = SymbolToken('foo', 10)
 _TEST_ANNOTATIONS = (SymbolToken('bar', 11),)
@@ -49,6 +49,7 @@ _EVENT_TYPES = [
     (IonPyDecimal, e_decimal(Decimal('1.1'))),
     (IonPyTimestamp, e_timestamp(datetime(2012, 1, 1))),
     (IonPyTimestamp, e_timestamp(Timestamp(2012, 1, 1, precision=TimestampPrecision.DAY))),
+    (IonPySymbol, e_symbol(SymbolToken(u'Hola', None, None))),
     (IonPyText, e_string(u'Hello')),
     (IonPyBytes, e_clob(b'Goodbye')),
 
@@ -74,7 +75,9 @@ def test_event_types(p):
     ion_type = p.event.ion_type
 
     event_output = p.type.from_event(p.event)
-    value_output = p.type.from_value(ion_type, value, tuple(x.text for x in p.event.annotations))
+    value_output = p.type.from_value(ion_type, value, p.event.annotations)
+    to_event_output = value_output.to_event(p.event.event_type, p.event.field_name, p.event.depth)
+    assert p.event == to_event_output
 
     if p.type is IonPyNull:
         # Null is a special case due to the non-extension of NoneType.
@@ -96,12 +99,10 @@ def test_event_types(p):
         output_event = e_scalar(ion_type, event_output)
         assert value_event == output_event
 
-    annotation_texts = tuple(x.text for x in p.event.annotations)
-
     assert event_output.ion_event == p.event
     assert event_output.ion_type is ion_type
-    assert annotation_texts == event_output.ion_annotations
+    assert p.event.annotations == event_output.ion_annotations
 
-    assert value_output.ion_event is None
+    assert value_output.ion_event is to_event_output
     assert value_output.ion_type is ion_type
-    assert annotation_texts == value_output.ion_annotations
+    assert p.event.annotations == value_output.ion_annotations

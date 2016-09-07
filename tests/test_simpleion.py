@@ -18,7 +18,9 @@ from decimal import Decimal
 from itertools import chain
 
 import six
+from pytest import raises
 
+from amazon.ion.exceptions import IonException
 from amazon.ion.symbols import SymbolToken
 from amazon.ion.writer_binary import _IVM
 from amazon.ion.core import IonType, IonEvent, IonEventType, OffsetTZInfo
@@ -318,3 +320,19 @@ def test_roundtrip(obj):
     out.seek(0)
     res = load(out)
     _assert_roundtrip(obj, res)
+
+
+def test_single_value_with_stream_fails():
+    out = BytesIO()
+    dump(['foo', 123], out, sequence_as_stream=True)
+    out.seek(0)
+    with raises(IonException):
+        load(out, single_value=True)
+
+
+def test_unknown_object_type_fails():
+    class Dummy:
+        pass
+    out = BytesIO()
+    with raises(TypeError):
+        dump(Dummy(), out)

@@ -74,7 +74,7 @@ class _IonNature(object):
         value = cls(*args, **kwargs)
         value.ion_event = ion_event
         value.ion_type = ion_event.ion_type
-        value.ion_annotations = tuple(x.text for x in ion_event.annotations)
+        value.ion_annotations = ion_event.annotations
         return value
 
     @classmethod
