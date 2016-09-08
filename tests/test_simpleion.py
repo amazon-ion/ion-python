@@ -127,7 +127,7 @@ def generate_scalars(scalars_map, preceding_symbols=0):
                 native_expected = b'\x0f'
             elif ion_type is IonType.CLOB:
                 # All six.binary_type are treated as BLOBs unless wrapped by an _IonNature
-                tid = expected[0] + 0x10  # increment upper nibble for clob -> blob; keep lower nibble
+                tid = six.byte2int(expected) + 0x10  # increment upper nibble for clob -> blob; keep lower nibble
                 native_expected = bytearray([tid]) + expected[1:]
             elif ion_type is IonType.SYMBOL and native is not None:
                 has_symbols = True
@@ -137,7 +137,7 @@ def generate_scalars(scalars_map, preceding_symbols=0):
                     IonEvent(IonEventType.SCALAR, IonType.SYMBOL, SymbolToken(None, 10 + preceding_symbols)))
                 yield Parameter(IonType.SYMBOL.name + ' ' + native,
                                 IonPyText.from_value(IonType.SYMBOL, native), symbol_expected, True)
-            yield Parameter(ion_type.name + ' ' + str(native), native, native_expected, has_symbols)
+            yield Parameter('%s %s' % (ion_type.name, native), native, native_expected, has_symbols)
             wrapper = _FROM_ION_TYPE[ion_type].from_value(ion_type, native)  # TODO add some annotations
             yield Parameter(repr(wrapper), wrapper, expected, has_symbols)
 
@@ -155,7 +155,10 @@ def generate_containers(container_map, preceding_symbols=0):
                 for expected in expecteds:
                     field_sid = expected[-2] & (~VARUINT_END_BYTE)
                     expected[-2] = VARUINT_END_BYTE | (preceding_symbols + field_sid)
-            yield Parameter(IonType.SYMBOL.name + ' ' + repr(obj), obj, b''.join(expecteds), has_symbols, True)
+            expected = bytearray()
+            for e in expecteds:
+                expected.extend(e)
+            yield Parameter(IonType.SYMBOL.name + ' ' + repr(obj), obj, expected, has_symbols, True)
 
 
 def generate_annotated_values(scalars_map, container_map):
@@ -248,24 +251,24 @@ _ROUNDTRIPS = [
     [[[]]],
     [[],[],[]],
     [{}, {}, {}],
-    {'foo': [], 'bar': [], 'baz': []},
-    {'foo': {'foo': {}}},
-    [{'foo': [{'foo': []}]}],
-    {'foo': [{'foo': []}]},
+    {u'foo': [], u'bar': [], u'baz': []},
+    {u'foo': {u'foo': {}}},
+    [{u'foo': [{u'foo': []}]}],
+    {u'foo': [{u'foo': []}]},
     {
-         "foo": IonPyText.from_value(IonType.STRING, 'bar', annotations=('str',)),
-         "baz": 123,
-         "lst": IonPyList.from_value(IonType.LIST,
+         u'foo': IonPyText.from_value(IonType.STRING, u'bar', annotations=(u'str',)),
+         u'baz': 123,
+         u'lst': IonPyList.from_value(IonType.LIST,
                                      [
                                          True,
                                          None,
                                          1.23e4,
-                                         IonPyText.from_value(IonType.SYMBOL, 'sym')
+                                         IonPyText.from_value(IonType.SYMBOL, u'sym')
                                      ]),
-         "sxp": IonPyList.from_value(IonType.SEXP,
+         u'sxp': IonPyList.from_value(IonType.SEXP,
                                      [
                                          False,
-                                         IonPyNull.from_value(IonType.STRUCT, None, ('class',)),
+                                         IonPyNull.from_value(IonType.STRUCT, None, (u'class',)),
                                          Decimal('5.678')
                                      ])
     },
@@ -283,10 +286,10 @@ def _generate_roundtrips(roundtrips):
             ion_type = obj.ion_type
         if isinstance(obj, IonPyNull):
             obj = None
-        yield _FROM_ION_TYPE[ion_type].from_value(ion_type, obj, annotations=('annot1', 'annot2'))
+        yield _FROM_ION_TYPE[ion_type].from_value(ion_type, obj, annotations=(u'annot1', u'annot2'))
         if isinstance(obj, list):
             yield _FROM_ION_TYPE[ion_type].from_value(IonType.SEXP, obj)
-            yield _FROM_ION_TYPE[ion_type].from_value(IonType.SEXP, obj, annotations=('annot1', 'annot2'))
+            yield _FROM_ION_TYPE[ion_type].from_value(IonType.SEXP, obj, annotations=(u'annot1', u'annot2'))
 
 
 def _assert_roundtrip(before, after):

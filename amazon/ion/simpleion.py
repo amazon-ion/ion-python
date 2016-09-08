@@ -149,7 +149,7 @@ _FROM_TYPE = dict(chain(
         dict: IonType.STRUCT
     }),
     six.iteritems(
-        dict(zip(six.integer_types, [IonType.INT * len(six.integer_types)]))
+        dict(zip(six.integer_types, [IonType.INT] * len(six.integer_types)))
     ),
 ))
 
@@ -159,10 +159,7 @@ def _ion_type(obj):
         ion_type = _FROM_TYPE[type(obj)]
     except KeyError:
         raise TypeError('Unknown scalar type %r' % (type(obj),))
-    # The _FROM_TYPE dict seems to lose the 'IonType' nature sometimes, simply returning an int, which is problematic
-    # later when using IonType properties like 'is_container'. This ensures that an actual IonType is returned.
-    # TODO investigate why this is the case.
-    return IonType._enum_members[ion_type]
+    return ion_type
 
 
 def _dump(obj, writer, field=None):
