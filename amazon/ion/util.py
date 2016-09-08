@@ -206,24 +206,77 @@ def unicode_iter(val):
             ``0x0`` to ``0x10FFFF``.
     """
     val_iter = iter(val)
-    for ch in val_iter:
-        code_point = ord(ch)
-        if _LOW_SURROGATE_START <= code_point <= _LOW_SURROGATE_END:
-            raise ValueError('Unpaired low surrogate in Unicode sequence: %r' % val)
-        elif _HIGH_SURROGATE_START <= code_point <= _HIGH_SURROGATE_END:
-            try:
-                low_code_point = ord(next(val_iter))
-                if low_code_point < _LOW_SURROGATE_START or low_code_point > _LOW_SURROGATE_END:
-                    raise ValueError('Unpaired high surrogate: %r' % val)
-                # Decode the surrogates
-                real_code_point = _NON_BMP_OFFSET
-                real_code_point |= (code_point - _HIGH_SURROGATE_START) << 10
-                real_code_point |= (low_code_point - _LOW_SURROGATE_START)
-                yield real_code_point
-            except StopIteration:
-                raise ValueError('Unpaired high surrogate at end of Unicode sequence: %r' % val)
-        else:
-            yield code_point
+    while True:
+        code_point = next(_next_code_point(val, val_iter, to_int=ord))
+        if code_point is None:
+            raise ValueError('Unpaired high surrogate at end of Unicode sequence: %r' % val)
+        yield code_point
+
+
+class CodePoint(int):
+    """Evaluates as the ordinal of a code point, while also containing the unicode character representation and
+    indicating whether the code point was escaped.
+    """
+    def __init__(self, *args, **kwargs):
+        self.char = None
+        self.is_escaped = False
+
+
+def _next_code_point(val, val_iter, yield_char=False, to_int=lambda x: x):
+    """Provides the next *code point* in the given Unicode sequence.
+
+    This generator function yields complete character code points, never incomplete surrogates. When a low surrogate is
+    found without following a high surrogate, this function raises ``ValueError`` for having encountered an unpaired
+    low surrogate. When the provided iterator ends on a high surrogate, this function yields ``None``. This is the
+    **only** case in which this function yields ``None``. When this occurs, the user may append additional data to the
+    input unicode sequence and resume iterating through another ``next`` on this generator. When this function receives
+    ``next`` after yielding ``None``, it *reinitializes the unicode iterator*. This means that this feature can only
+    be used for values that contain an ``__iter__`` implementation that remains at the current position in the data
+    when called (e.g. :class:`BufferQueue`). At this point, there are only two possible outcomes:
+        * If next code point is a valid low surrogate, this function yields the combined code point represented by the
+          surrogate pair.
+        * Otherwise, this function raises ``ValueError`` for having encountered an unpaired high surrogate.
+
+    Args:
+        val (unicode|BufferQueue): A unicode sequence or unicode BufferQueue over which to iterate.
+        val_iter (Iterator[unicode|BufferQueue]): The unicode sequence iterator over ``val`` from which to generate the
+            next integer code point in the range ``0x0`` to ``0x10FFFF``.
+        yield_char (Optional[bool]): If True **and** the character code point resulted from a surrogate pair, this
+            function will yield a :class:`CodePoint` representing the character code point and containing the original
+            unicode character. This is useful when the original unicode character will be needed again because UCS2
+            Python builds will error when trying to convert code points greater than 0xFFFF back into their
+            unicode character representations. This avoids requiring the user to mathematically re-derive the
+            surrogate pair in order to successfully convert the code point back to a unicode character.
+        to_int (Optional[callable]): A function to call on each element of val_iter to convert that element to an int.
+    """
+    high = next(val_iter)
+    low = None
+    code_point = to_int(high)
+    if _LOW_SURROGATE_START <= code_point <= _LOW_SURROGATE_END:
+        raise ValueError('Unpaired low surrogate in Unicode sequence: %d' % code_point)
+    elif _HIGH_SURROGATE_START <= code_point <= _HIGH_SURROGATE_END:
+        def combine_surrogates():
+            low_surrogate = next(val_iter)
+            low_code_point = to_int(low_surrogate)
+            if low_code_point < _LOW_SURROGATE_START or low_code_point > _LOW_SURROGATE_END:
+                raise ValueError('Unpaired high surrogate: %d' % code_point)
+            # Decode the surrogates
+            real_code_point = _NON_BMP_OFFSET
+            real_code_point |= (code_point - _HIGH_SURROGATE_START) << 10
+            real_code_point |= (low_code_point - _LOW_SURROGATE_START)
+            return real_code_point, low_surrogate
+        try:
+            code_point, low = combine_surrogates()
+        except StopIteration:
+            yield None
+            val_iter = iter(val)  # More data has appeared in val.
+            code_point, low = combine_surrogates()
+    if yield_char and low is not None:
+        out = CodePoint(code_point)
+        out.char = six.unichr(high) + six.unichr(low)
+    else:
+        out = code_point
+    yield out
 
 
 if sys.version_info < (2, 7):
