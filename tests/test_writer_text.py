@@ -36,7 +36,8 @@ from tests import parametrize
 from amazon.ion.symbols import SymbolToken
 from amazon.ion.writer import blocking_writer
 from amazon.ion.writer_text import raw_writer
-from tests.writer_util import assert_writer_events, WriterParameter, generate_scalars, generate_containers
+from tests.writer_util import assert_writer_events, WriterParameter, generate_scalars, generate_containers, \
+    SIMPLE_SCALARS_MAP_TEXT
 
 _D = Decimal
 _DT = datetime
@@ -45,125 +46,6 @@ _E = IonEvent
 _IT = IonType
 _ET = IonEventType
 _P = WriterParameter
-
-
-def _convert_symbol_pairs(symbol_pairs):
-    for value, literal in symbol_pairs:
-        yield (value, literal.replace(b"'", b'"'))
-
-
-def _convert_clob_pairs(clob_pairs):
-    for value, literal in clob_pairs:
-        yield (value, b'{{' + b64encode(value) + b'}}')
-
-
-_SIMPLE_SYMBOLS=(
-    (u'', br"''"),
-    (u'\u0000', br"'\x00'"),
-    (u'4hello', br"'4hello'"),
-    (u'hello', br"'hello'"),
-    (u'hello world', br"'hello world'"),
-    (u'hello\u0009\x0a\x0dworld', br"'hello\t\n\rworld'"),
-    (u'hello\aworld', br"'hello\x07world'"),
-    (u'hello\u3000world', br"'hello\u3000world'"), # A full width space.
-    (u'hello\U0001f4a9world', br"'hello\U0001f4a9world'"), # A 'pile of poo' emoji code point.
-)
-_SIMPLE_STRINGS=tuple(_convert_symbol_pairs(_SIMPLE_SYMBOLS))
-
-_SIMPLE_CLOBS=(
-    (b'', br'{{""}}'),
-    (b'\x00', br'{{"\x00"}}'),
-    (b'hello', br'{{"hello"}}'),
-    (b'hello\x09\x0a\x0dworld', br'{{"hello\t\n\rworld"}}'),
-    (b'hello\xFFworld', br'{{"hello\xffworld"}}'),
-)
-_SIMPLE_BLOBS=tuple(_convert_clob_pairs(_SIMPLE_CLOBS))
-
-if sys.version_info < (2, 7):
-    # Python < 2.7 was not good at some float irrationals.
-    _FLOAT_1_1_ENC = b'1.1000000000000001e0'
-    _FLOAT_2_E_NEG_15_ENC = b'2.0000000000000002e-15'
-else:
-    _FLOAT_1_1_ENC = b'1.1e0'
-    _FLOAT_2_E_NEG_15_ENC = b'2e-15'
-
-_SIMPLE_SCALARS_MAP = {
-    _IT.NULL:(
-        (None, b'null'),
-    ),
-    _IT.BOOL: (
-        (None, b'null.bool'),
-        (True, b'true'),
-        (False, b'false'),
-    ),
-    _IT.INT: (
-        (None, b'null.int'),
-        (-1, b'-1'),
-        (0, b'0'),
-        (1, b'1'),
-        (0xFFFFFFFF, b'4294967295'),
-        (-0xFFFFFFFF, b'-4294967295'),
-        (0xFFFFFFFFFFFFFFFF, b'18446744073709551615'),
-        (-0xFFFFFFFFFFFFFFFF, b'-18446744073709551615'),
-    ),
-    _IT.FLOAT: (
-        (None, b'null.float'),
-        (float('NaN'), b'nan'),
-        (float('+Inf'), b'+inf'),
-        (float('-Inf'), b'-inf'),
-        (-0.0, b'-0.0e0'),
-        (0.0, b'0.0e0'),
-        (1.0, b'1.0e0'),
-        (-9007199254740991.0, b'-9007199254740991.0e0'),
-        (2.0e-15, _FLOAT_2_E_NEG_15_ENC),
-        (1.1, _FLOAT_1_1_ENC),
-        (1.1999999999999999555910790149937383830547332763671875e0, b'1.2e0'),
-    ),
-    _IT.DECIMAL: (
-        (None, b'null.decimal'),
-        (_D('-0.0'), b'-0.0'),
-        (_D('0'), b'0d0'),
-        (_D('0e100'), b'0d+100'),
-        (_D('0e-15'), b'0d-15'),
-        (_D('-1e1000'), b'-1d+1000'),
-        (_D('-4.412111311414141e1000'), b'-4.412111311414141d+1000'),
-        (_D('1.1999999999999999555910790149937383830547332763671875e0'),
-            b'1.1999999999999999555910790149937383830547332763671875'),
-    ),
-    _IT.TIMESTAMP: (
-        (None, b'null.timestamp'),
-        (_DT(2016, 1, 1), b'2016-01-01T00:00:00-00:00'),
-        (_DT(2016, 1, 1, 12), b'2016-01-01T12:00:00-00:00'),
-        (_DT(2016, 1, 1, 12, 34, 12), b'2016-01-01T12:34:12-00:00'),
-        (_DT(2016, 1, 1, 12, 34, 12, 555000), b'2016-01-01T12:34:12.555000-00:00'),
-        (_DT(2016, 1, 1, 12, 34, 12, tzinfo=OffsetTZInfo()), b'2016-01-01T12:34:12+00:00'),
-        (_DT(2016, 1, 1, 12, 34, 12, tzinfo=OffsetTZInfo(timedelta(hours=-7))),
-            b'2016-01-01T12:34:12-07:00'),
-    ),
-    _IT.SYMBOL: (
-        (None, b'null.symbol'),
-        (SymbolToken(None, 4), b'$4'), # System symbol 'name'.
-        (SymbolToken(u'a token', 400), b"'a token'"),
-    ) + _SIMPLE_SYMBOLS,
-    _IT.STRING: (
-        (None, b'null.string'),
-    ) + _SIMPLE_STRINGS,
-    _IT.CLOB: (
-        (None, b'null.clob'),
-    ) + _SIMPLE_CLOBS,
-    _IT.BLOB: (
-        (None, b'null.blob'),
-    ) + _SIMPLE_BLOBS,
-    _IT.LIST: (
-        (None, b'null.list'),
-    ),
-    _IT.SEXP: (
-        (None, b'null.sexp'),
-    ),
-    _IT.STRUCT: (
-        (None, b'null.struct'),
-    ),
-}
 
 _EMPTY_CONTAINER_MAP = {
     _IT.LIST: (
@@ -186,7 +68,7 @@ _EMPTY_CONTAINER_MAP = {
     ),
 }
 
-_generate_simple_scalars = partial(generate_scalars, _SIMPLE_SCALARS_MAP)
+_generate_simple_scalars = partial(generate_scalars, SIMPLE_SCALARS_MAP_TEXT)
 _generate_empty_containers = partial(generate_containers, _EMPTY_CONTAINER_MAP)
 
 _SIMPLE_ANNOTATIONS = (

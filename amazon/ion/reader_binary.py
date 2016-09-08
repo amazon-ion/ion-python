@@ -360,7 +360,7 @@ def _read_data_handler(length, whence, ctx, skip=False, stream_event=ION_STREAM_
 
     while True:
         data_event, self = (yield trans)
-        if data_event is not None:
+        if data_event is not None and data_event.data is not None:
             data = data_event.data
             data_len = len(data)
             if data_len > 0:
@@ -822,3 +822,5 @@ def raw_reader(queue=None):
     )
 
     return reader_trampoline(_container_handler(None, ctx))
+
+binary_reader = raw_reader

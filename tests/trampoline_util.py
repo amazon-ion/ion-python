@@ -56,14 +56,14 @@ class TrampolineParameters(record('desc', 'coroutine', 'input', 'expected')):
         return self.desc
 
 
-def trampoline_scaffold(trampoline_func, p):
+def trampoline_scaffold(trampoline_func, p, *args):
     """Testing structure for trampolines.
 
     Args:
         trampoline_func (Callable): The function to construct a trampoline.
         p (TrampolineParams): The parameters for the test.
     """
-    trampoline = trampoline_func(p.coroutine)
+    trampoline = trampoline_func(p.coroutine, *args)
     assert len(p.input) == len(p.expected)
     for input, expected in zip(p.input, p.expected):
         if is_exception(expected):

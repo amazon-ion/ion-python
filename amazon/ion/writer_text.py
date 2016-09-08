@@ -373,4 +373,4 @@ def raw_writer():
 
 
 # TODO Determine if we need to do anything special for non-raw writer.  Validation?
-writer = raw_writer
+text_writer = raw_writer

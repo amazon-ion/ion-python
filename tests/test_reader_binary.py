@@ -24,7 +24,7 @@ from random import Random
 from six import int2byte
 
 from tests import parametrize, listify
-from tests.reader_util import reader_scaffold, ReaderParameter
+from tests.reader_util import reader_scaffold, ReaderParameter, all_top_level_as_one_stream_params, value_iter
 from tests.event_aliases import *
 
 from amazon.ion.core import IonType, timestamp, TimestampPrecision, OffsetTZInfo
@@ -216,12 +216,7 @@ def _top_level_event_pairs(data, events):
             first = False
         yield input_event, event
 
-
-def _top_level_iter():
-    for seq in _TOP_LEVEL_VALUES:
-        data = seq[0]
-        event_pairs = list(_top_level_event_pairs(data, seq[1:]))
-        yield data, event_pairs
+_top_level_iter = partial(value_iter, _top_level_event_pairs, _TOP_LEVEL_VALUES)
 
 
 def _gen_type_len(tid, length):
@@ -351,21 +346,6 @@ def _containerize_params(params, with_skip=True):
                     event_pairs=start + end,
                 )
 
-
-def _all_top_level_as_one_stream_params():
-    @listify
-    def generate_event_pairs():
-        yield (NEXT, END)
-        for data, event_pairs in _top_level_iter():
-            for event_pair in event_pairs:
-                yield event_pair
-            yield (NEXT, END)
-
-    yield _P(
-        desc='TOP LEVEL ALL',
-        event_pairs=generate_event_pairs()
-    )
-
 # TODO Add NOP pad fuzz.
 # TODO Add data incomplete fuzz.
 
@@ -380,7 +360,7 @@ def _all_top_level_as_one_stream_params():
             _containerize_params(_top_level_value_params(), with_skip=False)
         )
     ),
-    _prepend_ivm(_all_top_level_as_one_stream_params()),
+    _prepend_ivm(all_top_level_as_one_stream_params(_top_level_iter)),
 ))
 def test_raw_reader(p):
     reader_scaffold(raw_reader(), p.event_pairs)

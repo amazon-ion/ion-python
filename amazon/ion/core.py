@@ -43,6 +43,10 @@ class IonType(Enum):
     STRUCT = 12
 
     @property
+    def is_numeric(self):
+        return IonType.INT <= self <= IonType.TIMESTAMP
+
+    @property
     def is_text(self):
         """Returns whether the type is a Unicode textual type."""
         return self is IonType.SYMBOL or self is IonType.STRING
@@ -295,15 +299,15 @@ class Transition(record('event', 'delegate')):
             whence this transition came.
     """
 
-_MIN_OFFSET = timedelta(hours=-12)
-_MAX_OFFSET = timedelta(hours=12)
+_MIN_OFFSET = timedelta(hours=-24)
+_MAX_OFFSET = timedelta(hours=24)
 _ZERO_DELTA = timedelta()
 
 
 class OffsetTZInfo(tzinfo):
     """A trivial UTC offset :class:`tzinfo`."""
     def __init__(self, delta=_ZERO_DELTA):
-        if delta < _MIN_OFFSET or delta > _MAX_OFFSET:
+        if delta <= _MIN_OFFSET or delta >= _MAX_OFFSET:
             raise ValueError('Invalid UTC offset: %s' % delta)
         self.delta = delta
 
@@ -421,8 +425,12 @@ def timestamp(year, month=1, day=1,
     """
     delta = None
     if off_hours is not None:
+        if off_hours < -23 or off_hours > 23:
+            raise ValueError('Hour offset %d is out of required range -23..23.' % (off_hours,))
         delta = timedelta(hours=off_hours)
     if off_minutes is not None:
+        if off_minutes < -59 or off_minutes > 59:
+            raise ValueError('Minute offset %d is out of required range -59..59.' % (off_minutes,))
         minutes_delta = timedelta(minutes=off_minutes)
         if delta is None:
             delta = minutes_delta

@@ -21,14 +21,17 @@ from __future__ import print_function
 
 from datetime import datetime
 from decimal import Decimal
+from io import TextIOBase
 from itertools import chain
 
 import six
 
-from .core import IonEvent, IonEventType, IonType, ION_STREAM_END_EVENT, Timestamp
+from amazon.ion.reader_text import text_reader
+from amazon.ion.writer_text import text_writer
+from .core import IonEvent, IonEventType, IonType, ION_STREAM_END_EVENT, Timestamp, ION_VERSION_MARKER_EVENT
 from .exceptions import IonException
 from .reader import blocking_reader, NEXT_EVENT
-from .reader_binary import raw_reader
+from .reader_binary import binary_reader
 from .reader_managed import managed_reader
 from .simple_types import IonPyList, IonPyDict, IonPyNull, IonPyBool, IonPyInt, IonPyFloat, IonPyDecimal, \
     IonPyTimestamp, IonPyText, IonPyBytes, IonPySymbol, is_null
@@ -38,9 +41,11 @@ from .writer_binary import binary_writer
 
 
 _ION_CONTAINER_END_EVENT = IonEvent(IonEventType.CONTAINER_END)
+_IVM = b'\xe0\x01\x00\xea'
+_TEXT_TYPES = (TextIOBase, six.StringIO)
 
 
-def dump(obj, fp, imports=None, sequence_as_stream=False, skipkeys=False, ensure_ascii=True, check_circular=True, allow_nan=True, cls=None, indent=None,
+def dump(obj, fp, imports=None, binary=True, sequence_as_stream=False, skipkeys=False, ensure_ascii=True, check_circular=True, allow_nan=True, cls=None, indent=None,
          separators=None, encoding='utf-8', default=None, use_decimal=True, namedtuple_as_object=True,
          tuple_as_array=True, bigint_as_string=False, sort_keys=False, item_sort_key=None, for_json=None,
          ignore_nan=False, int_as_string_bitcount=None, iterable_as_array=False, **kw):
@@ -98,6 +103,7 @@ def dump(obj, fp, imports=None, sequence_as_stream=False, skipkeys=False, ensure
             instance of or inherits from one of the types in the above table will raise TypeError.
         fp (BaseIO): A file-like object.
         imports (Optional[Sequence[SymbolTable]]): A sequence of shared symbol tables to be used by by the writer.
+        binary (Optional[True|False]): When True, outputs binary Ion. When false, outputs text Ion.
         sequence_as_stream (Optional[True|False]): When True, if ``obj`` is a sequence, it will be treated as a stream
             of top-level Ion values (i.e. the resulting Ion data will begin with ``obj``'s first element).
             Default: False.
@@ -123,7 +129,9 @@ def dump(obj, fp, imports=None, sequence_as_stream=False, skipkeys=False, ensure
         **kw: NOT IMPLEMENTED
 
     """
-    writer = blocking_writer(binary_writer(imports), fp)
+    raw_writer = binary_writer(imports) if binary else text_writer()
+    writer = blocking_writer(raw_writer, fp)
+    writer.send(ION_VERSION_MARKER_EVENT)  # The IVM is emitted automatically in binary; it's optional in text.
     if sequence_as_stream and isinstance(obj, (list, tuple)):
         # Treat this top-level sequence as a stream; serialize its elements as top-level values, but don't serialize the
         # sequence itself.
@@ -163,6 +171,7 @@ def _ion_type(obj):
         types.extend(current_type.__bases__)
 
     raise TypeError('Unknown scalar type %r' % (type(obj),))
+
 
 def _dump(obj, writer, field=None):
     null = is_null(obj)
@@ -204,8 +213,8 @@ def dumps(obj, skipkeys=False, ensure_ascii=True, check_circular=True, allow_nan
 
 def load(fp, catalog=None, single_value=True, encoding='utf-8', cls=None, object_hook=None, parse_float=None,
          parse_int=None, parse_constant=None, object_pairs_hook=None, use_decimal=None, **kw):
-    """Deserialize ``fp`` (a file-like object), which contains an Ion stream, to a Python object using the following
-    conversion table::
+    """Deserialize ``fp`` (a file-like object), which contains a text or binary Ion stream, to a Python object using the
+    following conversion table::
         +-------------------+-------------------+
         |  Ion              |     Python        |
         |-------------------+-------------------|
@@ -259,7 +268,16 @@ def load(fp, catalog=None, single_value=True, encoding='utf-8', cls=None, object
         else:
             A sequence of Python objects representing a stream of Ion values.
     """
-    reader = blocking_reader(managed_reader(raw_reader(), catalog), fp)
+    if isinstance(fp, _TEXT_TYPES):
+        raw_reader = text_reader(is_unicode=True)
+    else:
+        maybe_ivm = fp.read(4)
+        fp.seek(0)
+        if maybe_ivm == _IVM:
+            raw_reader = binary_reader()
+        else:
+            raw_reader = text_reader()
+    reader = blocking_reader(managed_reader(raw_reader, catalog), fp)
     out = []  # top-level
     _load(out, reader)
     if single_value:

@@ -21,7 +21,7 @@ from pytest import raises
 
 from tests import parametrize
 
-from amazon.ion.reader import BufferQueue
+from amazon.ion.reader import BufferQueue, CodePointArray
 from amazon.ion.util import record
 
 
@@ -42,6 +42,22 @@ def read(expected):
 
 def read_byte(ch):
     return read(ord(ch))
+
+
+def unread(data):
+    def action(queue):
+        queue.unread(data)
+        if isinstance(data, int):
+            unread_len = 1
+        else:
+            unread_len = len(data)
+        return unread_len, -unread_len
+
+    return action
+
+
+def unread_byte(ch):
+    return unread(ord(ch))
 
 
 def skip(amount, expected_rem=0):
@@ -72,7 +88,24 @@ def expect(exception, action):
     return raises_action
 
 
-class _P(record('desc', 'actions')):
+def mark_eof():
+    def action(queue):
+        queue.mark_eof()
+        return 1, 0
+
+    return action
+
+
+def expect_eof(is_eof):
+    def action(queue):
+        maybe_eof = queue.read_byte()
+        assert is_eof is BufferQueue.is_eof(maybe_eof)
+        return -1, 1
+
+    return action
+
+
+class _P(record('desc', 'actions', ('is_unicode', False))):
     def __str__(self):
         return self.desc
 
@@ -94,6 +127,20 @@ class _P(record('desc', 'actions')):
         desc='EMPTY SKIP',
         actions=[
             skip(1, expected_rem=1),
+        ],
+    ),
+    _P(
+        desc='EMPTY UNREAD',
+        actions=[
+            expect(IndexError, unread_byte(b'a')),
+        ],
+    ),
+    _P(
+        desc='INCORRECT UNREAD',
+        actions=[
+            extend(b'ab'),
+            read_byte(b'a'),
+            expect(ValueError, unread_byte(b'c')),
         ],
     ),
     _P(
@@ -129,6 +176,25 @@ class _P(record('desc', 'actions')):
         ],
     ),
     _P(
+        desc='SINGLE UNREAD',
+        actions=[
+            extend(b'a'),
+            read_byte(b'a'),
+            unread_byte(b'a'),
+            read_byte(b'a')
+        ]
+    ),
+    _P(
+        desc='MULTI CODE UNIT UNREAD',
+        actions=[
+            extend(u'a\U0001f4a9c'),
+            read(u'a\U0001f4a9'),
+            unread(u'\U0001f4a9'),
+            read(u'\U0001f4a9c')
+        ],
+        is_unicode=True
+    ),
+    _P(
         desc='MULTI ALL',
         actions=[
             extend(b'abcd'),
@@ -141,14 +207,53 @@ class _P(record('desc', 'actions')):
 
             extend(b'ab'),
             extend(b'cd'),
+            read(b'abc'),
+            unread_byte(b'c'),
+            unread_byte(b'b'),
+            read(b'bcd'),
+            extend(b'EF'),
+            extend(b'GH'),
             extend(b'ef'),
             extend(b'gh'),
-            read_byte(b'a'),
             skip(4),
+            read_byte(b'e'),
             read_byte(b'f'),
             read_byte(b'g'),
             read_byte(b'h'),
+            unread_byte(b'h'),
+            read_byte(b'h')
         ],
+    ),
+    _P(
+        desc='MULTI ALL UNICODE',
+        actions=[
+            extend(u'abcd'),
+            extend(u'efgh'),
+            read(u'abcdefgh'),
+
+            extend(u'ijkl'),
+            extend(u'mnop'),
+            read(u'ijklmnop'),
+
+            extend(u'ab'),
+            extend(u'cd'),
+            read(u'abc'),
+            unread_byte(u'c'),
+            unread_byte(u'b'),
+            read(u'bcd'),
+            extend(u'EF'),
+            extend(u'GH'),
+            extend(u'ef'),
+            extend(u'gh'),
+            skip(4),
+            read_byte(u'e'),
+            read_byte(u'f'),
+            read_byte(u'g'),
+            read_byte(u'h'),
+            unread_byte(u'h'),
+            read_byte(u'h')
+        ],
+        is_unicode=True
     ),
     _P(
         desc='MULTI PART AND SPAN',
@@ -199,9 +304,70 @@ class _P(record('desc', 'actions')):
             read(b'n')
         ],
     ),
+    _P(
+        desc='EOF',
+        actions=[
+            extend(b'ab'),
+            mark_eof(),
+            read(b'ab'),
+            expect_eof(True)
+        ]
+    ),
+    _P(
+        desc='FAKE EOF',
+        actions=[
+            extend(b'ab\x04'),
+            read(b'ab'),
+            expect_eof(False)
+        ]
+    ),
+    _P(
+        desc='EOF UNICODE',
+        actions=[
+            extend(u'ab'),
+            mark_eof(),
+            read(u'ab'),
+            expect_eof(True)
+        ],
+        is_unicode=True
+    ),
+    _P(
+        desc='FAKE EOF UNICODE',
+        actions=[
+            extend(u'ab\x04'),
+            read(u'ab'),
+            expect_eof(False)
+        ],
+        is_unicode=True
+    ),
+    _P(
+        desc='BYTES BUFFER GIVEN UNICODE',
+        actions=[
+            extend(b'abc'),
+            expect(ValueError, extend(u'def'))
+        ],
+        is_unicode=False
+    ),
+    _P(
+        desc='UNICODE BUFFER GIVEN BYTES',
+        actions=[
+            extend(u'abc'),
+            expect(ValueError, extend(b'def'))
+        ],
+        is_unicode=True
+    ),
+    _P(
+        desc='BYTES BUFFER UNREAD UNICODE',
+        actions=[
+            extend(b'a'),
+            read_byte(b'a'),
+            expect(ValueError, unread(u'a'))
+        ],
+        is_unicode=False
+    ),
 )
 def test_buffer_queue(p):
-    queue = BufferQueue()
+    queue = BufferQueue(p.is_unicode)
     expected_len = 0
     expected_pos = 0
 

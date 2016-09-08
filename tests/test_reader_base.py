@@ -23,8 +23,9 @@ from io import BytesIO
 from pytest import raises
 
 from tests import is_exception, parametrize
+from tests.event_aliases import e_int
 from tests.trampoline_util import always_self
-from tests.trampoline_util import trampoline_scaffold, TrampolineParameters
+from tests.trampoline_util import trampoline_scaffold
 
 from amazon.ion.core import Transition
 from amazon.ion.core import ION_VERSION_MARKER_EVENT
@@ -34,13 +35,22 @@ from amazon.ion.reader import NEXT_EVENT, SKIP_EVENT
 from amazon.ion.util import coroutine, record
 
 
+_TRIVIAL_ION_EVENT = e_int(0)
+
 _ivm_transition = partial(Transition, ION_VERSION_MARKER_EVENT)
 _incomplete_transition = partial(Transition, ION_STREAM_INCOMPLETE_EVENT)
 _end_transition = partial(Transition, ION_STREAM_END_EVENT)
+_event_transition = partial(Transition, _TRIVIAL_ION_EVENT)
 
-_P = TrampolineParameters
+
+class ReaderTrampolineParameters(record('desc', 'coroutine', 'input', 'expected', ('allow_flush', False))):
+    def __str__(self):
+        return self.desc
+
+_P = ReaderTrampolineParameters
 
 _TRIVIAL_DATA_EVENT = read_data_event(b'DATA')
+_EMPTY_DATA_EVENT = read_data_event(b'')
 
 
 @parametrize(
@@ -69,10 +79,18 @@ _TRIVIAL_DATA_EVENT = read_data_event(b'DATA')
         expected=[ION_VERSION_MARKER_EVENT, TypeError],
     ),
     _P(
-        desc='ALWAYS INCOMPLETE NEXT',
+        desc='ALWAYS INCOMPLETE NEXT EOF',
         coroutine=always_self(_incomplete_transition),
         input=[NEXT_EVENT, NEXT_EVENT],
         expected=[ION_STREAM_INCOMPLETE_EVENT, TypeError],
+        allow_flush=False
+    ),
+    _P(
+        desc='ALWAYS INCOMPLETE NEXT FLUSH',
+        coroutine=always_self(_incomplete_transition),
+        input=[NEXT_EVENT, NEXT_EVENT],
+        expected=[ION_STREAM_INCOMPLETE_EVENT, ION_STREAM_INCOMPLETE_EVENT],
+        allow_flush=True
     ),
     _P(
         desc='ALWAYS INCOMPLETE SKIP',
@@ -104,9 +122,21 @@ _TRIVIAL_DATA_EVENT = read_data_event(b'DATA')
         input=[NEXT_EVENT] + [_TRIVIAL_DATA_EVENT] * 4,
         expected=[ION_STREAM_END_EVENT] * 5,
     ),
+    _P(
+        desc='ALWAYS END EMPTY DATA',
+        coroutine=always_self(_end_transition),
+        input=[NEXT_EVENT] + [_EMPTY_DATA_EVENT],
+        expected=[ION_STREAM_END_EVENT, ValueError],
+    ),
+    _P(
+        desc='ALWAYS EVENT DATA',
+        coroutine=always_self(_event_transition),
+        input=[NEXT_EVENT] + [_TRIVIAL_DATA_EVENT],
+        expected=[_TRIVIAL_ION_EVENT, TypeError]
+    )
 )
 def test_trampoline(p):
-    trampoline_scaffold(reader_trampoline, p)
+    trampoline_scaffold(reader_trampoline, p, p.allow_flush)
 
 
 class _P(record('desc', 'coroutine', 'data', 'input', 'expected')):
@@ -115,13 +145,16 @@ class _P(record('desc', 'coroutine', 'data', 'input', 'expected')):
 
 
 @coroutine
-def _asserts_events(expecteds, outputs):
+def _asserts_events(expecteds, outputs, allow_flush=False):
     output = None
     for expected, next_output in zip(expecteds, outputs):
         actual = yield output
         assert expected == actual
         output = next_output
     yield output
+    if not allow_flush:
+        raise EOFError()
+    yield ION_STREAM_END_EVENT
 
 
 @parametrize(
@@ -158,11 +191,23 @@ def _asserts_events(expecteds, outputs):
         desc='PREMATURE EOF',
         coroutine=_asserts_events(
             [NEXT_EVENT, read_data_event(b'a'), read_data_event(b'b')],
-            [ION_STREAM_END_EVENT, ION_STREAM_INCOMPLETE_EVENT, ION_STREAM_INCOMPLETE_EVENT]
+            [ION_STREAM_END_EVENT, ION_STREAM_INCOMPLETE_EVENT, ION_STREAM_INCOMPLETE_EVENT],
+            allow_flush=False
         ),
         data=b'ab',
         input=[NEXT_EVENT],
         expected=[EOFError]
+    ),
+    _P(
+        desc='FLUSH',
+        coroutine=_asserts_events(
+            [NEXT_EVENT, read_data_event(b'a'), read_data_event(b'b')],
+            [ION_STREAM_END_EVENT, ION_STREAM_INCOMPLETE_EVENT, ION_STREAM_INCOMPLETE_EVENT],
+            allow_flush=True
+        ),
+        data=b'ab',
+        input=[NEXT_EVENT],
+        expected=[ION_STREAM_END_EVENT]
     ),
     _P(
         desc='SINGLE EVENT, THEN NATURAL EOF',

@@ -26,7 +26,7 @@ from decimal import Decimal
 from amazon.ion.symbols import SymbolToken
 from tests import parametrize
 from tests.writer_util import assert_writer_events, generate_scalars, generate_containers, \
-                              WriterParameter, SIMPLE_SCALARS_MAP, ION_ENCODED_INT_ZERO, VARUINT_END_BYTE
+                              WriterParameter, SIMPLE_SCALARS_MAP_BINARY, ION_ENCODED_INT_ZERO, VARUINT_END_BYTE
 
 from amazon.ion.core import IonEvent, IonType, IonEventType
 from amazon.ion.writer import blocking_writer
@@ -175,7 +175,7 @@ _SIMPLE_CONTAINER_MAP = {
 }
 
 
-_generate_simple_scalars = partial(generate_scalars, SIMPLE_SCALARS_MAP, True)
+_generate_simple_scalars = partial(generate_scalars, SIMPLE_SCALARS_MAP_BINARY, True)
 _generate_simple_containers = partial(generate_containers, _SIMPLE_CONTAINER_MAP, True)
 
 
