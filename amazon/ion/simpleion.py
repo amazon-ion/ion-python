@@ -94,8 +94,8 @@ def dump(obj, fp, imports=None, sequence_as_stream=False, skipkeys=False, ensure
         +-------------------+-------------------+
 
     Args:
-        obj (Any): A python object to serialize according to the above table. Any Python types encountered in the object
-             not present in the above table will raise TypeError.
+        obj (Any): A python object to serialize according to the above table. Any Python object which is neither an
+            instance of or inherits from one of the types in the above table will raise TypeError.
         fp (BaseIO): A file-like object.
         imports (Optional[Sequence[SymbolTable]]): A sequence of shared symbol tables to be used by by the writer.
         sequence_as_stream (Optional[True|False]): When True, if ``obj`` is a sequence, it will be treated as a stream
@@ -155,12 +155,14 @@ _FROM_TYPE = dict(chain(
 
 
 def _ion_type(obj):
-    try:
-        ion_type = _FROM_TYPE[type(obj)]
-    except KeyError:
-        raise TypeError('Unknown scalar type %r' % (type(obj),))
-    return ion_type
+    types = [type(obj)]
+    while types:
+        current_type = types.pop()
+        if current_type in _FROM_TYPE:
+            return _FROM_TYPE[current_type]
+        types.extend(current_type.__bases__)
 
+    raise TypeError('Unknown scalar type %r' % (type(obj),))
 
 def _dump(obj, writer, field=None):
     null = is_null(obj)
