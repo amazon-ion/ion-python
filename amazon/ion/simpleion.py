@@ -155,12 +155,14 @@ _FROM_TYPE = dict(chain(
 
 
 def _ion_type(obj):
-    try:
-        ion_type = _FROM_TYPE[type(obj)]
-    except KeyError:
-        raise TypeError('Unknown scalar type %r' % (type(obj),))
-    return ion_type
+    types = [type(obj)]
+    while types:
+        current_type = types.pop()
+        if current_type in _FROM_TYPE:
+            return _FROM_TYPE[current_type]
+        types.extend(current_type.__bases__)
 
+    raise TypeError('Unknown scalar type %r' % (type(obj),))
 
 def _dump(obj, writer, field=None):
     null = is_null(obj)
