@@ -28,6 +28,7 @@ from amazon.ion.writer_binary import _IVM
 from amazon.ion.core import IonType, IonEvent, IonEventType, OffsetTZInfo
 from amazon.ion.simple_types import IonPyDict, IonPyText, IonPyList, IonPyNull, IonPyBool, IonPyInt, IonPyFloat, \
     IonPyDecimal, IonPyTimestamp, IonPyBytes, IonPySymbol, _IonNature
+from amazon.ion.equivalence import ion_equals
 from amazon.ion.simpleion import dump, load, _ion_type, _FROM_ION_TYPE
 from amazon.ion.util import record
 from amazon.ion.writer_binary_raw import _serialize_symbol, _write_length
@@ -223,10 +224,7 @@ def test_dump_load_binary(p):
     # test load
     out.seek(0)
     res = load(out, single_value=(not p.stream))
-    if p.obj is None:
-        assert isinstance(res, IonPyNull)
-    else:
-        assert p.obj == res
+    assert ion_equals(p.obj, res)
 
 
 def generate_scalars_text(scalars_map):
@@ -298,30 +296,26 @@ def test_dump_load_text(p):
     # test load
     out.seek(0)
     res = load(out, single_value=(not p.stream))
-    if p.obj is None:
-        assert isinstance(res, IonPyNull)
-    else:
-        def equals():
-            if p.obj == res:
-                return True
-            if isinstance(p.obj, SymbolToken):
-                if p.obj.text is None:
-                    assert p.obj.sid is not None
-                    # System symbol IDs are mapped correctly in the text format.
-                    token = SYSTEM_SYMBOL_TABLE.get(p.obj.sid)
-                    assert token is not None  # User symbols with unknown text won't be successfully read.
-                    expected_token = token
-                else:
-                    # User symbols with text are not automatically mapped to SIDs in the text format.
-                    expected_token = SymbolToken(p.obj.text, None)
-                return expected_token == res
-            else:
-                try:
-                    return isnan(p.obj) and isnan(res)
-                except TypeError:
-                    return False
-        if not equals():
-            assert p.obj == res  # Redundant, but provides better error message.
+
+    def equals():
+        if ion_equals(p.obj, res):
+            return True
+        if isinstance(p.obj, SymbolToken):
+            expected_token = p.obj
+            if p.obj.text is None:
+                assert p.obj.sid is not None
+                # System symbol IDs are mapped correctly in the text format.
+                token = SYSTEM_SYMBOL_TABLE.get(p.obj.sid)
+                assert token is not None  # User symbols with unknown text won't be successfully read.
+                expected_token = token
+            return expected_token == res
+        else:
+            try:
+                return isnan(p.obj) and isnan(res)
+            except TypeError:
+                return False
+    if not equals():
+        assert ion_equals(p.obj, res)  # Redundant, but provides better error message.
 
 
 _ROUNDTRIPS = [
@@ -427,14 +421,16 @@ def _assert_roundtrip(before, after):
             update = {}
             for field, value in six.iteritems(out):
                 update[field] = _to_ion_nature(value)
+            update = IonPyDict.from_value(out.ion_type, update, out.ion_annotations)
             out = update
         elif isinstance(out, list):
             update = []
             for value in out:
                 update.append(_to_ion_nature(value))
+            update = IonPyList.from_value(out.ion_type, update, out.ion_annotations)
             out = update
         return out
-    assert _to_ion_nature(before) == after
+    assert ion_equals(_to_ion_nature(before), after)
 
 
 @parametrize(

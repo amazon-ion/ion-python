@@ -847,6 +847,7 @@ def _parse_timestamp(tokens):
         precision = TimestampPrecision.YEAR
         off_hour = tokens[_TimestampState.OFF_HOUR]
         off_minutes = tokens[_TimestampState.OFF_MINUTE]
+        fraction_digits = None
         if off_hour is not None:
             assert off_minutes is not None
             off_sign = -1 if _MINUS in off_hour else 1
@@ -906,6 +907,7 @@ def _parse_timestamp(tokens):
                     if digit != _ZERO:
                         raise ValueError('Only six significant digits supported in timestamp fractional. Found %s.'
                                          % (fraction,))
+                fraction_digits = _MICROSECOND_MAGNITUDE
                 fraction = fraction[0:_MICROSECOND_MAGNITUDE]
             else:
                 fraction.extend(_ZEROS[_MICROSECOND_MAGNITUDE - fraction_digits])
@@ -914,7 +916,7 @@ def _parse_timestamp(tokens):
             year, month, day,
             hour, minute, second, microsecond,
             off_hour, off_minutes,
-            precision=precision
+            precision=precision, fractional_precision=fraction_digits
         )
     return parse
 
@@ -952,6 +954,9 @@ def _timestamp_handler(c, ctx):
         else:
             can_terminate = False
             if c == _Z:
+                # Z implies UTC, i.e. +00:00 local offset.
+                tokens.transition(_TimestampState.OFF_HOUR).append(_ZERO)
+                tokens.transition(_TimestampState.OFF_MINUTE).append(_ZERO)
                 nxt = _VALUE_TERMINATORS
                 can_terminate = True
             elif c == _T:
@@ -2160,6 +2165,14 @@ def _next_code_point_handler(whence, ctx):
             code_point.is_escaped = True
             ctx.set_code_point(code_point)
             yield Transition(None, whence)
+        elif code_point == _CARRIAGE_RETURN:
+            # Normalize all unescaped verbatim newlines (\r, \n, and \r\n) to \n .
+            if len(queue) == 0:
+                yield ctx.read_data_event(self)
+            code_point = next(queue_iter)
+            if code_point != _NEWLINE:
+                queue.unread(code_point)
+                code_point = _NEWLINE
         while code_point is None:
             yield ctx.read_data_event(self)
             code_point = next(code_point_generator)
