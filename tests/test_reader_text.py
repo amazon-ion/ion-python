@@ -477,7 +477,7 @@ _GOOD_UNICODE = (
     ),
     (u'\'b\xf6\U0001f4a9r\'::"foo"', e_string(u'foo', annotations=(_st(u'b\xf6\U0001f4a9r'),))),
     (u'"\t\v\f\'"', e_string(u'\t\v\f\'')),
-    (u"'''\t\v\f\"\n\r'''42 ", e_string(u'\t\v\f\"\n\r'), e_int(42))
+    (u"'''\t\v\f\"\n\r'''42 ", e_string(u'\t\v\f\"\n\n'), e_int(42))
 )
 
 _BAD_UNICODE = (
@@ -522,7 +522,7 @@ _GOOD_ESCAPES_FROM_UNICODE = (
     (u'"\\\r\\xf6"', e_string(u'\xf6')),
     (u'"\\\rabc"', e_string(u'abc')),
     (u"'\\\r\n'::42 ", e_int(42, annotations=(_st(u''),))),
-    (u"{'''\\\rfoo\\\n\r''':bar}",) + _good_struct(e_symbol(_st(u'bar'), field_name=_st(u'foo\r'))),
+    (u"{'''\\\rfoo\\\n\r''':bar}",) + _good_struct(e_symbol(_st(u'bar'), field_name=_st(u'foo\n'))),
     (u"{{'''\\x00''''''\\x7e'''}}", e_clob(b'\0~')),
     (u"{{'''\\xff'''}}", e_clob(b'\xff')),
     (u'{{"\\t"}}', e_clob(b'\t')),
@@ -558,7 +558,7 @@ _GOOD_ESCAPES_FROM_BYTES = (
     (b'"\\\r\\xf6"', e_string(u'\xf6')),
     (b'"\\\rabc"', e_string(u'abc')),
     (b"'\\\r\n'::42 ", e_int(42, annotations=(_st(u''),))),
-    (b"{'''\\\rfoo\\\n\r''':bar}",) + _good_struct(e_symbol(_st(u'bar'), field_name=_st(u'foo\r'))),
+    (b"{'''\\\rfoo\\\n\r''':bar}",) + _good_struct(e_symbol(_st(u'bar'), field_name=_st(u'foo\n'))),
     (b"{{'''\\x00''''''\\x7e'''}}", e_clob(b'\0~')),
     (b"{{'''\\xff'''}}", e_clob(b'\xff')),
     (b'{{"\\t"}}', e_clob(b'\t')),
@@ -748,35 +748,64 @@ _GOOD_SCALARS = (
     (b'2007-01T', e_timestamp(_ts(2007, 1, precision=_tp.MONTH))),
     (b'2007T', e_timestamp(_ts(2007, precision=_tp.YEAR))),
     (b'2007-01-01', e_timestamp(_ts(2007, 1, 1, precision=_tp.DAY))),
-    (b'2000-01-01T00:00:00.0Z', e_timestamp(_ts(2000, 1, 1, 0, 0, 0, 0, precision=_tp.SECOND))),
-    (b'2000-01-01T00:00:00.000Z', e_timestamp(_ts(2000, 1, 1, 0, 0, 0, 0, precision=_tp.SECOND))),
-    (b'2000-01-01T00:00:00.999999Z', e_timestamp(_ts(2000, 1, 1, 0, 0, 0, 999999, precision=_tp.SECOND))),
-    (b'2000-01-01T00:00:00.99999900000Z', e_timestamp(_ts(2000, 1, 1, 0, 0, 0, 999999, precision=_tp.SECOND))),
+    (
+        b'2000-01-01T00:00:00.0Z',
+        e_timestamp(_ts(
+            2000, 1, 1, 0, 0, 0, 0, off_hours=0, off_minutes=0, precision=_tp.SECOND, fractional_precision=1
+        ))
+    ),
+    (
+        b'2000-01-01T00:00:00.000Z',
+        e_timestamp(_ts(
+            2000, 1, 1, 0, 0, 0, 0, off_hours=0, off_minutes=0, precision=_tp.SECOND, fractional_precision=3
+        ))
+    ),
+    (
+        b'2000-01-01T00:00:00.999999Z',
+        e_timestamp(_ts(
+            2000, 1, 1, 0, 0, 0, 999999, off_hours=0, off_minutes=0, precision=_tp.SECOND, fractional_precision=6
+        ))
+    ),
+    (
+        b'2000-01-01T00:00:00.99999900000Z',
+        e_timestamp(_ts(
+            2000, 1, 1, 0, 0, 0, 999999, off_hours=0, off_minutes=0, precision=_tp.SECOND, fractional_precision=6
+        ))
+    ),
     (
         b'2000-01-01T00:00:00.000-00:00',
-        e_timestamp(_ts(2000, 1, 1, 0, 0, 0, 0, precision=_tp.SECOND))
+        e_timestamp(_ts(2000, 1, 1, 0, 0, 0, 0, precision=_tp.SECOND, fractional_precision=3))
     ),
     (
         b'2007-02-23T00:00+00:00',
         e_timestamp(_ts(2007, 2, 23, 0, 0, off_hours=0, off_minutes=0, precision=_tp.MINUTE))
     ),
     (b'2007-01-01T', e_timestamp(_ts(2007, 1, 1, precision=_tp.DAY))),
-    (b'2000-01-01T00:00:00Z', e_timestamp(_ts(2000, 1, 1, 0, 0, 0, precision=_tp.SECOND))),
+    (b'2000-01-01T00:00:00Z', e_timestamp(_ts(2000, 1, 1, 0, 0, 0, off_hours=0, off_minutes=0, precision=_tp.SECOND))),
     (
         b'2007-02-23T00:00:00-00:00',
         e_timestamp(_ts(2007, 2, 23, 0, 0, 0, precision=_tp.SECOND))
     ),
     (
         b'2007-02-23T12:14:33.079-08:00',
-        e_timestamp(_ts(2007, 2, 23, 12, 14, 33, 79000, off_hours=-8, off_minutes=0, precision=_tp.SECOND))
+        e_timestamp(_ts(
+            2007, 2, 23, 12, 14, 33, 79000, off_hours=-8, off_minutes=0, precision=_tp.SECOND, fractional_precision=3
+        ))
     ),
-    (b'2007-02-23T20:14:33.079Z', e_timestamp(_ts(2007, 2, 23, 20, 14, 33, 79000, precision=_tp.SECOND))),
+    (
+        b'2007-02-23T20:14:33.079Z',
+        e_timestamp(_ts(
+            2007, 2, 23, 20, 14, 33, 79000, off_hours=0, off_minutes=0, precision=_tp.SECOND, fractional_precision=3
+        ))
+    ),
     (
         b'2007-02-23T20:14:33.079+00:00',
-        e_timestamp(_ts(2007, 2, 23, 20, 14, 33, 79000, off_hours=0, off_minutes=0, precision=_tp.SECOND))
+        e_timestamp(_ts(
+            2007, 2, 23, 20, 14, 33, 79000, off_hours=0, off_minutes=0, precision=_tp.SECOND, fractional_precision=3
+        ))
     ),
     (b'0001T', e_timestamp(_ts(1, precision=_tp.YEAR))),
-    (b'0001-01-01T00:00:00Z', e_timestamp(_ts(1, 1, 1, 0, 0, 0, precision=_tp.SECOND))),
+    (b'0001-01-01T00:00:00Z', e_timestamp(_ts(1, 1, 1, 0, 0, 0, off_hours=0, off_minutes=0, precision=_tp.SECOND))),
     (b'2016-02-29T', e_timestamp(_ts(2016, 2, 29, precision=_tp.DAY))),
 
     (b'null.symbol', e_symbol()),
@@ -794,6 +823,7 @@ _GOOD_SCALARS = (
     (b'" "', e_string(u' ')),
     (b'\'\'\'foo\'\'\' \'\'\'\'\'\' \'\'\'""\'\'\'', e_string(u'foo""')),
     (b'\'\'\'ab\'\'cd\'\'\'', e_string(u'ab\'\'cd')),
+    (b"'''\r\n \r \n \n\r'''", e_string(u'\n \n \n \n\n')),
 
     (b'null.clob', e_clob()),
     (b'{{""}}', e_clob(b'')),
@@ -967,6 +997,7 @@ _TEST_FIELD_NAMES = (
         b'\'\'\'a \'\'\'\'\'\'b\'\'\'/*zar*/',
         b'\'\'\'\'\'\'',
         b'"\\xf6"',
+        b"'''\r\n \r \n \n\r'''",
     ),
     _TEST_SYMBOLS[1] +
     (
@@ -978,6 +1009,7 @@ _TEST_FIELD_NAMES = (
         _st(u'a b'),
         _st(u''),
         _st(u'\xf6'),
+        _st(u'\n \n \n \n\n'),
     )
 )
 

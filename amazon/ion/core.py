@@ -19,11 +19,11 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from math import isnan
 from datetime import datetime, timedelta, tzinfo
+from math import isnan
 
-from .util import record
 from .util import Enum
+from .util import record
 
 
 class IonType(Enum):
@@ -141,7 +141,10 @@ class IonEvent(record(
                 # Special case for timestamps to capture equivalence over precision.
                 self_precision = getattr(self.value, TIMESTAMP_PRECISION_FIELD, None)
                 other_precision = getattr(other.value, TIMESTAMP_PRECISION_FIELD, None)
-                if self_precision != other_precision:
+                if self_precision != other_precision \
+                        and not ((self_precision is None and other_precision is TimestampPrecision.SECOND) or
+                                     (self_precision is TimestampPrecision.SECOND and other_precision is None)):
+                    # The absence of precision indicates a naive datetime, which always has SECOND precision.
                     return False
             if isinstance(self.value, datetime):
                 if self.value.utcoffset() != other.value.utcoffset():
@@ -359,6 +362,9 @@ class TimestampPrecision(Enum):
 
 
 TIMESTAMP_PRECISION_FIELD = 'precision'
+TIMESTAMP_FRACTION_PRECISION_FIELD = 'fractional_precision'
+MICROSECOND_PRECISION = 6
+_MICROSECOND_ARG_INDEX = 6
 
 
 class Timestamp(datetime):
@@ -367,37 +373,51 @@ class Timestamp(datetime):
     Notes:
         The ``precision`` field is passed as a keyword argument of the same name.
     """
-    __slots__ = [TIMESTAMP_PRECISION_FIELD]
+    __slots__ = [TIMESTAMP_PRECISION_FIELD, TIMESTAMP_FRACTION_PRECISION_FIELD]
 
     def __new__(cls, *args, **kwargs):
         precision = None
+        fractional_precision = None
         if TIMESTAMP_PRECISION_FIELD in kwargs:
             precision = kwargs.get(TIMESTAMP_PRECISION_FIELD)
             # Make sure we mask this before we construct the datetime.
             del kwargs[TIMESTAMP_PRECISION_FIELD]
+        if TIMESTAMP_FRACTION_PRECISION_FIELD in kwargs:
+            fractional_precision = kwargs.get(TIMESTAMP_FRACTION_PRECISION_FIELD)
+            # Make sure we mask this before we construct the datetime.
+            del kwargs[TIMESTAMP_FRACTION_PRECISION_FIELD]
 
         instance = super(Timestamp, cls).__new__(cls, *args, **kwargs)
         setattr(instance, TIMESTAMP_PRECISION_FIELD, precision)
+        setattr(instance, TIMESTAMP_FRACTION_PRECISION_FIELD, fractional_precision)
 
         return instance
 
     def __repr__(self):
-        return 'Timestamp(%04d-%02d-%02dT%02d:%02d:%02d.%06d, %r, %r)' % \
+        return 'Timestamp(%04d-%02d-%02dT%02d:%02d:%02d.%06d, %r, %r, %s=%s)' % \
                (self.year, self.month, self.day,
                 self.hour, self.minute, self.second, self.microsecond,
-                self.tzinfo, self.precision)
+                self.tzinfo, self.precision,
+                TIMESTAMP_FRACTION_PRECISION_FIELD, self.fractional_precision)
 
     @staticmethod
     def adjust_from_utc_fields(*args, **kwargs):
         """Constructs a timestamp from UTC fields adjusted to the local offset if given."""
+        has_microsecond = args[_MICROSECOND_ARG_INDEX] is not None
+        if not has_microsecond:
+            args = args[0:_MICROSECOND_ARG_INDEX] + (0,) + args[_MICROSECOND_ARG_INDEX + 1:]
         raw_ts = Timestamp(*args, **kwargs)
+        fractional_precision = None
+        if raw_ts.precision is TimestampPrecision.SECOND and has_microsecond:
+            fractional_precision = MICROSECOND_PRECISION
+        setattr(raw_ts, TIMESTAMP_FRACTION_PRECISION_FIELD, fractional_precision)
         offset = raw_ts.utcoffset()
         if offset is None or offset == timedelta():
             return raw_ts
 
         # XXX This returns a datetime, not a Timestamp (which has our precision if defined)
         adjusted = raw_ts + offset
-        if raw_ts.precision is None :
+        if raw_ts.precision is None:
             # No precision means we can just return a regular datetime
             return adjusted
 
@@ -410,14 +430,15 @@ class Timestamp(datetime):
             adjusted.second,
             adjusted.microsecond,
             raw_ts.tzinfo,
-            precision=raw_ts.precision
+            precision=raw_ts.precision,
+            fractional_precision=fractional_precision
         )
 
 
 def timestamp(year, month=1, day=1,
-              hour=0, minute=0, second=0, microsecond=0,
+              hour=0, minute=0, second=0, microsecond=None,
               off_hours=None, off_minutes=None,
-              precision=None):
+              precision=None, fractional_precision=None):
     """Shorthand for the :class:`Timestamp` constructor.
 
     Specifically, converts ``off_hours`` and ``off_minutes`` parameters to a suitable
@@ -441,8 +462,14 @@ def timestamp(year, month=1, day=1,
     if delta is not None:
         tz = OffsetTZInfo(delta)
 
+    if microsecond is not None:
+        if fractional_precision is None:
+            fractional_precision = MICROSECOND_PRECISION
+    else:
+        microsecond = 0
+
     return Timestamp(
         year, month, day,
         hour, minute, second, microsecond,
-        tz, precision=precision
+        tz, precision=precision, fractional_precision=fractional_precision
     )

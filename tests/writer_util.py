@@ -230,9 +230,9 @@ SIMPLE_SCALARS_MAP_BINARY = {
     _IT.TIMESTAMP: (
         (None, b'\x6F'),
         # TODO Clarify whether there's a valid zero-length Timestamp representation.
-        (_DT(year=1, month=1, day=1), b'\x67\xC0\x81\x81\x81\x80\x80\x80'),
+        (_DT(year=1, month=1, day=1), b'\x68\xC0\x81\x81\x81\x80\x80\x80\x80'),
         (_DT(year=1, month=1, day=1, tzinfo=OffsetTZInfo(timedelta(minutes=-1))),
-         b'\x67\xC1\x81\x81\x81\x80\x81\x80'),
+         b'\x68\xC1\x81\x81\x81\x80\x81\x80\x80'),
         (_DT(year=1, month=1, day=1, hour=0, minute=0, second=0, microsecond=1),
          b'\x69\xC0\x81\x81\x81\x80\x80\x80\xC6\x01'),
         (timestamp(year=1, month=1, day=1, precision=TimestampPrecision.DAY), b'\x64\xC0\x81\x81\x81'),

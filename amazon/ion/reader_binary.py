@@ -666,7 +666,7 @@ def _timestamp_factory(data):
             precision = TimestampPrecision.SECOND
 
         if buf.tell() == end:
-            microsecond = 0
+            microsecond = None
         else:
             fraction = _parse_decimal(buf)
             if fraction < 0 or fraction >= 1:

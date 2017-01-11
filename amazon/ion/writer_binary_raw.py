@@ -28,7 +28,7 @@ import six
 import struct
 
 from amazon.ion.symbols import SymbolToken
-from .core import IonEventType, IonType, DataEvent, Transition, TimestampPrecision
+from .core import IonEventType, IonType, DataEvent, Transition, TimestampPrecision, TIMESTAMP_FRACTION_PRECISION_FIELD
 from .util import coroutine, total_seconds, Enum
 from .writer import NOOP_WRITER_EVENT, WriteEventType, \
                     writer_trampoline, partial_transition, serialize_scalar, \
@@ -255,12 +255,19 @@ def _serialize_timestamp(ion_event):
     if precision.includes_second:
         length += _write_varuint(value_buf, dt.second)
         coefficient = dt.microsecond
-        if coefficient:
+        try:
+            has_fractional = getattr(ion_event.value, TIMESTAMP_FRACTION_PRECISION_FIELD) is not None
+        except AttributeError:
+            has_fractional = True
+        if coefficient is not None and has_fractional:
             exponent = _MICROSECOND_DECIMAL_EXPONENT
             # This optimizes the size of the fractional encoding.
-            while coefficient % 10 == 0:
-                coefficient //= 10
-                exponent += 1
+            if coefficient == 0:
+                exponent = 0
+            else:
+                while coefficient % 10 == 0:
+                    coefficient //= 10
+                    exponent += 1
             length += _write_decimal_value(value_buf, exponent, coefficient)
     _write_length(buf, length, _TypeIds.TIMESTAMP)
     buf.extend(value_buf)

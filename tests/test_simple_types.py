@@ -29,6 +29,7 @@ from amazon.ion.symbols import SymbolToken
 from amazon.ion.simple_types import is_null, IonPyNull, IonPyBool, IonPyInt, IonPyFloat, \
                                     IonPyDecimal, IonPyTimestamp, IonPyText, IonPyBytes, \
                                     IonPyList, IonPyDict, IonPySymbol
+from amazon.ion.equivalence import ion_equals
 from amazon.ion.simpleion import _ion_type
 
 _TEST_FIELD_NAME = SymbolToken('foo', 10)
@@ -86,7 +87,7 @@ def test_event_types(p):
         assert not value_output
         assert is_null(event_output)
         assert is_null(value_output)
-        assert event_output == value_output
+        assert ion_equals(event_output, value_output)
     else:
         # Make sure we don't change value equality symmetry.
         assert event_output == value

@@ -23,15 +23,14 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import six
-
 from decimal import Decimal
 
-from amazon.ion.symbols import SymbolToken
-from .core import Timestamp, IonEvent, IonType
-from .core import TIMESTAMP_PRECISION_FIELD
+import six
 
-from .writer_text import _NULL_TYPE_NAMES
+from amazon.ion.symbols import SymbolToken
+from .core import TIMESTAMP_PRECISION_FIELD
+from .core import Timestamp, IonEvent, IonType, TIMESTAMP_FRACTION_PRECISION_FIELD, TimestampPrecision, \
+    MICROSECOND_PRECISION
 
 
 class _IonNature(object):
@@ -151,15 +150,6 @@ class IonPySymbol(SymbolToken, _IonNature):
         kwargs = {}
         return args, kwargs
 
-    def __eq__(self, other):
-        if isinstance(other, SymbolToken):
-            if other.text == self.text and other.sid == self.sid:
-                return True
-        elif isinstance(other, IonPyText):
-            if other.ion_type is IonType.SYMBOL and other == self.text:
-                return True
-        return False
-
 
 class IonPyTimestamp(Timestamp, _IonNature):
     def __init__(self, *args, **kwargs):
@@ -170,8 +160,14 @@ class IonPyTimestamp(Timestamp, _IonNature):
         args = (ts.year, ts.month, ts.day, ts.hour, ts.minute, ts.second, ts.microsecond, ts.tzinfo)
         kwargs = {}
         precision = getattr(ts, TIMESTAMP_PRECISION_FIELD, None)
-        if precision is not None:
-            kwargs[TIMESTAMP_PRECISION_FIELD] = precision
+        if precision is None:
+            precision = TimestampPrecision.SECOND
+        kwargs[TIMESTAMP_PRECISION_FIELD] = precision
+        try:
+            fractional_precision = getattr(ts, TIMESTAMP_FRACTION_PRECISION_FIELD)
+        except AttributeError:
+            fractional_precision = MICROSECOND_PRECISION
+        kwargs[TIMESTAMP_FRACTION_PRECISION_FIELD] = fractional_precision
         return args, kwargs
 
 
@@ -185,9 +181,6 @@ class IonPyNull(_IonNature):
     """
     def __init__(self, *args, **kwargs):
         super(IonPyNull, self).__init__(*args, **kwargs)
-
-    def __eq__(self, other):
-        return isinstance(other, IonPyNull)
 
     def __nonzero__(self):
         return False
@@ -206,4 +199,4 @@ def is_null(value):
 
 
 IonPyList = _ion_type_for('IonPyList', list)
-IonPyDict = _ion_type_for('IonPyDict', dict)
+IonPyDict = _ion_type_for('IonPyDict', dict)  # TODO support multiple mappings for same field name (iteration only).
