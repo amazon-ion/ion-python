@@ -93,6 +93,15 @@ _BASIC_PARAMS = (
             (e_read(b'\x0F'), IonException),
         ],
     ),
+    _P(
+        desc='OVERFLOWING TIMESTAMP PRECISION',  # Only up to microsecond precision is supported (6 digits).
+        event_pairs=[
+            (NEXT, END),
+            (e_read(b'\xE0\x01\x00\xEA'), IVM),
+            (NEXT, END),
+            (e_read(b'\x69\xC0\x81\x81\x81\x80\x80\x80\xC7\x01'), IonException),
+        ],
+    ),
 )
 
 
@@ -112,6 +121,7 @@ _TOP_LEVEL_VALUES = (
     (b'\x29\x12\x34\x56\x78\x90\x12\x34\x56\x78', e_int(0x123456789012345678)),
     (b'\x2E\x81\x05', e_int(5)), # Over padded length.
 
+    (b'\x3F', e_int()),  # null.int has two equivalent representations.
     (b'\x31\x01', e_int(-1)),
     (b'\x32\xC1\xC2', e_int(-0xC1C2)),
     (b'\x36\xC1\xC2\x00\x00\x10\xFF', e_int(-0xC1C2000010FF)),
@@ -163,7 +173,9 @@ _TOP_LEVEL_VALUES = (
     ),
     (
         b'\x6B\x43\xA4\x0F\xE0\x82\x82\x87\x80\x9E\xC3\x01',
-        e_timestamp(_ts(2016, 2, 2, 0, 0, 30, 1000, off_hours=-7, precision=_PREC_SECOND))
+        e_timestamp(_ts(
+            2016, 2, 2, 0, 0, 30, 1000, off_hours=-7, precision=_PREC_SECOND, fractional_precision=3
+        ))
     ),
     (
         b'\x67\xC0\x81\x81\x81\x80\x80\x80',
@@ -174,8 +186,27 @@ _TOP_LEVEL_VALUES = (
         e_timestamp(_ts(year=1, month=1, day=1, off_minutes=-1, precision=_PREC_SECOND))
     ),
     (
+        b'\x69\xC1\x81\x81\x81\x80\x81\x80\x80\x00',  # Fractions with coefficients of 0 and exponents > -1 are ignored.
+        e_timestamp(_ts(year=1, month=1, day=1, off_minutes=-1, precision=_PREC_SECOND))
+    ),
+    (
         b'\x69\xC0\x81\x81\x81\x80\x80\x80\xC6\x01',
-        e_timestamp(_ts(year=1, month=1, day=1, hour=0, minute=0, second=0, microsecond=1, precision=_PREC_SECOND))
+        e_timestamp(_ts(
+            year=1, month=1, day=1, hour=0, minute=0, second=0, microsecond=1,
+            precision=_PREC_SECOND, fractional_precision=6
+        ))
+    ),
+    (
+        b'\x6C\x43\xA4\x0F\xE0\x82\x82\x87\x80\x9E\xC6\x03\xE8',  # The last three octets represent 1000d-6
+        e_timestamp(_ts(
+            2016, 2, 2, 0, 0, 30, 1000, off_hours=-7, precision=TimestampPrecision.SECOND
+        )),
+    ),
+    (
+        b'\x6C\x43\xA4\x0F\xE0\x82\x82\x87\x80\x9E\xC6\x03\xE8',  # The last three octets represent 1000d-6
+        e_timestamp(_ts(
+            2016, 2, 2, 0, 0, 30, 1000, off_hours=-7, precision=TimestampPrecision.SECOND, fractional_precision=6
+        )),
     ),
 
     (b'\x7F', e_symbol()),

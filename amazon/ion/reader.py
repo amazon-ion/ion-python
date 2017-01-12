@@ -23,6 +23,8 @@ import six
 
 from collections import deque
 
+import sys
+
 from amazon.ion.symbols import SymbolToken
 from .core import DataEvent, IonEventType, Transition
 from .core import ION_STREAM_END_EVENT
@@ -57,7 +59,10 @@ def _narrow_unichr(code_point):
     return six.unichr(code_point)
 
 
-safe_unichr = six.unichr if six.PY3 else _narrow_unichr
+_NARROW_BUILD = sys.maxunicode < 0x10ffff
+_WIDE_BUILD = not _NARROW_BUILD
+
+safe_unichr = six.unichr if (six.PY3 or _WIDE_BUILD) else _narrow_unichr
 
 
 class CodePointArray:

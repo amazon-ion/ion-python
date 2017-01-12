@@ -27,7 +27,7 @@ from struct import unpack
 
 from .core import ION_STREAM_INCOMPLETE_EVENT, ION_STREAM_END_EVENT, ION_VERSION_MARKER_EVENT,\
                   IonEventType, IonType, IonEvent, IonThunkEvent, Transition, \
-                  TimestampPrecision, Timestamp, OffsetTZInfo
+                  TimestampPrecision, Timestamp, OffsetTZInfo, MICROSECOND_PRECISION
 from .exceptions import IonException
 from .util import coroutine, record, Enum
 from .reader import reader_trampoline, BufferQueue, ReadEventType
@@ -95,7 +95,7 @@ _IVM_TAIL = b'\x01\x00\xEA'
 _IVM_TAIL_LEN = len(_IVM_TAIL)
 
 # Type IDs for value types that are nullable.
-_NULLABLE_TIDS = tuple(range(0, 3)) + tuple(range(4, 14))
+_NULLABLE_TIDS = tuple(range(0, 14))
 _NULL_LN = 0xF
 
 _STATIC_SCALARS = (
@@ -666,19 +666,30 @@ def _timestamp_factory(data):
             precision = TimestampPrecision.SECOND
 
         if buf.tell() == end:
-            microsecond = None
+            microsecond = 0
+            fractional_precision = None
         else:
             fraction = _parse_decimal(buf)
             if fraction < 0 or fraction >= 1:
                 raise IonException(
                     'Timestamp has a fractional component out of bounds: %s' % fraction)
-            microsecond = fraction.scaleb(6).to_integral_value()
+            fraction_exponent = fraction.as_tuple().exponent
+            if fraction == 0 and fraction_exponent > -1:
+                # According to the spec, fractions with coefficients of zero and exponents >= zero are ignored.
+                microsecond = 0
+                fractional_precision = None
+            else:
+                fractional_precision = -1 * fraction_exponent
+                if fractional_precision > MICROSECOND_PRECISION:
+                    raise IonException(
+                        'Timestamp has a fractional component %s with greater than microsecond precision.' % fraction)
+                microsecond = fraction.scaleb(MICROSECOND_PRECISION).to_integral_value()
 
         return Timestamp.adjust_from_utc_fields(
             year, month, day,
             hour, minute, second, microsecond,
             tz,
-            precision=precision
+            precision=precision, fractional_precision=fractional_precision
         )
 
     return parse_timestamp

@@ -262,8 +262,8 @@ def _next_code_point(val, val_iter, yield_char=False, to_int=lambda x: x):
                 raise ValueError('Unpaired high surrogate: %d' % code_point)
             # Decode the surrogates
             real_code_point = _NON_BMP_OFFSET
-            real_code_point |= (code_point - _HIGH_SURROGATE_START) << 10
-            real_code_point |= (low_code_point - _LOW_SURROGATE_START)
+            real_code_point += (code_point - _HIGH_SURROGATE_START) << 10
+            real_code_point += (low_code_point - _LOW_SURROGATE_START)
             return real_code_point, low_surrogate
         try:
             code_point, low = combine_surrogates()
@@ -273,7 +273,11 @@ def _next_code_point(val, val_iter, yield_char=False, to_int=lambda x: x):
             code_point, low = combine_surrogates()
     if yield_char and low is not None:
         out = CodePoint(code_point)
-        out.char = six.unichr(high) + six.unichr(low)
+        if isinstance(val, six.text_type):
+            # Iterating over a text type returns text types.
+            out.char = high + low
+        else:
+            out.char = six.unichr(high) + six.unichr(low)
     else:
         out = code_point
     yield out
