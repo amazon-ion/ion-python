@@ -230,16 +230,24 @@ SIMPLE_SCALARS_MAP_BINARY = {
     _IT.TIMESTAMP: (
         (None, b'\x6F'),
         # TODO Clarify whether there's a valid zero-length Timestamp representation.
-        (_DT(year=1, month=1, day=1), b'\x68\xC0\x81\x81\x81\x80\x80\x80\x80'),
+        (_DT(year=1, month=1, day=1), b'\x68\xC0\x81\x81\x81\x80\x80\x80\xc6'),
         (_DT(year=1, month=1, day=1, tzinfo=OffsetTZInfo(timedelta(minutes=-1))),
-         b'\x68\xC1\x81\x81\x81\x80\x81\x80\x80'),
+         b'\x68\xC1\x81\x81\x81\x80\x81\x80\xc6'),
         (_DT(year=1, month=1, day=1, hour=0, minute=0, second=0, microsecond=1),
          b'\x69\xC0\x81\x81\x81\x80\x80\x80\xC6\x01'),
         (timestamp(year=1, month=1, day=1, precision=TimestampPrecision.DAY), b'\x64\xC0\x81\x81\x81'),
         (timestamp(year=1, month=1, day=1, off_minutes=-1, precision=TimestampPrecision.SECOND),
          b'\x67\xC1\x81\x81\x81\x80\x81\x80'),
-        (timestamp(year=1, month=1, day=1, hour=0, minute=0, second=0, microsecond=1, precision=TimestampPrecision.SECOND),
-         b'\x69\xC0\x81\x81\x81\x80\x80\x80\xC6\x01'),
+        (
+            timestamp(year=1, month=1, day=1, hour=0, minute=0, second=0,
+                      microsecond=1, precision=TimestampPrecision.SECOND),
+            b'\x69\xC0\x81\x81\x81\x80\x80\x80\xC6\x01'
+        ),
+        (
+            timestamp(year=1, month=1, day=1, hour=0, minute=0, second=0,
+                      microsecond=100000, precision=TimestampPrecision.SECOND, fractional_precision=1),
+            b'\x69\xC0\x81\x81\x81\x80\x80\x80\xC1\x01'
+        ),
         (timestamp(2016, precision=TimestampPrecision.YEAR), b'\x63\xC0\x0F\xE0'),  # -00:00
         (timestamp(2016, off_hours=0, precision=TimestampPrecision.YEAR), b'\x63\x80\x0F\xE0'),
         (
@@ -259,8 +267,20 @@ SIMPLE_SCALARS_MAP_BINARY = {
             b'\x69\x43\xA4\x0F\xE0\x82\x82\x87\x80\x9E'
         ),
         (
-            timestamp(2016, 2, 2, 0, 0, 30, 1000, off_hours=-7, precision=TimestampPrecision.SECOND),
+            timestamp(2016, 2, 2, 0, 0, 30, 1000, off_hours=-7,
+                      precision=TimestampPrecision.SECOND),
+            # When fractional_precision not specified, defaults to 6 (same as regular datetime).
+            b'\x6C\x43\xA4\x0F\xE0\x82\x82\x87\x80\x9E\xC6\x03\xE8'  # The last three octets represent 1000d-6
+        ),
+        (
+            timestamp(2016, 2, 2, 0, 0, 30, 1000, off_hours=-7,
+                      precision=TimestampPrecision.SECOND, fractional_precision=3),
             b'\x6B\x43\xA4\x0F\xE0\x82\x82\x87\x80\x9E\xC3\x01'
+        ),
+        (
+            timestamp(2016, 2, 2, 0, 0, 30, 100000, off_hours=-7,
+                      precision=TimestampPrecision.SECOND, fractional_precision=1),
+            b'\x6B\x43\xA4\x0F\xE0\x82\x82\x87\x80\x9E\xC1\x01'
         ),
     ),
     _IT.SYMBOL: (

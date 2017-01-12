@@ -26,11 +26,12 @@ import six
 import sys
 
 from amazon.ion.core import Transition, ION_STREAM_INCOMPLETE_EVENT, ION_STREAM_END_EVENT, IonType, IonEvent, \
-    IonEventType, IonThunkEvent, TimestampPrecision, timestamp, ION_VERSION_MARKER_EVENT
+    IonEventType, IonThunkEvent, TimestampPrecision, timestamp, ION_VERSION_MARKER_EVENT, MICROSECOND_PRECISION
 from amazon.ion.exceptions import IonException
-from amazon.ion.reader import BufferQueue, reader_trampoline, ReadEventType, safe_unichr, CodePointArray, CodePoint
+from amazon.ion.reader import BufferQueue, reader_trampoline, ReadEventType, safe_unichr, CodePointArray, CodePoint, \
+    _NARROW_BUILD
 from amazon.ion.symbols import SymbolToken, TEXT_ION_1_0
-from amazon.ion.util import record, coroutine, Enum, _next_code_point, unicode_iter, CodePoint
+from amazon.ion.util import record, coroutine, Enum, _next_code_point, CodePoint
 
 _ord = six.byte2int
 _chr = safe_unichr
@@ -40,16 +41,20 @@ def _illegal_character(c, ctx, message=''):
     """Raises an IonException upon encountering the given illegal character in the given context.
 
     Args:
-        c (int): Ordinal of the illegal character.
+        c (int|None): Ordinal of the illegal character.
         ctx (_HandlerContext):  Context in which the illegal character was encountered.
         message (Optional[str]): Additional information, as necessary.
 
     """
     container_type = ctx.container.ion_type is None and 'top-level' or ctx.container.ion_type.name
     value_type = ctx.ion_type is None and 'unknown' or ctx.ion_type.name
-    c = 'EOF' if BufferQueue.is_eof(c) else _chr(c)
-    raise IonException('Illegal character %s at position %d in %s value contained in %s. %s Pending value: %s'
-                       % (c, ctx.queue.position, value_type, container_type, message, ctx.value))
+    if c is None:
+        header = 'Illegal token'
+    else:
+        c = 'EOF' if BufferQueue.is_eof(c) else _chr(c)
+        header = 'Illegal character %s' % (c,)
+    raise IonException('%s at position %d in %s value contained in %s. %s Pending value: %s'
+                       % (header, ctx.queue.position, value_type, container_type, message, ctx.value))
 
 
 def _defaultdict(dct, fallback=_illegal_character):
@@ -145,6 +150,8 @@ _UNICODE_ESCAPE_2 = _ord(b'x')
 _UNICODE_ESCAPE_4 = _ord(b'u')
 _UNICODE_ESCAPE_8 = _ord(b'U')
 
+_ESCAPED_NEWLINE = u''  # An escaped newline expands to nothing.
+
 _MAX_TEXT_CHAR = 0x10ffff
 _MAX_CLOB_CHAR = 0x7e
 _MIN_QUOTED_CHAR = 0x20
@@ -156,9 +163,11 @@ _TRUE_SUFFIX = _seq(b'rue')
 _FALSE_SUFFIX = _seq(b'alse')
 _NAN_SUFFIX = _seq(b'an')
 _INF_SUFFIX = _seq(b'inf')
-_IVM_SUFFIX = _seq(TEXT_ION_1_0.encode(_ENCODING))
+_IVM_PREFIX = _seq(b'$ion_')
 
-_IVM_TOKEN = SymbolToken(TEXT_ION_1_0, sid=None)
+_IVM_EVENTS = {
+    TEXT_ION_1_0: ION_VERSION_MARKER_EVENT,
+}
 
 _POS_INF = float('+inf')
 _NEG_INF = float('-inf')
@@ -268,11 +277,25 @@ def _is_escaped(c):
         return False
 
 
-def _as_symbol(value):
+def _as_symbol(value, is_symbol_value=True):
+    """Converts the input to a :class:`SymbolToken` suitable for being emitted as part of a :class:`IonEvent`.
+
+    If the input has an `as_symbol` method (e.g. :class:`CodePointArray`), it will be converted using that method.
+    Otherwise, it must already be a `SymbolToken`. In this case, there is nothing to do unless the input token is not a
+    symbol value and it is an :class:`_IVMToken`. This requires the `_IVMToken` to be converted to a regular
+    `SymbolToken`.
+    """
     try:
         return value.as_symbol()
     except AttributeError:
         assert isinstance(value, SymbolToken)
+    if not is_symbol_value:
+        try:
+            # This converts _IVMTokens to regular SymbolTokens when the _IVMToken cannot represent an IVM (i.e.
+            # it is a field name or annotation).
+            return value.regular_token()
+        except AttributeError:
+            pass
     return value
 
 
@@ -326,8 +349,13 @@ class _HandlerContext():
         depth = self.depth
         whence = self.whence
 
-        if ion_type is IonType.SYMBOL and value is _IVM_TOKEN and not annotations and depth == 0:
-            return Transition(ION_VERSION_MARKER_EVENT, whence)
+        if ion_type is IonType.SYMBOL:
+            if not annotations and depth == 0 and isinstance(value, _IVMToken):
+                event = value.ivm_event()
+                if event is None:
+                    _illegal_character(None, self, 'Illegal IVM: %s.' % (value.text,))
+                return Transition(event, whence)
+            assert not isinstance(value, _IVMToken)
 
         return Transition(
             event_cls(event_type, ion_type, value, self.field_name, annotations, depth),
@@ -455,7 +483,7 @@ class _HandlerContext():
         """Appends the context's ``pending_symbol`` to its ``annotations`` sequence."""
         assert self.pending_symbol is not None
         assert not self.value
-        annotations = (_as_symbol(self.pending_symbol),)  # pending_symbol becomes an annotation
+        annotations = (_as_symbol(self.pending_symbol, is_symbol_value=False),)  # pending_symbol becomes an annotation
         self.annotations = annotations if not self.annotations else self.annotations + annotations
         self.ion_type = None
         self.pending_symbol = None  # reset pending symbol
@@ -468,7 +496,7 @@ class _HandlerContext():
         """Sets the context's ``pending_symbol`` as its ``field_name``."""
         assert self.pending_symbol is not None
         assert not self.value
-        self.field_name = _as_symbol(self.pending_symbol)  # pending_symbol becomes field name
+        self.field_name = _as_symbol(self.pending_symbol, is_symbol_value=False)  # pending_symbol becomes field name
         self.pending_symbol = None  # reset pending symbol
         self.quoted_text = False
         self.line_comment = False
@@ -838,8 +866,6 @@ _ZEROS = [
     b'00000'
 ]
 
-_MICROSECOND_MAGNITUDE = 6
-
 
 def _parse_timestamp(tokens):
     """Parses each token in the given `_TimestampTokens` and marshals the numeric components into a `Timestamp`."""
@@ -902,15 +928,15 @@ def _parse_timestamp(tokens):
             microsecond = 0
         else:
             fraction_digits = len(fraction)
-            if fraction_digits > _MICROSECOND_MAGNITUDE:
-                for digit in fraction[_MICROSECOND_MAGNITUDE:]:
+            if fraction_digits > MICROSECOND_PRECISION:
+                for digit in fraction[MICROSECOND_PRECISION:]:
                     if digit != _ZERO:
                         raise ValueError('Only six significant digits supported in timestamp fractional. Found %s.'
                                          % (fraction,))
-                fraction_digits = _MICROSECOND_MAGNITUDE
-                fraction = fraction[0:_MICROSECOND_MAGNITUDE]
+                fraction_digits = MICROSECOND_PRECISION
+                fraction = fraction[0:MICROSECOND_PRECISION]
             else:
-                fraction.extend(_ZEROS[_MICROSECOND_MAGNITUDE - fraction_digits])
+                fraction.extend(_ZEROS[MICROSECOND_PRECISION - fraction_digits])
             microsecond = int(fraction)
         return timestamp(
             year, month, day,
@@ -1070,6 +1096,16 @@ def _validate_quoted_text(allowed_whitespace, c, ctx, max_char):
 _validate_long_string_text = partial(_validate_quoted_text, _WHITESPACE)
 
 
+def _is_escaped_newline(c):
+    if not (c in _NEWLINES and _is_escaped(c)):
+        return False
+    try:
+        return c.char == _ESCAPED_NEWLINE
+    except AttributeError:
+        return False
+    #return c in _NEWLINES and _is_escaped(c) and _chr(c) == u''
+
+
 @coroutine
 def _long_string_handler(c, ctx, is_field_name=False):
     """Handles triple-quoted strings. Remains active until a value other than a long string is encountered."""
@@ -1103,7 +1139,8 @@ def _long_string_handler(c, ctx, is_field_name=False):
                 _validate_long_string_text(c, ctx, max_char)
                 # Any quotes found in the meantime are part of the data
                 val.extend(_SINGLE_QUOTES[quotes])
-                val.append(c)
+                if not _is_escaped_newline(c):
+                    val.append(c)
                 quotes = 0
             else:
                 if quotes > 0:
@@ -1397,6 +1434,26 @@ def _unquoted_symbol_handler(c, ctx, is_field_name=False):
     yield _symbol_token_end(c, ctx, is_field_name)
 
 
+class _IVMToken(SymbolToken):
+    """Subclass of :class:`SymbolToken`, which indicates that this token's text matches the IVM pattern."""
+    def ivm_event(self):
+        """If this token's text is a supported IVM, returns the :class:`IonEvent` representing that IVM.
+        Otherwise, returns `None`.
+        """
+        try:
+            return _IVM_EVENTS[self.text]
+        except KeyError:
+            return None
+
+    def regular_token(self):
+        """Returns a copy of this token as a normal :class:`SymbolToken`.
+
+        This will be used in _as_symbol when this token is used as an annotation or field name, in which cases it
+        can no longer be an IVM.
+        """
+        return SymbolToken(self.text, self.sid, self.location)
+
+
 @coroutine
 def _symbol_identifier_or_unquoted_symbol_handler(c, ctx, is_field_name=False):
     """Handles symbol tokens that begin with a dollar sign. These may end up being system symbols ($ion_*), symbol
@@ -1410,25 +1467,35 @@ def _symbol_identifier_or_unquoted_symbol_handler(c, ctx, is_field_name=False):
     prev = c
     c, self = yield
     trans = ctx.immediate_transition(self)
-    maybe_ivm = ctx.depth == 0 and not is_field_name
+    maybe_ivm = ctx.depth == 0 and not is_field_name and not ctx.annotations
+    complete_ivm = False
     maybe_symbol_identifier = True
     match_index = 1
+    ivm_post_underscore = False
     while True:
         if c not in _WHITESPACE:
             if prev in _WHITESPACE or _ends_value(c) or c == _COLON or (in_sexp and c in _OPERATORS):
                 break
             maybe_symbol_identifier = maybe_symbol_identifier and c in _DIGITS
             if maybe_ivm:
-                if match_index < len(_IVM_SUFFIX):
-                    maybe_ivm = c == _IVM_SUFFIX[match_index]
+                if match_index == len(_IVM_PREFIX):
+                    if c in _DIGITS:
+                        if ivm_post_underscore:
+                            complete_ivm = True
+                    elif c == _UNDERSCORE and not ivm_post_underscore:
+                        ivm_post_underscore = True
+                    else:
+                        maybe_ivm = False
+                        complete_ivm = False
                 else:
-                    maybe_ivm = False
+                    maybe_ivm = c == _IVM_PREFIX[match_index]
             if maybe_ivm:
-                match_index += 1
+                if match_index < len(_IVM_PREFIX):
+                    match_index += 1
             elif not maybe_symbol_identifier:
                 yield ctx.immediate_transition(_unquoted_symbol_handler(c, ctx, is_field_name))
             val.append(c)
-        elif match_index < len(_IVM_SUFFIX):
+        elif match_index < len(_IVM_PREFIX):
             maybe_ivm = False
         prev = c
         c, _ = yield trans
@@ -1438,8 +1505,8 @@ def _symbol_identifier_or_unquoted_symbol_handler(c, ctx, is_field_name=False):
         assert not maybe_ivm
         sid = int(val[1:])
         val = SymbolToken(None, sid)
-    elif maybe_ivm:
-        val = _IVM_TOKEN
+    elif complete_ivm:
+        val = _IVMToken(*val.as_symbol())
     yield _symbol_token_end(c, ctx, is_field_name, value=val)
 
 
@@ -1470,12 +1537,16 @@ def _quoted_text_handler_factory(delimiter, assertion, before, after, append_fir
     @coroutine
     def quoted_text_handler(c, ctx, is_field_name=False):
         assert assertion(c)
+
+        def append():
+            if not _is_escaped_newline(c):
+                val.append(c)
         is_clob = ctx.ion_type is IonType.CLOB
         max_char = _MAX_CLOB_CHAR if is_clob else _MAX_TEXT_CHAR
         ctx.set_unicode(quoted_text=True)
         val, event_on_close = before(c, ctx, is_field_name, is_clob)
         if append_first:
-            val.append(c)
+            append()
         c, self = yield
         trans = ctx.immediate_transition(self)
         done = False
@@ -1488,7 +1559,7 @@ def _quoted_text_handler_factory(delimiter, assertion, before, after, append_fir
                     break
             else:
                 _validate_short_quoted_text(c, ctx, max_char)
-                val.append(c)
+                append()
             c, _ = yield trans
         yield after(c, ctx, is_field_name)
     return quoted_text_handler
@@ -1585,6 +1656,13 @@ def _struct_or_lob_handler(c, ctx):
     yield ctx.immediate_transition(_STRUCT_OR_LOB_TABLE[c](c, ctx))
 
 
+def _b64decode_py2(value):
+    # Some versions of python 2 don't support bytearray as input to base64.b64decode.
+    return base64.b64decode(six.binary_type(value))
+
+_b64decode = _b64decode_py2 if six.PY2 else base64.b64decode
+
+
 def _parse_lob(ion_type, value):
     def parse():
         if ion_type is IonType.CLOB:
@@ -1592,7 +1670,7 @@ def _parse_lob(ion_type, value):
             for b in value.as_text():
                 byte_value.append(ord(b))
             return six.binary_type(byte_value)
-        return base64.b64decode(value)
+        return _b64decode(value)
     return parse
 
 
@@ -2099,9 +2177,7 @@ def _skip_trampoline(handler):
         data_event, _ = yield Transition(event, self)
 
 
-_UCS2 = sys.maxunicode < 0x10ffff
-
-_next_code_point_iter = partial(_next_code_point, yield_char=_UCS2)
+_next_code_point_iter = partial(_next_code_point, yield_char=_NARROW_BUILD)
 
 
 @coroutine
@@ -2110,6 +2186,9 @@ def _next_code_point_handler(whence, ctx):
     data_event, self = yield
     queue = ctx.queue
     unicode_escapes_allowed = ctx.ion_type is not IonType.CLOB
+    escaped_newline = False
+    escape_sequence = b''
+    low_surrogate_required = False
     while True:
         if len(queue) == 0:
             yield ctx.read_data_event(self)
@@ -2117,18 +2196,22 @@ def _next_code_point_handler(whence, ctx):
         code_point_generator = _next_code_point_iter(queue, queue_iter)
         code_point = next(code_point_generator)
         if code_point == _BACKSLASH:
-            escape_sequence = b'' + six.int2byte(_BACKSLASH)
+            escape_sequence += six.int2byte(_BACKSLASH)
             num_digits = None
-            escaped_newline = False
             while True:
                 if len(queue) == 0:
                     yield ctx.read_data_event(self)
                 code_point = next(queue_iter)
                 if six.indexbytes(escape_sequence, -1) == _BACKSLASH:
-                    if code_point == _ord(b'x'):
+                    if code_point == _ord(b'u') and unicode_escapes_allowed:
+                        # 4-digit unicode escapes, plus '\u' for each surrogate
+                        num_digits = 12 if low_surrogate_required else 6
+                        low_surrogate_required = False
+                    elif low_surrogate_required:
+                        _illegal_character(code_point, ctx,
+                                           'Unpaired high surrogate escape sequence %s.' % (escape_sequence,))
+                    elif code_point == _ord(b'x'):
                         num_digits = 4  # 2-digit hex escapes
-                    elif code_point == _ord(b'u') and unicode_escapes_allowed:
-                        num_digits = 6  # 4-digit unicode escapes
                     elif code_point == _ord(b'U') and unicode_escapes_allowed:
                         num_digits = 10  # 8-digit unicode escapes
                     elif code_point in _COMMON_ESCAPES:
@@ -2138,12 +2221,6 @@ def _next_code_point_handler(whence, ctx):
                         break
                     elif code_point in _NEWLINES:
                         escaped_newline = True
-                        if code_point == _CARRIAGE_RETURN:
-                            if len(queue) == 0:
-                                yield ctx.read_data_event(self)
-                            code_point = next(queue_iter)
-                            if code_point != _NEWLINE:
-                                queue.unread(code_point)
                         break
                     else:
                         # This is a backslash followed by an invalid escape character. This is illegal.
@@ -2156,17 +2233,23 @@ def _next_code_point_handler(whence, ctx):
                     escape_sequence += six.int2byte(code_point)
                     if len(escape_sequence) == num_digits:
                         break
-            if escaped_newline:
-                continue
-            escape_sequence = escape_sequence.decode('unicode-escape')
-            cp_iter = unicode_iter(escape_sequence)
-            code_point = CodePoint(next(cp_iter))
-            code_point.char = escape_sequence
-            code_point.is_escaped = True
-            ctx.set_code_point(code_point)
-            yield Transition(None, whence)
-        elif code_point == _CARRIAGE_RETURN:
-            # Normalize all unescaped verbatim newlines (\r, \n, and \r\n) to \n .
+            if not escaped_newline:
+                decoded_escape_sequence = escape_sequence.decode('unicode-escape')
+                cp_iter = _next_code_point_iter(decoded_escape_sequence, iter(decoded_escape_sequence), to_int=ord)
+                code_point = next(cp_iter)
+                if code_point is None:
+                    # This is a high surrogate. Restart the loop to gather the low surrogate.
+                    low_surrogate_required = True
+                    continue
+                code_point = CodePoint(code_point)
+                code_point.char = decoded_escape_sequence
+                code_point.is_escaped = True
+                ctx.set_code_point(code_point)
+                yield Transition(None, whence)
+        elif low_surrogate_required:
+            _illegal_character(code_point, ctx, 'Unpaired high surrogate escape sequence %s.' % (escape_sequence,))
+        if code_point == _CARRIAGE_RETURN:
+            # Normalize all newlines (\r, \n, and \r\n) to \n .
             if len(queue) == 0:
                 yield ctx.read_data_event(self)
             code_point = next(queue_iter)
@@ -2176,6 +2259,10 @@ def _next_code_point_handler(whence, ctx):
         while code_point is None:
             yield ctx.read_data_event(self)
             code_point = next(code_point_generator)
+        if escaped_newline:
+            code_point = CodePoint(code_point)
+            code_point.char = _ESCAPED_NEWLINE
+            code_point.is_escaped = True
         ctx.set_code_point(code_point)
         yield Transition(None, whence)
 

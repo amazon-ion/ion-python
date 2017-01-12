@@ -24,8 +24,8 @@ import six
 
 from amazon.ion.core import timestamp, TimestampPrecision
 from amazon.ion.exceptions import IonException
-from amazon.ion.reader import ReadEventType
-from amazon.ion.reader_text import reader, _POS_INF, _NEG_INF, _NAN, _UCS2
+from amazon.ion.reader import ReadEventType, _NARROW_BUILD
+from amazon.ion.reader_text import reader, _POS_INF, _NEG_INF, _NAN
 from amazon.ion.symbols import SymbolToken
 from amazon.ion.util import coroutine
 from tests import listify, parametrize
@@ -43,6 +43,9 @@ def _sid(sid):
     return SymbolToken(text=None, sid=sid, location=None)
 
 _BAD_GRAMMAR = (
+    (b'$ion_1_1 42',),
+    (b'$ion_10_1 42',),
+    (b'$ion_1_02 42',),
     (b'+1',),
     (b'01',),
     (b'1.23.4',),
@@ -99,6 +102,9 @@ _BAD_GRAMMAR = (
     (b"'\0'",),
     (b"'''\b'''",),
     (b"'''a\b'''",),
+    (b'"\\udbff\\""',),  # Unpaired escaped surrogate.
+    (b'"\\udbffabcdef',),  # Unpaired escaped surrogate.
+    (b"'''\\udbff'''",),  # Splitting surrogate escapes across long string literal boundaries is illegal per the spec.
     (b'abc://',),
     (b'abc/**/://',),
     (b'{{/**/}}',),
@@ -202,6 +208,8 @@ _BAD_VALUE = (
     (b'2000-01-01T00:00:00.9999999Z',),  # Only up to microsecond-level precision is supported.
     (b'2000-01-01T00:00:00.000+24:00',),  # Hour offset is 0..23.
     (b'2000-01-01T00:00:00.000+00:60',),  # Minute offset is 0..59.
+    (b'"\\udbff\\u3000"',),  # Malformed surrogate pair (\u3000 is not a low surrogate).
+    (b'"\\u3000\\udfff"',),  # Malformed surrogate pair (\u3000 is not a high surrogate).
 )
 
 _INCOMPLETE = (
@@ -311,7 +319,7 @@ _GOOD_FLUSH = (
     [(e_read(b'123'), INC), (NEXT, e_int(123)), _NEXT_END],
     [(e_read(b'123.'), INC), (NEXT, e_decimal(_d(123))), _NEXT_END],
     [(e_read(b'1.23e-4'), INC), (NEXT, e_float(1.23e-4)), _NEXT_END],
-    [(e_read(b'1.23d+4'), INC), (NEXT, e_decimal(_d(1.23e4))), _NEXT_END],
+    [(e_read(b'1.23d+4'), INC), (NEXT, e_decimal(_d(u'1.23e4'))), _NEXT_END],
     [(e_read(b'2000-01-01'), INC), (NEXT, e_timestamp(_ts(2000, 1, 1, precision=_tp.DAY))), _NEXT_END],
     [(e_read(b"a"), INC), (NEXT, e_symbol(_st(u'a'))), _NEXT_END],
     [(e_read(b"'abc'"), INC), (NEXT, e_symbol(_st(u'abc'))), _NEXT_END],
@@ -341,6 +349,7 @@ _GOOD_FLUSH = (
 )
 
 _BAD_FLUSH = (
+    [(e_read(b'$ion_1_1'), INC), _NEXT_ERROR],
     [(e_read(b'123_'), INC), _NEXT_ERROR],
     [(e_read(b'123e'), INC), _NEXT_ERROR],
     [(e_read(b'123e-'), INC), _NEXT_ERROR],
@@ -409,10 +418,14 @@ _good_list = partial(_good_container, e_start_list, e_end_list)
 
 _GOOD = (
     (b'$ion_1_0 42 ', IVM, e_int(42)),
+    (b'$ion_1_0_ 42 ', e_symbol(_st(u'$ion_1_0_')), e_int(42)),
+    (b'$ion_1_0a 42 ', e_symbol(_st(u'$ion_1_0a')), e_int(42)),
     (b'$ion_1_ 42 ', e_symbol(_st(u'$ion_1_')), e_int(42)),
-    (b'$ion_1_1 42 ', e_symbol(_st(u'$ion_1_1')), e_int(42)),
-    (b'$ion_1_02 42 ', e_symbol(_st(u'$ion_1_02')), e_int(42)),
+    (b'$ion_a_b 42 ', e_symbol(_st(u'$ion_a_b')), e_int(42)),
+    (b'$ion_1_b 42 ', e_symbol(_st(u'$ion_1_b')), e_int(42)),
     (b'ann::$ion_1_0 42 ', e_symbol(_st(u'$ion_1_0'), annotations=(_st(u'ann'),)), e_int(42)),
+    (b'$ion_1234_1::$ion_1_0 42 ', e_symbol(_st(u'$ion_1_0'), annotations=(_st(u'$ion_1234_1'),)), e_int(42)),
+    (b'$ion_1_0::$ion_1234_1 42 ', e_symbol(_st(u'$ion_1234_1'), annotations=(_st(u'$ion_1_0'),)), e_int(42)),
     (b'{$ion_1_0:abc}',) + _good_struct(e_symbol(_st(u'abc'), field_name=_st(u'$ion_1_0'))),
     (b'($ion_1_0)',) + _good_sexp(e_symbol(_st(u'$ion_1_0'))),
     (b'42[]', e_int(42)) + _good_list(),
@@ -506,6 +519,7 @@ _GOOD_ESCAPES_FROM_UNICODE = (
     (u"'''\\b'''42 ", e_string(u'\b'), e_int(42)),
     (u"'''a\\b'''42 ", e_string(u'a\b'), e_int(42)),
     (u'"\\u3000"', e_string(u'\u3000')),
+    (u'"\\udbff\\udfff"', e_string(u'\U0010ffff')),  # Escaped surrogate pair.
     (u'["\\U0001F4a9"]',) + _good_list(e_string(u'\U0001f4a9')),
     (u'"\\t "\'\\\'\'"\\v"', e_string(u'\t '), e_symbol(_st(u'\'')), e_string(u'\v')),
     (u'(\'\\/\')',) + _good_sexp(e_symbol(_st(u'/'))),
@@ -516,6 +530,7 @@ _GOOD_ESCAPES_FROM_UNICODE = (
     (u"'''\\\'\\\'\\\''''\"\\\'\"", e_string(u"'''"), e_string(u"'")),
     (u"'''a''\\\'b'''\n'''\\\''''/**/''''\'c'''\"\"", e_string(u"a'''b'''c"), e_string(u'')),
     (u"'''foo''''\\U0001f4a9'42 ", e_string(u'foo'), e_symbol(_st(u'\U0001f4a9')), e_int(42)),
+    (u"''''\\\r\n'''42 ", e_string(u"'"), e_int(42)),
     (u'"\\\n"', e_string(u'')),
     (u'"\\\r\n"', e_string(u'')),
     (u'"\\\r"', e_string(u'')),
@@ -542,6 +557,7 @@ _GOOD_ESCAPES_FROM_BYTES = (
     (br"'''\b'''42 ", e_string(u'\b'), e_int(42)),
     (br"'''a\b'''42 ", e_string(u'a\b'), e_int(42)),
     (br'"\u3000"', e_string(u'\u3000')),
+    (br'"\udbff\udfff"', e_string(u'\U0010ffff')),  # Escaped surrogate pair.
     (br'["\U0001F4a9"]',) + _good_list(e_string(u'\U0001f4a9')),
     (b'"\\t "\'\\\'\'"\\v"', e_string(u'\t '), e_symbol(_st(u'\'')), e_string(u'\v')),
     (b'(\'\\/\')',) + _good_sexp(e_symbol(_st(u'/'))),
@@ -552,6 +568,7 @@ _GOOD_ESCAPES_FROM_BYTES = (
     (b"'''\\\'\\\'\\\''''\"\\\'\"", e_string(u"'''"), e_string(u"'")),
     (b"'''a''\\\'b'''\n'''\\\''''/**/''''\'c'''\"\"", e_string(u"a'''b'''c"), e_string(u'')),
     (b"'''foo''''\\U0001f4a9'42 ", e_string(u'foo'), e_symbol(_st(u'\U0001f4a9')), e_int(42)),
+    (b"''''\\\r\n'''42 ", e_string(u"'"), e_int(42)),
     (b'"\\\n"', e_string(u'')),
     (b'"\\\r\n"', e_string(u'')),
     (b'"\\\r"', e_string(u'')),
@@ -1209,7 +1226,7 @@ _good_unicode_params = partial(_basic_params, _end, 'GOOD - UNICODE', u'')
     _bad_unicode_params(_BAD_ESCAPES_FROM_UNICODE),
     _bad_grammar_params(_BAD_ESCAPES_FROM_BYTES),
     _paired_params(_INCOMPLETE_ESCAPES, 'INCOMPLETE ESCAPES'),
-    _UCS2 and _paired_params(_UNICODE_SURROGATES, 'UNICODE SURROGATES') or (),
+    _paired_params(_UNICODE_SURROGATES, 'UNICODE SURROGATES') if _NARROW_BUILD else (),
     _good_params(_UNSPACED_SEXPS),
     _paired_params(_SKIP, 'SKIP'),
     _paired_params(_GOOD_FLUSH, 'GOOD FLUSH'),

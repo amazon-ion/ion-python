@@ -364,7 +364,6 @@ class TimestampPrecision(Enum):
 TIMESTAMP_PRECISION_FIELD = 'precision'
 TIMESTAMP_FRACTION_PRECISION_FIELD = 'fractional_precision'
 MICROSECOND_PRECISION = 6
-_MICROSECOND_ARG_INDEX = 6
 
 
 class Timestamp(datetime):
@@ -384,6 +383,10 @@ class Timestamp(datetime):
             del kwargs[TIMESTAMP_PRECISION_FIELD]
         if TIMESTAMP_FRACTION_PRECISION_FIELD in kwargs:
             fractional_precision = kwargs.get(TIMESTAMP_FRACTION_PRECISION_FIELD)
+            if fractional_precision is not None and 1 > fractional_precision > MICROSECOND_PRECISION:
+                raise ValueError('Cannot construct a Timestamp with fractional precision of %d digits, '
+                                 'which is out of the supported range of [1, %d].'
+                                 % (fractional_precision, MICROSECOND_PRECISION,))
             # Make sure we mask this before we construct the datetime.
             del kwargs[TIMESTAMP_FRACTION_PRECISION_FIELD]
 
@@ -403,14 +406,7 @@ class Timestamp(datetime):
     @staticmethod
     def adjust_from_utc_fields(*args, **kwargs):
         """Constructs a timestamp from UTC fields adjusted to the local offset if given."""
-        has_microsecond = args[_MICROSECOND_ARG_INDEX] is not None
-        if not has_microsecond:
-            args = args[0:_MICROSECOND_ARG_INDEX] + (0,) + args[_MICROSECOND_ARG_INDEX + 1:]
         raw_ts = Timestamp(*args, **kwargs)
-        fractional_precision = None
-        if raw_ts.precision is TimestampPrecision.SECOND and has_microsecond:
-            fractional_precision = MICROSECOND_PRECISION
-        setattr(raw_ts, TIMESTAMP_FRACTION_PRECISION_FIELD, fractional_precision)
         offset = raw_ts.utcoffset()
         if offset is None or offset == timedelta():
             return raw_ts
@@ -431,7 +427,7 @@ class Timestamp(datetime):
             adjusted.microsecond,
             raw_ts.tzinfo,
             precision=raw_ts.precision,
-            fractional_precision=fractional_precision
+            fractional_precision=raw_ts.fractional_precision
         )
 
 

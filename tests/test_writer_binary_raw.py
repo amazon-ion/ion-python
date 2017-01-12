@@ -28,7 +28,7 @@ from tests import parametrize
 from tests.writer_util import assert_writer_events, generate_scalars, generate_containers, \
                               WriterParameter, SIMPLE_SCALARS_MAP_BINARY, ION_ENCODED_INT_ZERO, VARUINT_END_BYTE
 
-from amazon.ion.core import IonEvent, IonType, IonEventType
+from amazon.ion.core import IonEvent, IonType, IonEventType, timestamp, TimestampPrecision
 from amazon.ion.writer import blocking_writer
 from amazon.ion.writer_binary_raw import _raw_binary_writer, _write_length
 from amazon.ion.writer_buffer import BufferTree
@@ -128,6 +128,14 @@ _P_FAILURES = [
         ],
         expected=TypeError
     ),
+    _P(
+        desc="INSUFFICIENT TIMESTAMP PRECISION",
+        events=[
+            _E(_ET.SCALAR, _IT.TIMESTAMP,
+               timestamp(1, 1, 1, 1, 1, 1, 123456, precision=TimestampPrecision.SECOND, fractional_precision=3))
+        ],
+        expected=ValueError
+    )
 ]
 
 _SIMPLE_CONTAINER_MAP = {
