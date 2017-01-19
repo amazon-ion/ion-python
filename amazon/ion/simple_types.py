@@ -53,6 +53,18 @@ class _IonNature(object):
         self.ion_type = None
         self.ion_annotations = ()
 
+    def _copy(self):
+        """Copies this instance. Its IonEvent (if any) is not preserved.
+
+        Keeping this protected until/unless we decide there's use for it publicly.
+        """
+        args, kwargs = self._to_constructor_args(self)
+        value = self.__class__(*args, **kwargs)
+        value.ion_event = None
+        value.ion_type = self.ion_type
+        value.ion_annotations = self.ion_annotations
+        return value
+
     @staticmethod
     def _to_constructor_args(value):
         return (value, ), {}
