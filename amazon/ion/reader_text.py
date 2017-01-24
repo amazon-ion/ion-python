@@ -153,7 +153,7 @@ _UNICODE_ESCAPE_8 = _ord(b'U')
 _ESCAPED_NEWLINE = u''  # An escaped newline expands to nothing.
 
 _MAX_TEXT_CHAR = 0x10ffff
-_MAX_CLOB_CHAR = 0x7e
+_MAX_CLOB_CHAR = 0x7f
 _MIN_QUOTED_CHAR = 0x20
 
 # The following suffixes are used for comparison when a token is found that starts with the first letter in
