@@ -527,6 +527,24 @@ def _annotation_handler(ion_type, length, ctx):
 
 
 @coroutine
+def _ordered_struct_start_handler(handler, ctx):
+    """Handles the special case of ordered structs, specified by the type ID 0xD1.
+
+    This coroutine's only purpose is to ensure that the struct in question declares at least one field name/value pair,
+    as required by the spec.
+    """
+    _, self = yield
+    self_handler = _create_delegate_handler(self)
+    (length, _), _ = yield ctx.immediate_transition(
+        _var_uint_field_handler(self_handler, ctx)
+    )
+    if length < 2:
+        # A valid field name/value pair is at least two octets: one for the field name SID and one for the value.
+        raise IonException('Ordered structs (type ID 0xD1) must have at least one field name/value pair.')
+    yield ctx.immediate_transition(handler(length, ctx))
+
+
+@coroutine
 def _container_start_handler(ion_type, length, ctx):
     """Handles container delegation."""
     _, self = yield
@@ -770,7 +788,9 @@ def _bind_length_handlers(tids, user_handler, lns):
         for ln in lns:
             type_octet = _gen_type_octet(tid, ln)
             ion_type = _TID_VALUE_TYPE_TABLE[tid]
-            if ln < _LENGTH_FIELD_FOLLOWS:
+            if ln == 1 and ion_type is IonType.STRUCT:
+                handler = partial(_ordered_struct_start_handler, partial(user_handler, ion_type))
+            elif ln < _LENGTH_FIELD_FOLLOWS:
                 # Directly partially bind length.
                 handler = partial(user_handler, ion_type, ln)
             else:

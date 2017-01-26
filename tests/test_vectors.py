@@ -82,8 +82,7 @@ _SKIP_LIST = (
     _equivs_file(u'structsFieldsRepeatedNames.ion'),  # TODO amznlabs/ion-python#36
     _nonequivs_file(u'structs.ion'),  # TODO amznlabs/ion-python#36
     # BINARY:
-    _good_file(u'structAnnotatedOrdered.10n'),  # TODO amznlabs/ion-python#38
-    _good_file(u'structOrdered.10n'),  # TODO amznlabs/ion-python#38
+    # None.
 )
 
 _DEBUG_WHITELIST = (
