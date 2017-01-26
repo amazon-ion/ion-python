@@ -235,6 +235,7 @@ _TOP_LEVEL_VALUES = (
     
     (b'\xDF', e_null_struct()),
     (b'\xD0', e_start_struct(), e_end_struct()),
+    (b'\xD1\x82\x84\x20', e_start_struct(), e_int(0, field_name=SymbolToken(None, 4)), e_end_struct())
 )
 
 
