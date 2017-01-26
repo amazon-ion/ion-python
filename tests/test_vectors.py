@@ -84,8 +84,6 @@ _SKIP_LIST = (
     # BINARY:
     _bad_file(u'container_length_mismatch.10n'),  # TODO amznlabs/ion-python#37
     _bad_file(u'emptyAnnotatedInt.10n'),  # TODO amznlabs/ion-python#37
-    _good_file(u'structAnnotatedOrdered.10n'),  # TODO amznlabs/ion-python#38
-    _good_file(u'structOrdered.10n'),  # TODO amznlabs/ion-python#38
 )
 
 _DEBUG_WHITELIST = (
