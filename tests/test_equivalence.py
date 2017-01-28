@@ -84,7 +84,7 @@ _EQUIVS = (
         _dt(1, 1, 1),
         _dt(1, 1, 1, 0, 0, 0),
         _timestamp(_dt(1, 1, 1, 0, 0, 0, 0, tzinfo=None)),
-        _ts(1, precision=_TP.SECOND, fractional_precision=6),
+        _ts(1, microsecond=0, precision=_TP.SECOND, fractional_precision=6),
         _timestamp(_ts(1, microsecond=0, precision=_TP.SECOND)),
     ),
     (
@@ -182,7 +182,7 @@ _NONEQUIVS = (
         _timestamp(_ts(1, 1, 1, precision=_TP.DAY)),
         _ts(1, microsecond=0, precision=_TP.SECOND, fractional_precision=3),
         _dt(1, 1, 1, tzinfo=OffsetTZInfo()),
-        _timestamp(_ts(1, precision=_TP.SECOND, fractional_precision=6, off_hours=-1, off_minutes=0)),
+        _timestamp(_ts(1, microsecond=0, precision=_TP.SECOND, fractional_precision=6, off_hours=-1, off_minutes=0)),
         None
     ),
     (
