@@ -27,9 +27,10 @@ from functools import partial
 import six
 import struct
 
+from amazon.ion.equivalence import _is_float_negative_zero
 from amazon.ion.symbols import SymbolToken
 from .core import IonEventType, IonType, DataEvent, Transition, TimestampPrecision, TIMESTAMP_FRACTION_PRECISION_FIELD, \
-    MICROSECOND_PRECISION
+    MICROSECOND_PRECISION, TIMESTAMP_PRECISION_FIELD
 from .util import coroutine, total_seconds, Enum
 from .writer import NOOP_WRITER_EVENT, WriteEventType, \
                     writer_trampoline, partial_transition, serialize_scalar, \
@@ -146,7 +147,7 @@ def _serialize_float(ion_event):
     float_value = ion_event.value
     validate_scalar_value(float_value, float)
     # TODO Assess whether abbreviated encoding of zero is beneficial; it's allowed by spec.
-    if float_value.is_integer() and float_value == 0.0:
+    if float_value.is_integer() and float_value == 0.0 and not _is_float_negative_zero(float_value):
         buf.append(_Zeros.FLOAT)
     else:
         # TODO Add an option for 32-bit representation (length=4) per the spec.
@@ -239,11 +240,8 @@ _TEN_EXP_MINUS_ONE = [
 def _serialize_timestamp(ion_event):
     buf = bytearray()
     dt = ion_event.value
-    try:
-        precision = dt.precision
-        if precision is None:  # TODO should we push this defaulting be pushed into Timestamp itself?
-            precision = TimestampPrecision.SECOND
-    except AttributeError:
+    precision = getattr(dt, TIMESTAMP_PRECISION_FIELD, TimestampPrecision.SECOND)
+    if precision is None:  # TODO should this defaulting be pushed into Timestamp itself?
         precision = TimestampPrecision.SECOND
     validate_scalar_value(dt, datetime)
     value_buf = bytearray()
@@ -266,13 +264,12 @@ def _serialize_timestamp(ion_event):
     if precision.includes_second:
         length += _write_varuint(value_buf, dt.second)
         coefficient = dt.microsecond
-        try:
-            fractional_precision = getattr(ion_event.value, TIMESTAMP_FRACTION_PRECISION_FIELD)
-        except AttributeError:
-            fractional_precision = MICROSECOND_PRECISION
+        fractional_precision = getattr(ion_event.value, TIMESTAMP_FRACTION_PRECISION_FIELD, MICROSECOND_PRECISION)
         if coefficient is not None and fractional_precision is not None:
-            adjusted_fractional_precision = MICROSECOND_PRECISION
-            if coefficient != 0:
+            if coefficient == 0:
+                adjusted_fractional_precision = fractional_precision
+            else:
+                adjusted_fractional_precision = MICROSECOND_PRECISION
                 # This optimizes the size of the fractional encoding when the extra precision is not needed.
                 while adjusted_fractional_precision > fractional_precision and coefficient % 10 == 0:
                     coefficient //= 10

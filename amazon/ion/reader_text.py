@@ -873,6 +873,7 @@ def _parse_timestamp(tokens):
         precision = TimestampPrecision.YEAR
         off_hour = tokens[_TimestampState.OFF_HOUR]
         off_minutes = tokens[_TimestampState.OFF_MINUTE]
+        microsecond = None
         fraction_digits = None
         if off_hour is not None:
             assert off_minutes is not None
@@ -923,21 +924,19 @@ def _parse_timestamp(tokens):
             second = int(second)
             precision = TimestampPrecision.SECOND
 
-        fraction = tokens[_TimestampState.FRACTIONAL]
-        if fraction is None:
-            microsecond = 0
-        else:
-            fraction_digits = len(fraction)
-            if fraction_digits > MICROSECOND_PRECISION:
-                for digit in fraction[MICROSECOND_PRECISION:]:
-                    if digit != _ZERO:
-                        raise ValueError('Only six significant digits supported in timestamp fractional. Found %s.'
-                                         % (fraction,))
-                fraction_digits = MICROSECOND_PRECISION
-                fraction = fraction[0:MICROSECOND_PRECISION]
-            else:
-                fraction.extend(_ZEROS[MICROSECOND_PRECISION - fraction_digits])
-            microsecond = int(fraction)
+            fraction = tokens[_TimestampState.FRACTIONAL]
+            if fraction is not None:
+                fraction_digits = len(fraction)
+                if fraction_digits > MICROSECOND_PRECISION:
+                    for digit in fraction[MICROSECOND_PRECISION:]:
+                        if digit != _ZERO:
+                            raise ValueError('Only six significant digits supported in timestamp fractional. Found %s.'
+                                             % (fraction,))
+                    fraction_digits = MICROSECOND_PRECISION
+                    fraction = fraction[0:MICROSECOND_PRECISION]
+                else:
+                    fraction.extend(_ZEROS[MICROSECOND_PRECISION - fraction_digits])
+                microsecond = int(fraction)
         return timestamp(
             year, month, day,
             hour, minute, second, microsecond,

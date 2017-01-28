@@ -282,7 +282,7 @@ def load(fp, catalog=None, single_value=True, encoding='utf-8', cls=None, object
     _load(out, reader)
     if single_value:
         if len(out) != 1:
-            raise IonException('Stream contained more than a single value')
+            raise IonException('Stream contained %d values; expected a single value.' % (len(out),))
         return out[0]
     return out
 
