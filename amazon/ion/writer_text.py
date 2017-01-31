@@ -34,7 +34,8 @@ from amazon.ion.symbols import SymbolToken
 from . import symbols
 
 from .util import coroutine, unicode_iter
-from .core import DataEvent, Transition, IonEventType, IonType
+from .core import DataEvent, Transition, IonEventType, IonType, TIMESTAMP_PRECISION_FIELD, TimestampPrecision, \
+    _ZERO_DELTA, TIMESTAMP_FRACTION_PRECISION_FIELD, MICROSECOND_PRECISION
 from .writer import partial_transition, writer_trampoline, serialize_scalar, validate_scalar_value, \
     illegal_state_null, NOOP_WRITER_EVENT
 from .writer import WriteEventType
@@ -127,13 +128,61 @@ _serialize_decimal = _serialize_scalar_from_string_representation_factory(
 )
 
 
-# TODO Support precision better.
+def _bytes_utc_offset(dt):
+    offset = dt.utcoffset()
+    if offset is None:
+        return '-00:00'
+    elif offset == _ZERO_DELTA:
+        return 'Z'
+    offset_str = dt.strftime('%z')
+    offset_str = offset_str[:3] + ':' + offset_str[3:]
+    return offset_str
+
+
 def _bytes_datetime(dt):
-    tz_string = dt.isoformat()
-    if dt.tzinfo is None:
-        # Add unknown offset.
-        tz_string += '-00:00'
-    return tz_string
+    original_dt = dt
+    precision = getattr(original_dt, TIMESTAMP_PRECISION_FIELD, TimestampPrecision.SECOND)
+    if dt.year < 1900:
+        # In some Python interpreter versions, strftime inexplicably does not support pre-1900 years.
+        # This unfortunate ugliness compensates for that.
+        year = str(dt.year)
+        year = ('0' * (4 - len(year))) + year
+        dt = dt.replace(year=2008)  # Note: this fake year must be a leap year.
+    else:
+        year = dt.strftime('%Y')
+    tz_string = year
+
+    if precision.includes_month:
+        tz_string += dt.strftime('-%m')
+    else:
+        return tz_string + 'T'
+
+    if precision.includes_day:
+        tz_string += dt.strftime('-%dT')
+    else:
+        return tz_string + 'T'
+
+    if precision.includes_minute:
+        tz_string += dt.strftime('%H:%M')
+    else:
+        return tz_string
+
+    if precision.includes_second:
+        tz_string += dt.strftime(':%S')
+    else:
+        return tz_string + _bytes_utc_offset(dt)
+
+    fractional_precision = getattr(original_dt, TIMESTAMP_FRACTION_PRECISION_FIELD, MICROSECOND_PRECISION)
+    if fractional_precision:
+        fractional = dt.strftime('%f')
+        assert len(fractional) == MICROSECOND_PRECISION
+        if fractional[fractional_precision:] != ('0' * (MICROSECOND_PRECISION - fractional_precision)):
+            raise ValueError('Found timestamp fractional with more than the specified %d digits of precision.'
+                             % (fractional_precision,))
+        fractional = fractional[:fractional_precision]
+        tz_string += '.' + fractional
+
+    return tz_string + _bytes_utc_offset(dt)
 
 
 _serialize_timestamp = _serialize_scalar_from_string_representation_factory(
@@ -179,7 +228,9 @@ def _bytes_text(code_point_iter, quote, prefix=b'', suffix=b''):
     for code_point in code_point_iter:
         if code_point == quote_code_point:
             buf.write(b'\\' + quote)
-        if _is_printable_ascii(code_point):
+        elif code_point == six.byte2int(b'\\'):
+            buf.write(b'\\\\')
+        elif _is_printable_ascii(code_point):
             buf.write(six.int2byte(code_point))
         else:
             buf.write(_escape(code_point))

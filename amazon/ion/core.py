@@ -463,6 +463,8 @@ def timestamp(year, month=1, day=1,
             fractional_precision = MICROSECOND_PRECISION
     else:
         microsecond = 0
+        if fractional_precision is not None:
+            raise ValueError('Cannot have fractional precision without a fractional component.')
 
     return Timestamp(
         year, month, day,

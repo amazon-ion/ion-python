@@ -108,7 +108,7 @@ def _symbol_table_coroutine(writer_buffer, imports):
         try:
             key = symbol.sid
             symbol_text = symbol.text
-            if key is None:
+            if symbol_text is not None:
                 key = symbol_text
         except AttributeError:
             assert isinstance(symbol, six.text_type)
@@ -119,8 +119,6 @@ def _symbol_table_coroutine(writer_buffer, imports):
             assert symbol_text is not None
             token = local_symbols.intern(symbol_text)  # This duplicates the 'get' call...
             write(IonEvent(IonEventType.SCALAR, IonType.STRING, token.text))
-        if symbol_text != token.text:
-            raise ValueError('Requested SymbolToken %r did not match mapping (%r) in LST.' % (symbol, token))
         return DataEvent(WriteEventType.NEEDS_INPUT, token)
 
     # TODO support extending the current LST (by importing it)
