@@ -17,8 +17,11 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from io import BytesIO
+
 from pytest import raises
 
+from amazon.ion.reader import ReadEventType
 from tests import is_exception, listify
 
 from amazon.ion.core import IonEventType
@@ -61,6 +64,25 @@ def reader_scaffold(reader, event_pairs):
                 reader.send(read_event).value  # Forces evaluation of all value thunks.
         else:
             actual = reader.send(read_event)
+            assert expected == actual
+
+
+def blocking_reader_scaffold(reader_cls, event_pairs):
+    input_events = (e for e, _ in event_pairs)
+    input_data = b''
+    for input_event in input_events:
+        if input_event.type is ReadEventType.DATA:
+            input_data += input_event.data
+    output_events = add_depths(e for _, e in event_pairs)
+    reader_iter = reader_cls(BytesIO(input_data)).next()
+    for expected in output_events:
+        if is_exception(expected):
+            with raises(expected):
+                next(reader_iter).value  # Forces evaluation of all value thunks.
+        else:
+            if expected.event_type is IonEventType.INCOMPLETE or expected.event_type is IonEventType.STREAM_END:
+                continue
+            actual = next(reader_iter)
             assert expected == actual
 
 

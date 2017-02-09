@@ -34,7 +34,7 @@ from .core import IonEventType, IonType, DataEvent, Transition, TimestampPrecisi
 from .util import coroutine, total_seconds, Enum
 from .writer import NOOP_WRITER_EVENT, WriteEventType, \
                     writer_trampoline, partial_transition, serialize_scalar, \
-                    validate_scalar_value, illegal_state_null
+                    validate_scalar_value, illegal_state_null, serialize_scalar_direct, illegal_state_null_direct
 from .writer_binary_raw_fields import _write_varuint, _write_uint, _write_varint, _write_int
 
 
@@ -104,11 +104,8 @@ _BOOL_TRUE = bytearray([_TypeIds.BOOL_TRUE])
 _BOOL_FALSE = bytearray([_TypeIds.BOOL_FALSE])
 
 
-def _serialize_bool(ion_event):
-    if ion_event.value:
-        return _BOOL_TRUE
-    else:
-        return _BOOL_FALSE
+def _serialize_bool_direct(value):
+    return _BOOL_TRUE if value else _BOOL_FALSE
 
 
 def _write_length(buf, length, tid):
@@ -126,9 +123,8 @@ def _write_int_value(buf, tid, value):
     buf.extend(value_buf)
 
 
-def _serialize_int(ion_event):
+def _serialize_int_direct(value):
     buf = bytearray()
-    value = ion_event.value
     validate_scalar_value(value, six.integer_types)
     if value == 0:
         buf.append(_Zeros.INT)
@@ -142,9 +138,8 @@ def _serialize_int(ion_event):
     return buf
 
 
-def _serialize_float(ion_event):
+def _serialize_float_direct(float_value):
     buf = bytearray()
-    float_value = ion_event.value
     validate_scalar_value(float_value, float)
     # TODO Assess whether abbreviated encoding of zero is beneficial; it's allowed by spec.
     if float_value.is_integer() and float_value == 0.0 and not _is_float_negative_zero(float_value):
@@ -170,9 +165,8 @@ def _write_decimal_value(buf, exponent, coefficient, sign=0):
     return length
 
 
-def _serialize_decimal(ion_event):
+def _serialize_decimal_direct(value):
     buf = bytearray()
-    value = ion_event.value
     validate_scalar_value(value, Decimal)
     sign, digits, exponent = value.as_tuple()
     coefficient = int(value.scaleb(-exponent).to_integral_value())
@@ -187,9 +181,8 @@ def _serialize_decimal(ion_event):
     return buf
 
 
-def _serialize_string(ion_event):
+def _serialize_string_direct(value):
     buf = bytearray()
-    value = ion_event.value
     validate_scalar_value(value, six.text_type)
     if not value:
         buf.append(_Zeros.STRING)
@@ -200,9 +193,8 @@ def _serialize_string(ion_event):
     return buf
 
 
-def _serialize_symbol(ion_event):
+def _serialize_symbol_direct(token):
     buf = bytearray()
-    token = ion_event.value
     validate_scalar_value(token, SymbolToken)
     sid = token.sid
     if sid == 0:
@@ -212,16 +204,15 @@ def _serialize_symbol(ion_event):
     return buf
 
 
-def _serialize_lob_value(event, tid):
+def _serialize_lob_value_direct(value, tid):
     buf = bytearray()
-    value = event.value
     _write_length(buf, len(value), tid)
     buf.extend(value)
     return buf
 
 
-_serialize_blob = partial(_serialize_lob_value, tid=_TypeIds.BLOB)
-_serialize_clob = partial(_serialize_lob_value, tid=_TypeIds.CLOB)
+_serialize_blob_direct = partial(_serialize_lob_value_direct, tid=_TypeIds.BLOB)
+_serialize_clob_direct = partial(_serialize_lob_value_direct, tid=_TypeIds.CLOB)
 
 
 _MICROSECOND_DECIMAL_EXPONENT = -6  # There are 1e6 microseconds per second.
@@ -237,9 +228,9 @@ _TEN_EXP_MINUS_ONE = [
 ]
 
 
-def _serialize_timestamp(ion_event):
+def _serialize_timestamp_direct(value):
     buf = bytearray()
-    dt = ion_event.value
+    dt = value
     precision = getattr(dt, TIMESTAMP_PRECISION_FIELD, TimestampPrecision.SECOND)
     if precision is None:  # TODO should this defaulting be pushed into Timestamp itself?
         precision = TimestampPrecision.SECOND
@@ -264,7 +255,7 @@ def _serialize_timestamp(ion_event):
     if precision.includes_second:
         length += _write_varuint(value_buf, dt.second)
         coefficient = dt.microsecond
-        fractional_precision = getattr(ion_event.value, TIMESTAMP_FRACTION_PRECISION_FIELD, MICROSECOND_PRECISION)
+        fractional_precision = getattr(value, TIMESTAMP_FRACTION_PRECISION_FIELD, MICROSECOND_PRECISION)
         if coefficient is not None and fractional_precision is not None:
             if coefficient == 0:
                 adjusted_fractional_precision = fractional_precision
@@ -276,15 +267,29 @@ def _serialize_timestamp(ion_event):
                     adjusted_fractional_precision -= 1
             if adjusted_fractional_precision > fractional_precision or \
                     coefficient > _TEN_EXP_MINUS_ONE[fractional_precision]:
-                raise ValueError('Error writing event %s. Found timestamp fractional precision of %d digits, '
+                raise ValueError('Error writing %s. Found timestamp fractional precision of %d digits, '
                                  'which is less than needed to serialize %d microseconds.'
-                                 % (ion_event, fractional_precision, dt.microsecond))
+                                 % (value, fractional_precision, dt.microsecond))
             exponent = -adjusted_fractional_precision
             if not (coefficient == 0 and exponent >= 0):
                 length += _write_decimal_value(value_buf, exponent, coefficient)
     _write_length(buf, length, _TypeIds.TIMESTAMP)
     buf.extend(value_buf)
     return buf
+
+
+def _serialize_scalar_event(serialize_func, ion_event):
+    return serialize_func(ion_event.value)
+
+_serialize_bool = partial(_serialize_scalar_event, _serialize_bool_direct)
+_serialize_int = partial(_serialize_scalar_event, _serialize_int_direct)
+_serialize_float = partial(_serialize_scalar_event, _serialize_float_direct)
+_serialize_decimal = partial(_serialize_scalar_event, _serialize_decimal_direct)
+_serialize_timestamp = partial(_serialize_scalar_event, _serialize_timestamp_direct)
+_serialize_symbol = partial(_serialize_scalar_event, _serialize_symbol_direct)
+_serialize_string = partial(_serialize_scalar_event, _serialize_string_direct)
+_serialize_clob = partial(_serialize_scalar_event, _serialize_clob_direct)
+_serialize_blob = partial(_serialize_scalar_event, _serialize_blob_direct)
 
 
 _SERIALIZE_SCALAR_JUMP_TABLE = {
@@ -300,9 +305,27 @@ _SERIALIZE_SCALAR_JUMP_TABLE = {
     IonType.BLOB: _serialize_blob,
 }
 
+_SERIALIZE_SCALAR_JUMP_TABLE_DIRECT = {
+    IonType.NULL: illegal_state_null_direct,
+    IonType.BOOL: _serialize_bool_direct,
+    IonType.INT: _serialize_int_direct,
+    IonType.FLOAT: _serialize_float_direct,
+    IonType.DECIMAL: _serialize_decimal_direct,
+    IonType.TIMESTAMP: _serialize_timestamp_direct,
+    IonType.SYMBOL: _serialize_symbol_direct,
+    IonType.STRING: _serialize_string_direct,
+    IonType.CLOB: _serialize_clob_direct,
+    IonType.BLOB: _serialize_blob_direct,
+}
+
 
 _serialize_scalar = partial(
     serialize_scalar, jump_table=_SERIALIZE_SCALAR_JUMP_TABLE, null_table=_NULLS
+)
+
+
+_serialize_scalar_direct = partial(
+    serialize_scalar_direct, jump_table=_SERIALIZE_SCALAR_JUMP_TABLE_DIRECT, null_table=_NULLS
 )
 
 
@@ -321,8 +344,7 @@ def _serialize_annotation_wrapper(output_buf, annotations):
     output_buf.end_container(header)
 
 
-def _serialize_container(output_buf, ion_event):
-    ion_type = ion_event.ion_type
+def _serialize_container(output_buf, ion_type):
     length = output_buf.current_container_length
     header = bytearray()
     if ion_type is IonType.STRUCT:
@@ -384,7 +406,7 @@ def _raw_writer_coroutine(writer_buffer, depth=0, container_event=None,
         elif ion_event.event_type is IonEventType.CONTAINER_END:
             if depth < 1:
                 fail()
-            _serialize_container(writer_buffer, container_event)
+            _serialize_container(writer_buffer, container_event.ion_type)
             if pending_annotations:
                 _serialize_annotation_wrapper(writer_buffer, pending_annotations)
             pending_annotations = None

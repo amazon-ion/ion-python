@@ -58,21 +58,33 @@ def validate_scalar_value(value, expected_types):
 # To be used when an event of type IonType.NULL is encountered, but its value is not None.
 def illegal_state_null(ion_event):
     assert ion_event.ion_type is IonType.NULL
-    assert ion_event.value is not None
-    validate_scalar_value(ion_event.value, type(None))
+    return illegal_state_null_direct(ion_event.value)
 
 
-def _serialize_null(ion_event, null_table):
-    return null_table[ion_event.ion_type]
+def illegal_state_null_direct(value):
+    assert value is not None
+    validate_scalar_value(value, type(None))
+
+
+def _serialize_null(ion_type, null_table):
+    return null_table[ion_type]
 
 
 def serialize_scalar(ion_event, jump_table, null_table):
-    ion_type = ion_event.ion_type
     if ion_event.value is None:
-        return _serialize_null(ion_event, null_table)
+        return _serialize_null(ion_event.ion_type, null_table)
+    return serialize_scalar_direct(ion_event, ion_event.ion_type, jump_table, null_table)
+
+
+def serialize_scalar_direct(value, ion_type, jump_table, null_table):
+    """Calls the appropriate serialization function for the given type using the given tables. If `jump_table`'s values
+    accept IonEvents, `value` should be an IonEvent; otherwise, it should by a simple Python value.
+    """
+    if value is None:
+        return _serialize_null(ion_type, null_table)
     if ion_type.is_container:
-        raise TypeError('Expected scalar type in event: %s' % (ion_event,))
-    return jump_table[ion_type](ion_event)
+        raise TypeError('Expected scalar value for type %s, found %s' % (ion_type, value))
+    return jump_table[ion_type](value)
 
 
 @coroutine

@@ -23,8 +23,10 @@ from itertools import chain
 from random import Random
 from six import int2byte
 
+from amazon.ion.blocking import _ReaderBinaryRaw
 from tests import parametrize, listify
-from tests.reader_util import reader_scaffold, ReaderParameter, all_top_level_as_one_stream_params, value_iter
+from tests.reader_util import reader_scaffold, ReaderParameter, all_top_level_as_one_stream_params, value_iter, \
+    blocking_reader_scaffold
 from tests.event_aliases import *
 
 from amazon.ion.core import IonType, timestamp, TimestampPrecision, OffsetTZInfo
@@ -413,3 +415,21 @@ def _containerize_params(params, with_skip=True):
 ))
 def test_raw_reader(p):
     reader_scaffold(raw_reader(), p.event_pairs)
+
+
+@parametrize(*chain(
+    _BASIC_PARAMS,
+    _bad_params(),
+    _prepend_ivm(_top_level_value_params()),
+    _prepend_ivm(_annotate_params(_top_level_value_params())),
+    _prepend_ivm(_containerize_params(_top_level_value_params(), with_skip=False)),
+    _prepend_ivm(
+        _containerize_params(
+            _containerize_params(_top_level_value_params(), with_skip=False),
+            with_skip=False
+        )
+    ),
+    _prepend_ivm(all_top_level_as_one_stream_params(_top_level_iter)),
+))
+def test_raw_reader_blocking(p):
+    blocking_reader_scaffold(_ReaderBinaryRaw, p.event_pairs)

@@ -25,6 +25,7 @@ from collections import deque
 
 import sys
 
+from amazon.ion.exceptions import IonException
 from amazon.ion.symbols import SymbolToken
 from .core import DataEvent, IonEventType, Transition
 from .core import ION_STREAM_END_EVENT
@@ -278,6 +279,37 @@ class BufferQueue(object):
 
     def __len__(self):
         return self.__size
+
+
+class BlockingBuffer:
+    """Wraps the input with APIs shared by BufferQueue.
+    Args:
+        buffer(BaseIO): the backing file-like object.
+    """
+    def __init__(self, buffer, is_unicode=False):
+        self.__buffer = buffer
+        self.is_unicode = is_unicode
+        self.__element_type = six.text_type if is_unicode else six.binary_type
+
+    @property
+    def position(self):
+        return self.__buffer.tell()
+
+    def read_byte(self):
+        byte = self.__buffer.read(1)
+        return None if (len(byte) == 0 or byte is None) else ord(byte)
+
+    def read(self, length, skip=False):
+        data = self.__buffer.read(length)
+        if data is None or len(data) != length:
+            raise IonException('Unexpected end up input; %d octets requested, %d available.' % (length, len(data)))
+        if skip:
+            return self.__element_type()
+        return data
+
+    def skip(self, length):
+        self.read(length, skip=True)
+        return 0
 
 
 class ReadEventType(Enum):

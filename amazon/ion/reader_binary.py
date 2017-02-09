@@ -242,9 +242,9 @@ class _HandlerContext(record(
             None, _read_data_handler(length, whence, self, skip, stream_event)
         )
 
-    def event_transition(self, event_cls, event_type,
-                         ion_type=None, value=None, annotations=None, depth=None, whence=None):
-        """Returns an ion event event_transition that yields to another co-routine.
+    def event(self, event_cls, event_type,
+              ion_type=None, value=None, annotations=None, depth=None):
+        """ Returns an IonEvent representing the given data in the current context.
 
         If ``annotations`` is not specified, then the ``annotations`` are the annotations of this
         context.
@@ -264,13 +264,23 @@ class _HandlerContext(record(
         if depth is None:
             depth = self.depth
 
+        return event_cls(event_type, ion_type, value, self.field_name, annotations, depth)
+
+    def event_transition(self, event_cls, event_type,
+                         ion_type=None, value=None, annotations=None, depth=None, whence=None):
+        """Returns an ion event event_transition that yields to another co-routine.
+
+        If ``annotations`` is not specified, then the ``annotations`` are the annotations of this
+        context.
+        If ``depth`` is not specified, then the ``depth`` is depth of this context.
+        If ``whence`` is not specified, then ``whence`` is the whence of this context.
+        """
+        event = self.event(event_cls, event_type, ion_type, value, annotations, depth)
+
         if whence is None:
             whence = self.whence
 
-        return Transition(
-            event_cls(event_type, ion_type, value, self.field_name, annotations, depth),
-            whence
-        )
+        return Transition(event, whence)
 
     def immediate_transition(self, delegate=None):
         """Returns an immediate transition to another co-routine.
@@ -282,7 +292,9 @@ class _HandlerContext(record(
 
         return Transition(None, delegate)
 
-    def derive_container_context(self, length, add_depth=1):
+    def derive_container_context(self, length, add_depth=1, whence=None):
+        if whence is None:
+            whence = self.whence
         new_limit = self.queue.position + length
         return _HandlerContext(
             self.position,
@@ -291,7 +303,7 @@ class _HandlerContext(record(
             self.field_name,
             self.annotations,
             self.depth + add_depth,
-            self.whence
+            whence
         )
 
     def derive_child_context(self, position, field_name, annotations, whence):
@@ -391,6 +403,11 @@ def _read_data_handler(length, whence, ctx, skip=False, stream_event=ION_STREAM_
 def _invalid_handler(type_octet, ctx):
     """Placeholder co-routine for invalid type codes."""
     yield
+    _invalid_handler_direct(type_octet, ctx)
+
+
+def _invalid_handler_direct(type_octet, ctx):
+    """Placeholder co-routine for invalid type codes."""
     raise IonException('Invalid type octet: 0x%02X' % type_octet)
 
 
@@ -416,6 +433,27 @@ def _var_uint_field_handler(handler, ctx):
     yield ctx.immediate_transition(handler(value, ctx))
 
 
+def _var_uint_field_handler_direct(handler, ctx):
+    """Handler co-routine for variable unsigned integer fields that.
+
+    Invokes the given ``handler`` function with the read field and context,
+    then immediately yields to the resulting co-routine.
+    """
+    queue = ctx.queue
+    value = 0
+    while True:
+        octet = queue.read_byte()
+        if octet is None:
+            raise IonException('Premature end of input within VarUInt field.')
+        value <<= _VAR_INT_VALUE_BITS
+        value |= octet & _VAR_INT_VALUE_MASK
+        if octet & _VAR_INT_SIGNAL_MASK:
+            break
+    if handler is not None:
+        return handler(value, ctx)
+    return value
+
+
 @coroutine
 def _ivm_handler(ctx):
     _, self = yield
@@ -428,6 +466,15 @@ def _ivm_handler(ctx):
     if _IVM_TAIL != ivm_tail:
         raise IonException('Invalid IVM tail: %r' % ivm_tail)
     yield Transition(ION_VERSION_MARKER_EVENT, ctx.whence)
+
+
+def _ivm_handler_direct(ctx):
+    if ctx.depth != 0:
+        raise IonException('IVM encountered below top-level')
+    ivm_tail = ctx.queue.read(_IVM_TAIL_LEN)
+    if _IVM_TAIL != ivm_tail:
+        raise IonException('Invalid IVM tail: %r' % ivm_tail)
+    return ION_VERSION_MARKER_EVENT, ctx
 
 
 @coroutine
@@ -445,10 +492,25 @@ def _nop_pad_handler(ion_type, length, ctx):
     yield ctx.immediate_transition()
 
 
+def _nop_pad_handler_direct(ion_type, length, ctx):
+    if ctx.field_name is not None and ctx.field_name != SYMBOL_ZERO_TOKEN:
+        raise IonException(
+            'Cannot have NOP pad with non-zero symbol field, field SID %d' % ctx.field_name)
+
+    if length > 0:
+        ctx.queue.read(length)
+
+    return None, ctx  # TODO what to return for NOOP pad?
+
+
 @coroutine
 def _static_scalar_handler(ion_type, value, ctx):
     yield
     yield ctx.event_transition(IonEvent, IonEventType.SCALAR, ion_type, value)
+
+
+def _static_scalar_handler_direct(ion_type, value, ctx):
+    return ctx.event(IonEvent, IonEventType.SCALAR, ion_type, value), ctx
 
 
 @coroutine
@@ -467,6 +529,21 @@ def _length_scalar_handler(scalar_factory, ion_type, length, ctx):
         # TODO Wrap the exception to get context position.
         event_cls = IonThunkEvent
     yield ctx.event_transition(event_cls, IonEventType.SCALAR, ion_type, scalar)
+
+
+def _length_scalar_handler_direct(scalar_factory, ion_type, length, ctx):
+    """Handles scalars, ``scalar_factory`` is a function that returns a value or thunk."""
+    if length == 0:
+        data = b''
+    else:
+        data = ctx.queue.read(length)
+
+    scalar = scalar_factory(data)
+    event_cls = IonEvent
+    if callable(scalar):
+        # TODO Wrap the exception to get context position.
+        event_cls = IonThunkEvent
+    return ctx.event(event_cls, IonEventType.SCALAR, ion_type, scalar), ctx
 
 
 @coroutine
@@ -490,6 +567,40 @@ def _start_type_handler(field_name, whence, ctx, expects_ivm=False, at_top=False
     handler = _HANDLER_DISPATCH_TABLE[type_octet]
     child_ctx = ctx.derive_child_context(child_position, field_name, annotations, whence)
     yield ctx.immediate_transition(handler(child_ctx))
+
+
+def _field_name_handler_direct(ion_type, ctx):
+    if ion_type is IonType.STRUCT:
+        # Read the field name.
+        field_sid = _var_uint_field_handler_direct(None, ctx)
+        return SymbolToken(None, field_sid)
+    return None
+
+
+def _start_type_handler_direct(field_name_func, whence, ctx, expects_ivm=False,
+                               at_top=False, annotations=None, container_type=None):
+    child_position = ctx.queue.position
+
+    if container_type is not None and ctx.queue.position == ctx.limit:
+        # We are at the end of the container.
+        # Yield the close event and go to enclosing container.
+        return IonEvent(IonEventType.CONTAINER_END, container_type, depth=ctx.depth-1), ctx.whence
+
+    field_name = field_name_func(container_type, ctx)
+    # Read type byte.
+    type_octet = ctx.queue.read_byte()
+    if type_octet is None:
+        if not at_top:
+            raise IonException('Unexpected end of input.')
+        return ION_STREAM_END_EVENT, None
+
+    if expects_ivm and type_octet != _IVM_START_OCTET:
+        raise IonException(
+            'Expected binary version marker, got: %02X' % type_octet)
+
+    handler = _HANDLER_DISPATCH_TABLE_DIRECT[type_octet]
+    child_ctx = ctx.derive_child_context(child_position, field_name, annotations, whence)
+    return handler(child_ctx)
 
 
 @coroutine
@@ -526,6 +637,31 @@ def _annotation_handler(ion_type, length, ctx):
     )
 
 
+def _annotation_handler_direct(ion_type, length, ctx):
+    """Handles annotations.  ``ion_type`` is ignored."""
+    if ctx.annotations is not None:
+        raise IonException('Annotation cannot be nested in annotations')
+
+    # We have to replace our context for annotations specifically to encapsulate the limit
+    ctx = ctx.derive_container_context(length, add_depth=0)
+    # Immediately read the length field and the annotations
+    ann_length = _var_uint_field_handler_direct(None, ctx)
+
+    if ann_length < 1:
+        raise IonException('Invalid annotation length subfield; annotation wrapper must have at least one annotation.')
+
+    # Read/parse the annotations.
+    ann_data = ctx.queue.read(ann_length)
+    annotations = tuple(_parse_sid_iter(ann_data))
+
+    if ctx.limit - ctx.queue.position < 1:
+        # There is no space left for the 'value' subfield, which is required.
+        raise IonException('Incorrect annotation wrapper length.')
+
+    # Go parse the start of the value but go back to the real parent container.
+    return _start_type_handler_direct(lambda _, __: ctx.field_name, ctx.whence, ctx, annotations=annotations)
+
+
 @coroutine
 def _ordered_struct_start_handler(handler, ctx):
     """Handles the special case of ordered structs, specified by the type ID 0xD1.
@@ -544,6 +680,19 @@ def _ordered_struct_start_handler(handler, ctx):
     yield ctx.immediate_transition(handler(length, ctx))
 
 
+def _ordered_struct_start_handler_direct(handler, ctx):
+    """Handles the special case of ordered structs, specified by the type ID 0xD1.
+
+    This coroutine's only purpose is to ensure that the struct in question declares at least one field name/value pair,
+    as required by the spec.
+    """
+    length = _var_uint_field_handler_direct(None, ctx)
+    if length < 2:
+        # A valid field name/value pair is at least two octets: one for the field name SID and one for the value.
+        raise IonException('Ordered structs (type ID 0xD1) must have at least one field name/value pair.')
+    return handler(length, ctx)
+
+
 @coroutine
 def _container_start_handler(ion_type, length, ctx):
     """Handles container delegation."""
@@ -560,6 +709,19 @@ def _container_start_handler(ion_type, length, ctx):
     yield ctx.event_transition(
         IonEvent, IonEventType.CONTAINER_START, ion_type, value=None, whence=delegate
     )
+
+
+def _container_start_handler_direct(ion_type, length, ctx):
+    """Handles container delegation."""
+
+    container_ctx = ctx.derive_container_context(length, whence=ctx)
+    if ctx.annotations and ctx.limit != container_ctx.limit:
+        # 'ctx' is the annotation wrapper context. `container_ctx` represents the wrapper's 'value' subfield. Their
+        # limits must match.
+        raise IonException('Incorrect annotation wrapper length.')
+
+    # We start the container, and transition to the new container processor.
+    return ctx.event(IonEvent, IonEventType.CONTAINER_START, ion_type, value=None), container_ctx
 
 
 @coroutine
@@ -754,27 +916,37 @@ def _lob_factory(data):
 
 # Handler table for type octet to handler co-routine.
 _HANDLER_DISPATCH_TABLE = [None] * 256
+_HANDLER_DISPATCH_TABLE_DIRECT = [None] * 256
 
 
-def _bind_invalid_handlers():
+def _bind_invalid_handlers(dispatch_table=_HANDLER_DISPATCH_TABLE, invalid_handler=_invalid_handler):
     """Seeds the co-routine table with all invalid handlers."""
     for type_octet in range(256):
-        _HANDLER_DISPATCH_TABLE[type_octet] = partial(_invalid_handler, type_octet)
+        dispatch_table[type_octet] = partial(invalid_handler, type_octet)
+
+_bind_invalid_handlers_direct = partial(_bind_invalid_handlers, _HANDLER_DISPATCH_TABLE_DIRECT, _invalid_handler_direct)
 
 
-def _bind_null_handlers():
+def _bind_null_handlers(static_scalar_handler=_static_scalar_handler, dispatch_table=_HANDLER_DISPATCH_TABLE):
     for tid in _NULLABLE_TIDS:
         type_octet = _gen_type_octet(tid, _NULL_LN)
         ion_type = _TID_VALUE_TYPE_TABLE[tid]
-        _HANDLER_DISPATCH_TABLE[type_octet] = partial(_static_scalar_handler, ion_type, None)
+        dispatch_table[type_octet] = partial(static_scalar_handler, ion_type, None)
+
+_bind_null_handlers_direct = partial(_bind_null_handlers, _static_scalar_handler_direct, _HANDLER_DISPATCH_TABLE_DIRECT)
 
 
-def _bind_static_scalar_handlers():
+def _bind_static_scalar_handlers(static_scalar_handler=_static_scalar_handler, dispatch_table=_HANDLER_DISPATCH_TABLE):
     for type_octet, ion_type, value in _STATIC_SCALARS:
-        _HANDLER_DISPATCH_TABLE[type_octet] = partial(_static_scalar_handler, ion_type, value)
+        dispatch_table[type_octet] = partial(static_scalar_handler, ion_type, value)
+
+_bind_static_scalar_handlers_direct = partial(_bind_static_scalar_handlers, _static_scalar_handler_direct,
+                                              _HANDLER_DISPATCH_TABLE_DIRECT)
 
 
-def _bind_length_handlers(tids, user_handler, lns):
+def _bind_length_handlers(tids, user_handler, lns, dispatch_table=_HANDLER_DISPATCH_TABLE,
+                          ordered_struct_start_handler=_ordered_struct_start_handler,
+                          var_uint_field_handler=_var_uint_field_handler):
     """Binds a set of handlers with the given factory.
 
     Args:
@@ -789,17 +961,23 @@ def _bind_length_handlers(tids, user_handler, lns):
             type_octet = _gen_type_octet(tid, ln)
             ion_type = _TID_VALUE_TYPE_TABLE[tid]
             if ln == 1 and ion_type is IonType.STRUCT:
-                handler = partial(_ordered_struct_start_handler, partial(user_handler, ion_type))
+                handler = partial(ordered_struct_start_handler, partial(user_handler, ion_type))
             elif ln < _LENGTH_FIELD_FOLLOWS:
                 # Directly partially bind length.
                 handler = partial(user_handler, ion_type, ln)
             else:
                 # Delegate to length field parsing first.
-                handler = partial(_var_uint_field_handler, partial(user_handler, ion_type))
-            _HANDLER_DISPATCH_TABLE[type_octet] = handler
+                handler = partial(var_uint_field_handler, partial(user_handler, ion_type))
+            dispatch_table[type_octet] = handler
+
+_bind_length_handlers_direct = partial(_bind_length_handlers, dispatch_table=_HANDLER_DISPATCH_TABLE_DIRECT,
+                                       ordered_struct_start_handler=_ordered_struct_start_handler_direct,
+                                       var_uint_field_handler=_var_uint_field_handler_direct)
 
 
-def _bind_length_scalar_handlers(tids, scalar_factory, lns=_NON_ZERO_LENGTH_LNS):
+def _bind_length_scalar_handlers(tids, scalar_factory, lns=_NON_ZERO_LENGTH_LNS,
+                                 length_scalar_handler=_length_scalar_handler,
+                                 bind_length_handlers=_bind_length_handlers):
     """Binds a set of scalar handlers for an inclusive range of low-nibble values.
 
     Args:
@@ -809,11 +987,16 @@ def _bind_length_scalar_handlers(tids, scalar_factory, lns=_NON_ZERO_LENGTH_LNS)
             scalar parsing or a direct value.
         lns (Sequence[int]): The low-nibble lengths to bind to.
     """
-    handler = partial(_length_scalar_handler, scalar_factory)
-    return _bind_length_handlers(tids, handler, lns)
+    handler = partial(length_scalar_handler, scalar_factory)
+    return bind_length_handlers(tids, handler, lns)
+
+_bind_length_scalar_handlers_direct = partial(_bind_length_scalar_handlers,
+                                              length_scalar_handler=_length_scalar_handler_direct,
+                                              bind_length_handlers=_bind_length_handlers_direct)
 
 # First seed all type byte handlers with invalid.
 _bind_invalid_handlers()
+_bind_invalid_handlers_direct()
 
 # Populate the actual handlers.
 _HANDLER_DISPATCH_TABLE[_IVM_START_OCTET] = _ivm_handler
@@ -830,9 +1013,26 @@ _bind_length_scalar_handlers([_TypeID.CLOB, _TypeID.BLOB], _lob_factory)
 _bind_length_handlers(_CONTAINER_TIDS, _container_start_handler, _ALL_LENGTH_LNS)
 _bind_length_handlers([_TypeID.ANNOTATION], _annotation_handler, _ANNOTATION_LENGTH_LNS)
 _bind_length_handlers([_TypeID.NULL], _nop_pad_handler, _ALL_LENGTH_LNS)
+_HANDLER_DISPATCH_TABLE[_IVM_START_OCTET] = _ivm_handler
+
+_bind_null_handlers_direct()
+_bind_static_scalar_handlers_direct()
+_bind_length_scalar_handlers_direct([_TypeID.POS_INT], partial(_int_factory, 1))
+_bind_length_scalar_handlers_direct([_TypeID.NEG_INT], partial(_int_factory, -1))
+_bind_length_scalar_handlers_direct([_TypeID.FLOAT], _float_factory, lns=_FLOAT_LN_TABLE.keys())
+_bind_length_scalar_handlers_direct([_TypeID.DECIMAL], _decimal_factory)
+_bind_length_scalar_handlers_direct([_TypeID.TIMESTAMP], _timestamp_factory)
+_bind_length_scalar_handlers_direct([_TypeID.STRING], _string_factory)
+_bind_length_scalar_handlers_direct([_TypeID.SYMBOL], _symbol_factory)
+_bind_length_scalar_handlers_direct([_TypeID.CLOB, _TypeID.BLOB], _lob_factory)
+_bind_length_handlers_direct(_CONTAINER_TIDS, _container_start_handler_direct, _ALL_LENGTH_LNS)
+_bind_length_handlers_direct([_TypeID.ANNOTATION], _annotation_handler_direct, _ANNOTATION_LENGTH_LNS)
+_bind_length_handlers_direct([_TypeID.NULL], _nop_pad_handler_direct, _ALL_LENGTH_LNS)
+_HANDLER_DISPATCH_TABLE_DIRECT[_IVM_START_OCTET] = _ivm_handler_direct
 
 # Make immutable.
 _HANDLER_DISPATCH_TABLE = tuple(_HANDLER_DISPATCH_TABLE)
+_HANDLER_DISPATCH_TABLE_DIRECT = tuple(_HANDLER_DISPATCH_TABLE_DIRECT)
 
 
 def raw_reader(queue=None):
