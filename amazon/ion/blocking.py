@@ -21,14 +21,13 @@ from __future__ import print_function
 
 import six
 
-from amazon.ion.core import IonType, IonEvent, IonEventType, ION_STREAM_END_EVENT, ION_VERSION_MARKER_EVENT
+from amazon.ion.core import IonType, IonEventType, ION_STREAM_END_EVENT, ION_VERSION_MARKER_EVENT
 from amazon.ion.exceptions import IonException
-from amazon.ion.reader import BufferQueue, BlockingBuffer
-from amazon.ion.reader_binary import _HandlerContext, _var_uint_field_handler_direct, _start_type_handler_direct, \
-    _field_name_handler_direct
+from amazon.ion.reader import BlockingBuffer
+from amazon.ion.reader_binary import _HandlerContext, _start_type_handler_direct, _field_name_handler_direct
 from amazon.ion.reader_managed import _ManagedContext, _managed_thunk_event, _ImportDesc
-from amazon.ion.symbols import SID_ION_SYMBOL_TABLE, SID_IMPORTS, SHARED_TABLE_TYPE, SID_NAME, SID_VERSION, SID_MAX_ID, \
-    SymbolTable, LOCAL_TABLE_TYPE, SID_SYMBOLS, SymbolToken, SymbolTableCatalog, TEXT_ION_1_0, TEXT_SYMBOLS, \
+from amazon.ion.symbols import SID_ION_SYMBOL_TABLE, SID_IMPORTS, SHARED_TABLE_TYPE, SID_NAME, SID_VERSION, \
+    SID_MAX_ID, SymbolTable, LOCAL_TABLE_TYPE, SID_SYMBOLS, SymbolTableCatalog, TEXT_ION_1_0, TEXT_SYMBOLS, \
     TEXT_IMPORTS, TEXT_ION_SYMBOL_TABLE, TEXT_ION, TEXT_NAME, TEXT_VERSION, TEXT_MAX_ID
 from amazon.ion.writer_binary import _system_token, _IVM
 from amazon.ion.writer_binary_raw import _serialize_container, _serialize_annotation_wrapper, _serialize_scalar_direct
@@ -183,7 +182,7 @@ class BinaryWriter:
 
 class _ReaderBinaryRaw:
     def __init__(self, fp):
-        self.__top_level = _HandlerContext(
+        self.__context = _HandlerContext(
             position=0,
             limit=None,
             queue=BlockingBuffer(fp),
@@ -192,19 +191,15 @@ class _ReaderBinaryRaw:
             depth=0,
             whence=None
         )
-        self.__context = self.__top_level
         self.__expect_ivm = True
         self.__container_stack = [None]
 
     # TODO add a way to skip
-    def next(self):
+    def __iter__(self):
         while True:
             at_top = self.__context.depth == 0
-            event, whence = _start_type_handler_direct(_field_name_handler_direct, self.__context.whence,
-                                                       self.__context, self.__expect_ivm, at_top=at_top,
-                                                       container_type=self.__container_stack[-1])
-            if whence is not None:
-                self.__context = whence
+            event, child_ctx = _start_type_handler_direct(_field_name_handler_direct, self.__context, self.__expect_ivm,
+                                                          at_top=at_top, container_type=self.__container_stack[-1])
             if event is None:
                 # This is NOP padding.
                 continue
@@ -212,24 +207,19 @@ class _ReaderBinaryRaw:
                 break
             if event.event_type is IonEventType.CONTAINER_START:
                 self.__container_stack.append(event.ion_type)
+                self.__context = child_ctx
             elif event.event_type is IonEventType.CONTAINER_END:
                 self.__container_stack.pop()
+                self.__context = self.__context.whence
 
             self.__expect_ivm = False
             yield event
-            # container_type = self.__container_stack[-1]
-            # if container_type is not None and self.__context.queue.position == self.__context.limit:
-            #     # We are at the end of the container.
-            #     # Yield the close event and go to enclosing container.
-            #     yield IonEvent(IonEventType.CONTAINER_END, container_type, depth=self.__context.depth - 1)
-            #     self.__context = self.__context.whence
-            #     self.__container_stack.pop()
         yield ION_STREAM_END_EVENT
 
 
 class _ReaderManaged:
     def __init__(self, reader, catalog=None):
-        self.__reader_iter = reader.next()
+        self.__reader_iter = iter(reader)
         self.__catalog = SymbolTableCatalog() if catalog is None else catalog
         self.__context = _ManagedContext(catalog)
 
@@ -351,7 +341,7 @@ class _ReaderManaged:
         symbol_table = SymbolTable(LOCAL_TABLE_TYPE, symbols, imports=imports)
         self.__context = _ManagedContext(self.__context.catalog, symbol_table)
 
-    def next(self):
+    def __iter__(self):
         while True:
             ion_event = next(self.__reader_iter)
             if ion_event is not None:
@@ -396,8 +386,8 @@ class ReaderBinary:
     def __init__(self, fp, catalog=None):
         self.__reader = _ReaderManaged(_ReaderBinaryRaw(fp), catalog=catalog)
 
-    def next(self):
-        reader_iter = self.__reader.next()
+    def __iter__(self):
+        reader_iter = iter(self.__reader)
         for ion_event in reader_iter:
             yield ion_event
 

@@ -74,7 +74,7 @@ def blocking_reader_scaffold(reader_cls, event_pairs):
         if input_event.type is ReadEventType.DATA:
             input_data += input_event.data
     output_events = add_depths(e for _, e in event_pairs)
-    reader_iter = reader_cls(BytesIO(input_data)).next()
+    reader_iter = iter(reader_cls(BytesIO(input_data)))
     for expected in output_events:
         if is_exception(expected):
             with raises(expected):

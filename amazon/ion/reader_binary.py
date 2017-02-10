@@ -474,7 +474,7 @@ def _ivm_handler_direct(ctx):
     ivm_tail = ctx.queue.read(_IVM_TAIL_LEN)
     if _IVM_TAIL != ivm_tail:
         raise IonException('Invalid IVM tail: %r' % ivm_tail)
-    return ION_VERSION_MARKER_EVENT, ctx
+    return ION_VERSION_MARKER_EVENT, ctx.whence
 
 
 @coroutine
@@ -500,7 +500,7 @@ def _nop_pad_handler_direct(ion_type, length, ctx):
     if length > 0:
         ctx.queue.read(length)
 
-    return None, ctx  # TODO what to return for NOOP pad?
+    return None, ctx.whence
 
 
 @coroutine
@@ -510,7 +510,7 @@ def _static_scalar_handler(ion_type, value, ctx):
 
 
 def _static_scalar_handler_direct(ion_type, value, ctx):
-    return ctx.event(IonEvent, IonEventType.SCALAR, ion_type, value), ctx
+    return ctx.event(IonEvent, IonEventType.SCALAR, ion_type, value), ctx.whence
 
 
 @coroutine
@@ -543,7 +543,7 @@ def _length_scalar_handler_direct(scalar_factory, ion_type, length, ctx):
     if callable(scalar):
         # TODO Wrap the exception to get context position.
         event_cls = IonThunkEvent
-    return ctx.event(event_cls, IonEventType.SCALAR, ion_type, scalar), ctx
+    return ctx.event(event_cls, IonEventType.SCALAR, ion_type, scalar), ctx.whence
 
 
 @coroutine
@@ -577,18 +577,18 @@ def _field_name_handler_direct(ion_type, ctx):
     return None
 
 
-def _start_type_handler_direct(field_name_func, whence, ctx, expects_ivm=False,
+def _start_type_handler_direct(field_name_func, container_ctx, expects_ivm=False,
                                at_top=False, annotations=None, container_type=None):
-    child_position = ctx.queue.position
+    child_position = container_ctx.queue.position
 
-    if container_type is not None and ctx.queue.position == ctx.limit:
+    if container_type is not None and container_ctx.queue.position == container_ctx.limit:
         # We are at the end of the container.
         # Yield the close event and go to enclosing container.
-        return IonEvent(IonEventType.CONTAINER_END, container_type, depth=ctx.depth-1), ctx.whence
+        return IonEvent(IonEventType.CONTAINER_END, container_type, depth=container_ctx.depth-1), container_ctx
 
-    field_name = field_name_func(container_type, ctx)
+    field_name = field_name_func(container_type, container_ctx)
     # Read type byte.
-    type_octet = ctx.queue.read_byte()
+    type_octet = container_ctx.queue.read_byte()
     if type_octet is None:
         if not at_top:
             raise IonException('Unexpected end of input.')
@@ -599,7 +599,7 @@ def _start_type_handler_direct(field_name_func, whence, ctx, expects_ivm=False,
             'Expected binary version marker, got: %02X' % type_octet)
 
     handler = _HANDLER_DISPATCH_TABLE_DIRECT[type_octet]
-    child_ctx = ctx.derive_child_context(child_position, field_name, annotations, whence)
+    child_ctx = container_ctx.derive_child_context(child_position, field_name, annotations, container_ctx)
     return handler(child_ctx)
 
 
@@ -643,7 +643,7 @@ def _annotation_handler_direct(ion_type, length, ctx):
         raise IonException('Annotation cannot be nested in annotations')
 
     # We have to replace our context for annotations specifically to encapsulate the limit
-    ctx = ctx.derive_container_context(length, add_depth=0)
+    annotation_ctx = ctx.derive_container_context(length, add_depth=0)
     # Immediately read the length field and the annotations
     ann_length = _var_uint_field_handler_direct(None, ctx)
 
@@ -654,12 +654,12 @@ def _annotation_handler_direct(ion_type, length, ctx):
     ann_data = ctx.queue.read(ann_length)
     annotations = tuple(_parse_sid_iter(ann_data))
 
-    if ctx.limit - ctx.queue.position < 1:
+    if annotation_ctx.limit - ctx.queue.position < 1:
         # There is no space left for the 'value' subfield, which is required.
         raise IonException('Incorrect annotation wrapper length.')
 
     # Go parse the start of the value but go back to the real parent container.
-    return _start_type_handler_direct(lambda _, __: ctx.field_name, ctx.whence, ctx, annotations=annotations)
+    return _start_type_handler_direct(lambda _, __: annotation_ctx.field_name, annotation_ctx, annotations=annotations)
 
 
 @coroutine
@@ -714,7 +714,7 @@ def _container_start_handler(ion_type, length, ctx):
 def _container_start_handler_direct(ion_type, length, ctx):
     """Handles container delegation."""
 
-    container_ctx = ctx.derive_container_context(length, whence=ctx)
+    container_ctx = ctx.derive_container_context(length)
     if ctx.annotations and ctx.limit != container_ctx.limit:
         # 'ctx' is the annotation wrapper context. `container_ctx` represents the wrapper's 'value' subfield. Their
         # limits must match.

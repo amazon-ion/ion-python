@@ -341,7 +341,7 @@ def load_direct(fp, catalog=None, single_value=True, encoding='utf-8', cls=None,
         maybe_ivm = fp.read(4)
         fp.seek(0)
         if maybe_ivm == _IVM:
-            reader_iter = ReaderBinary(fp, catalog).next()
+            reader_iter = iter(ReaderBinary(fp, catalog))
         else:
             # TODO implement blocking text reader
             return load_events(fp, catalog, single_value)

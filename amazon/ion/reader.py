@@ -300,7 +300,10 @@ class BlockingBuffer:
         return None if (len(byte) == 0 or byte is None) else ord(byte)
 
     def read(self, length, skip=False):
-        data = self.__buffer.read(length)
+        try:
+            data = self.__buffer.read(length)
+        except OverflowError:
+            raise IonException('Requested length too long to read.')
         if data is None or len(data) != length:
             raise IonException('Unexpected end up input; %d octets requested, %d available.' % (length, len(data)))
         if skip:
