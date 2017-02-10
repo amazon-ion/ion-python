@@ -21,7 +21,7 @@ from __future__ import print_function
 
 import six
 
-from amazon.ion.core import IonType, IonEventType, ION_STREAM_END_EVENT, ION_VERSION_MARKER_EVENT
+from amazon.ion.core import IonType, IonEventType, ION_STREAM_END_EVENT, ION_VERSION_MARKER_EVENT, IonEvent
 from amazon.ion.exceptions import IonException
 from amazon.ion.reader import BlockingBuffer
 from amazon.ion.reader_binary import _HandlerContext, _start_type_handler_direct, _field_name_handler_direct
@@ -341,6 +341,28 @@ class _ReaderManaged:
         symbol_table = SymbolTable(LOCAL_TABLE_TYPE, symbols, imports=imports)
         self.__context = _ManagedContext(self.__context.catalog, symbol_table)
 
+    def __resolve_symbols(self, ion_event):
+        field_name = ion_event.field_name
+        if field_name is not None:
+            field_name = self.__context.resolve(field_name)
+
+        annotations = ion_event.annotations
+        if annotations:
+            annotations = tuple(self.__context.resolve(annotation) for annotation in annotations)
+
+        value = ion_event.value
+        if ion_event.ion_type is IonType.SYMBOL and value is not None:
+            value = self.__context.resolve(value)
+
+        return IonEvent(
+            ion_event.event_type,
+            ion_event.ion_type,
+            value,
+            field_name,
+            annotations,
+            ion_event.depth
+        )
+
     def __iter__(self):
         while True:
             ion_event = next(self.__reader_iter)
@@ -376,7 +398,7 @@ class _ReaderManaged:
                 if ion_event is not None:
                     if ion_event.event_type is IonEventType.STREAM_END:
                         break
-                    ion_event = _managed_thunk_event(self.__context, ion_event)
+                    ion_event = self.__resolve_symbols(ion_event)
                 yield ion_event
 
         yield ION_STREAM_END_EVENT

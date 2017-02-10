@@ -35,7 +35,7 @@ from .reader import blocking_reader, NEXT_EVENT
 from .reader_binary import binary_reader
 from .reader_managed import managed_reader
 from .simple_types import IonPyList, IonPyDict, IonPyNull, IonPyBool, IonPyInt, IonPyFloat, IonPyDecimal, \
-    IonPyTimestamp, IonPyText, IonPyBytes, IonPySymbol, is_null
+    IonPyTimestamp, IonPyText, IonPyBytes, IonPySymbol, is_null, _IonNature
 from .symbols import SymbolToken
 from .writer import blocking_writer
 from .writer_binary import binary_writer
@@ -68,10 +68,10 @@ def dump_direct(obj, fp, imports=None, binary=True, sequence_as_stream=False, sk
 
 def _dump_direct(obj, writer, field=None):
     null = is_null(obj)
-    try:
+    if isinstance(obj, _IonNature):
         ion_type = obj.ion_type
         annotations = obj.ion_annotations
-    except AttributeError:
+    else:
         ion_type = _ion_type(obj)
         annotations = None
     if not null and ion_type.is_container:

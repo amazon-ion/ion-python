@@ -539,11 +539,10 @@ def _length_scalar_handler_direct(scalar_factory, ion_type, length, ctx):
         data = ctx.queue.read(length)
 
     scalar = scalar_factory(data)
-    event_cls = IonEvent
     if callable(scalar):
         # TODO Wrap the exception to get context position.
-        event_cls = IonThunkEvent
-    return ctx.event(event_cls, IonEventType.SCALAR, ion_type, scalar), ctx.whence
+        scalar = scalar()
+    return ctx.event(IonEvent, IonEventType.SCALAR, ion_type, scalar), ctx.whence
 
 
 @coroutine
