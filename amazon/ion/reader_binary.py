@@ -255,6 +255,11 @@ class _HandlerContext(record(
             annotations = self.annotations
         if annotations is None:
             annotations = ()
+        if not (event_type is IonEventType.CONTAINER_START) and \
+                annotations and (self.limit - self.queue.position) != 0:
+            # This value is contained in an annotation wrapper, from which its limit was inherited. It must have
+            # reached, but not surpassed, that limit.
+            raise IonException('Incorrect annotation wrapper length.')
 
         if depth is None:
             depth = self.depth
@@ -279,7 +284,6 @@ class _HandlerContext(record(
 
     def derive_container_context(self, length, add_depth=1):
         new_limit = self.queue.position + length
-
         return _HandlerContext(
             self.position,
             new_limit,
@@ -504,10 +508,17 @@ def _annotation_handler(ion_type, length, ctx):
         _var_uint_field_handler(self_handler, ctx)
     )
 
+    if ann_length < 1:
+        raise IonException('Invalid annotation length subfield; annotation wrapper must have at least one annotation.')
+
     # Read/parse the annotations.
     yield ctx.read_data_transition(ann_length, self)
     ann_data = ctx.queue.read(ann_length)
     annotations = tuple(_parse_sid_iter(ann_data))
+
+    if ctx.limit - ctx.queue.position < 1:
+        # There is no space left for the 'value' subfield, which is required.
+        raise IonException('Incorrect annotation wrapper length.')
 
     # Go parse the start of the value but go back to the real parent container.
     yield ctx.immediate_transition(
@@ -516,11 +527,33 @@ def _annotation_handler(ion_type, length, ctx):
 
 
 @coroutine
+def _ordered_struct_start_handler(handler, ctx):
+    """Handles the special case of ordered structs, specified by the type ID 0xD1.
+
+    This coroutine's only purpose is to ensure that the struct in question declares at least one field name/value pair,
+    as required by the spec.
+    """
+    _, self = yield
+    self_handler = _create_delegate_handler(self)
+    (length, _), _ = yield ctx.immediate_transition(
+        _var_uint_field_handler(self_handler, ctx)
+    )
+    if length < 2:
+        # A valid field name/value pair is at least two octets: one for the field name SID and one for the value.
+        raise IonException('Ordered structs (type ID 0xD1) must have at least one field name/value pair.')
+    yield ctx.immediate_transition(handler(length, ctx))
+
+
+@coroutine
 def _container_start_handler(ion_type, length, ctx):
     """Handles container delegation."""
     _, self = yield
 
     container_ctx = ctx.derive_container_context(length)
+    if ctx.annotations and ctx.limit != container_ctx.limit:
+        # 'ctx' is the annotation wrapper context. `container_ctx` represents the wrapper's 'value' subfield. Their
+        # limits must match.
+        raise IonException('Incorrect annotation wrapper length.')
     delegate = _container_handler(ion_type, container_ctx)
 
     # We start the container, and transition to the new container processor.
@@ -755,7 +788,9 @@ def _bind_length_handlers(tids, user_handler, lns):
         for ln in lns:
             type_octet = _gen_type_octet(tid, ln)
             ion_type = _TID_VALUE_TYPE_TABLE[tid]
-            if ln < _LENGTH_FIELD_FOLLOWS:
+            if ln == 1 and ion_type is IonType.STRUCT:
+                handler = partial(_ordered_struct_start_handler, partial(user_handler, ion_type))
+            elif ln < _LENGTH_FIELD_FOLLOWS:
                 # Directly partially bind length.
                 handler = partial(user_handler, ion_type, ln)
             else:

@@ -42,6 +42,11 @@ _VARINT_SIGN_BIT_MASK = 0b01000000  # VarInt only
 _VARIABLE_BITS_PER_OCTET = 7  # Both VarInt and VarUInt (has end bit) (exclusive of first octet)
 _FIXED_BITS_PER_OCTET = 8  # Both fixed Int and fixed UInt (exclusive of first octet)
 
+_OCTET_MASKS = {
+    _VARIABLE_BITS_PER_OCTET: 0x7F,
+    _FIXED_BITS_PER_OCTET: 0xFF,
+}
+
 
 def _write_varint(buf, value):
     """Writes the given integer value into the given buffer as a binary Ion VarInt field.
@@ -175,7 +180,7 @@ def _write_base(buf, value, bits_per_octet, end_bit=0, sign_bit=0, is_signed=Fal
             octet |= end_bit
         # 'remainder' is used for alignment such that only the first octet
         # may contain insignificant zeros.
-        octet |= ((value >> (num_bits - (remainder + bits_per_octet * i))) & 0xFF)
+        octet |= ((value >> (num_bits - (remainder + bits_per_octet * i))) & _OCTET_MASKS[bits_per_octet])
         buf.append(octet)
     return num_octets
 

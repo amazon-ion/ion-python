@@ -93,17 +93,33 @@ _BASIC_PARAMS = (
             (e_read(b'\x0F'), IonException),
         ],
     ),
-    _P(
-        desc='OVERFLOWING TIMESTAMP PRECISION',  # Only up to microsecond precision is supported (6 digits).
-        event_pairs=[
-            (NEXT, END),
-            (e_read(b'\xE0\x01\x00\xEA'), IVM),
-            (NEXT, END),
-            (e_read(b'\x69\xC0\x81\x81\x81\x80\x80\x80\xC7\x01'), IonException),
-        ],
-    ),
 )
 
+_BAD_VALUES = (
+    # Only up to microsecond precision is supported (6 digits).
+    (b'\x69\xC0\x81\x81\x81\x80\x80\x80\xC7\x01', 'OVERFLOWING TIMESTAMP PRECISION'),
+    # The annotation wrapper declares 6 octets, but the wrapped value (a symbol value) ends after only 4.
+    (b'\xe6\x81\x84\x71\x04\x71\x04', 'ANNOT LENGTH TOO LONG - SCALAR'),
+    # The annotation wrapper declares 6 octets, but the wrapped value (a list) ends after only 4.
+    (b'\xe6\x81\x84\xb1\x20\x71\x04', 'ANNOT LENGTH TOO LONG - CONTAINER'),
+    # The annotation wrapper declares 4 octets, and the SIDs take up all four.
+    (b'\xe4\x83\x84\x85\x86', 'ANNOT LENGTH TOO SHORT - NO VALUE'),
+    # The annotation wrapper declares 4 octets, but the subfields (including a list) take up five.
+    (b'\xe4\x81\x84\xb2\x21\x01', 'ANNOT LENGTH TOO SHORT - CONTAINER'),
+    # The annotation wrapper declares 3 octets, but the subfields (including an int) take up four.
+    (b'\xe3\x81\x84\x21\x01', 'ANNOT LENGTH TOO SHORT - SCALAR'),
+)
+
+
+def _bad_params():
+    for pair in _BAD_VALUES:
+        yield _P(
+            desc=pair[1],
+            event_pairs=_IVM_PAIRS + [
+                (NEXT, END),
+                (e_read(pair[0]), IonException)
+            ]
+        )
 
 # This is an encoding of a single top-level value and the expected events with ``NEXT``.
 _TOP_LEVEL_VALUES = (
@@ -235,6 +251,7 @@ _TOP_LEVEL_VALUES = (
     
     (b'\xDF', e_null_struct()),
     (b'\xD0', e_start_struct(), e_end_struct()),
+    (b'\xD1\x82\x84\x20', e_start_struct(), e_int(0, field_name=SymbolToken(None, 4)), e_end_struct())
 )
 
 
@@ -383,6 +400,7 @@ def _containerize_params(params, with_skip=True):
 
 @parametrize(*chain(
     _BASIC_PARAMS,
+    _bad_params(),
     _prepend_ivm(_top_level_value_params()),
     _prepend_ivm(_annotate_params(_top_level_value_params())),
     _prepend_ivm(_containerize_params(_top_level_value_params())),
