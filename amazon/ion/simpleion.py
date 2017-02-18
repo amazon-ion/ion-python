@@ -26,6 +26,7 @@ from itertools import chain
 
 import six
 
+from amazon.ion.ionc_ctypes import ION_TYPE_EOF, IonReader, IonC, ION_TYPE_FROM_TID
 from amazon.ion.reader_text import text_reader
 from amazon.ion.blocking import BinaryWriter, ReaderBinary
 from amazon.ion.writer_text import text_writer
@@ -354,6 +355,60 @@ def load_direct(fp, catalog=None, single_value=True, encoding='utf-8', cls=None,
     return out
 
 
+_IONC = IonC(b'/Users/greggt/Documents/workspace/ion-c/build/release/ionc/libionc.dylib')
+
+
+def load_native(fp, catalog=None, single_value=True, encoding='utf-8', cls=None, object_hook=None, parse_float=None,
+                parse_int=None, parse_constant=None, object_pairs_hook=None, use_decimal=None, **kw):
+    if isinstance(fp, _TEXT_TYPES):
+        # TODO implement blocking text reader
+        return load_events(fp, catalog, single_value)
+    else:
+        maybe_ivm = fp.read(4)
+        fp.seek(0)
+        if maybe_ivm == _IVM:
+            pass
+        else:
+            # TODO implement blocking text reader
+            return load_events(fp, catalog, single_value)
+    out = []  # top-level
+    with IonReader(_IONC, fp.getvalue()) \
+            as reader:
+        _load_native(out, reader)
+    if single_value:
+        if len(out) != 1:
+            raise IonException('Stream contained %d values; expected a single value.' % (len(out),))
+        return out[0]
+    return out
+
+
+def _load_native(out, reader, in_struct=False):
+    def add(obj):
+        if in_struct:
+            # TODO what about duplicate field names?
+            out[reader.field_name] = obj
+        else:
+            out.append(obj)
+
+    for tid in reader:
+        #print('%sTID: %s' % (' ' * reader.depth, hex(tid)))
+        if tid == ION_TYPE_EOF:
+            reader.step_out()
+            return
+        ion_type = ION_TYPE_FROM_TID[tid]
+        #print('%sANNOTATIONS: %s FIELD: %s' % (' ' * reader.depth, reader.annotations, reader.field_name))
+        if reader.is_container:
+            reader.step_in()
+            container_cls = dict if ion_type is IonType.STRUCT else list
+            container = _FROM_ION_TYPE[ion_type].from_value(ion_type, container_cls(), reader.annotations)
+            _load_native(container, reader, ion_type is IonType.STRUCT)
+            add(container)
+        else:
+            #print('%s%s' % (' ' * reader.depth, reader.value))
+            scalar = _FROM_ION_TYPE[ion_type].from_value(ion_type, reader.value, reader.annotations)
+            add(scalar)
+
+
 _FROM_ION_TYPE = [
     IonPyNull,
     IonPyBool,
@@ -404,4 +459,4 @@ def loads(fp, encoding='utf-8', cls=None, object_hook=None, parse_float=None, pa
 
 _event_based = False
 dump = dump_events if _event_based else dump_direct
-load = load_events if _event_based else load_direct
+load = load_native  #load_events if _event_based else load_direct

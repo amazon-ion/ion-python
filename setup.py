@@ -17,7 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from setuptools import setup, find_packages
+from setuptools import setup, Extension, find_packages
 
 
 setup(
@@ -42,5 +42,16 @@ setup(
 
     tests_require=[
         'pytest',
+    ],
+    ext_modules=[
+        Extension(
+            'amazon.ion.ionc',
+            include_dirs=['/Users/greggt/Documents/workspace/ion-c/ionc/inc', '/Users/greggt/Documents/workspace/ion-c/decNumber'],
+            libraries=['ionc', 'decNumber'],
+            library_dirs=['/Users/greggt/Documents/workspace/ion-c/build/release/ionc', '/Users/greggt/Documents/workspace/ion-c/build/release/decNumber'],
+            runtime_library_dirs=['/Users/greggt/Documents/workspace/ion-c/build/release/ionc', '/Users/greggt/Documents/workspace/ion-c/build/release/decNumber'],
+            extra_link_args=['-Wl,-rpath,/Users/greggt/Documents/workspace/ion-c/build/release/ionc'],
+            sources=['amazon/ion/ioncmodule.c']
+        ),
     ],
 )
