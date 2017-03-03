@@ -1,10 +1,6 @@
 #include "Python.h"
 #include "_ioncmodule.h"
 
-#define PyCIonEvent_Check(op) PyObject_TypeCheck(op, &PyIonEventType)
-#define PyCIonEvent_CheckExact(op) (Py_TYPE(op) == &PyIonEventType)
-
-
 static PyObject* _decimal_module;
 static PyObject* _decimal_constructor;
 static PyObject* _simpletypes_module;
@@ -14,61 +10,9 @@ static PyObject* _ion_core_module;
 static PyObject* _py_ion_type;
 static PyObject* py_ion_type_table[14];
 
-static PyObject *
-ion_event_new(PyTypeObject *type, PyObject *args, PyObject *kwds);
-static int
-ion_event_init(PyObject *self, PyObject *args, PyObject *kwds);
-static void
-ion_event_dealloc(PyObject *self);
-static int
-ion_event_clear(PyObject *self);
-
-static PyTypeObject PyIonEventType;
-
 PyObject* helloworld(PyObject* self)
 {
     return Py_BuildValue("s", "python extensions");
-}
-
-typedef struct _PyCIonEventObject {
-    PyObject_HEAD
-    PyObject* event_type;
-    PyObject* ion_type;
-    PyObject* value;
-    PyObject* annotations;
-    PyObject* field_name;
-} PyCIonEventObject;
-
-
-static PyMemberDef ion_event_members[] = {
-    {"event_type", T_OBJECT, offsetof(PyCIonEventObject, event_type), READONLY, "event_type"},
-    {"ion_type", T_OBJECT, offsetof(PyCIonEventObject, ion_type), READONLY, "ion_type"},
-    {"value", T_OBJECT, offsetof(PyCIonEventObject, value), READONLY, "value"},
-    {"annotations", T_OBJECT, offsetof(PyCIonEventObject, annotations), READONLY, "annotations"},
-    {"field_name", T_OBJECT, offsetof(PyCIonEventObject, field_name), READONLY, "field_name"},
-    {NULL}
-};
-
-static int
-ion_event_clear(PyObject *self)
-{
-    PyCIonEventObject *event;
-    assert(PyCIonEvent_Check(self));
-    event = (PyCIonEventObject *)self;
-    Py_CLEAR(event->event_type);
-    Py_CLEAR(event->ion_type);
-    Py_CLEAR(event->value);
-    Py_CLEAR(event->annotations);
-    Py_CLEAR(event->field_name);
-    return 0;
-}
-
-static void
-ion_event_dealloc(PyObject *self)
-{
-    /* Deallocate ion event object */
-    ion_event_clear(self);
-    Py_TYPE(self)->tp_free(self);
 }
 
 static void ion_type_from_py(PyObject* obj, ION_TYPE* out) {
@@ -217,129 +161,6 @@ ionc_write(PyObject *self, PyObject *args, PyObject *kwds)
     fail:
         // TODO raise IonException.
         return Py_BuildValue("s", "ERROR");
-}
-
-static int
-ion_event_init(PyObject *self, PyObject *args, PyObject *kwds)
-{
-    /* Initialize IonEvent object */
-    PyObject *py_ion_event;
-    static char *kwlist[] = {"event", NULL};
-    PyCIonEventObject *event;
-
-    assert(PyCIonEvent_Check(self));
-    event = (PyCIonEventObject *)self;
-
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "O:init_cion_event", kwlist, &py_ion_event))
-        return -1;
-
-    event->event_type = PyObject_GetAttrString(py_ion_event, "event_type");
-    if (event->event_type == NULL)
-        goto fail;
-    event->ion_type = PyObject_GetAttrString(py_ion_event, "ion_type");
-    //if (event->ion_type == NULL)
-    //    goto fail;
-    event->value = PyObject_GetAttrString(py_ion_event, "value");
-    //if (event->value == NULL)
-    //    goto fail;
-    event->annotations = PyObject_GetAttrString(py_ion_event, "annotations");
-    if (event->annotations == NULL)
-        goto fail;
-    event->field_name = PyObject_GetAttrString(py_ion_event, "field_name");
-    //if (event->field_name == NULL)
-    //    goto fail;
-
-    return 0;
-
-fail:
-    Py_CLEAR(event->event_type);
-    Py_CLEAR(event->ion_type);
-    Py_CLEAR(event->value);
-    Py_CLEAR(event->annotations);
-    Py_CLEAR(event->field_name);
-    return -1;
-}
-
-static PyObject *
-ion_event_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
-{
-    PyCIonEventObject *event;
-    event = (PyCIonEventObject *)type->tp_alloc(type, 0);
-    if (event != NULL) {
-        event->event_type = NULL;
-        event->ion_type = NULL;
-        event->value = NULL;
-        event->annotations = NULL;
-        event->field_name = NULL;
-    }
-    return (PyObject *)event;
-}
-
-PyDoc_STRVAR(ion_event_doc, "C IonEvent object");
-
-static
-PyTypeObject PyIonEventType = {
-    PyVarObject_HEAD_INIT(NULL, 0)
-    "amazon.ion.ionc.CIonEvent",       /* tp_name */
-    sizeof(PyCIonEventObject), /* tp_basicsize */
-    0,                    /* tp_itemsize */
-    ion_event_dealloc, /* tp_dealloc */
-    0,                    /* tp_print */
-    0,                    /* tp_getattr */
-    0,                    /* tp_setattr */
-    0,                    /* tp_compare */
-    0,                    /* tp_repr */
-    0,                    /* tp_as_number */
-    0,                    /* tp_as_sequence */
-    0,                    /* tp_as_mapping */
-    0,                    /* tp_hash */
-    0,         /* tp_call */
-    0,                    /* tp_str */
-    0,/* PyObject_GenericGetAttr, */                    /* tp_getattro */
-    0,/* PyObject_GenericSetAttr, */                    /* tp_setattro */
-    0,                    /* tp_as_buffer */
-    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HAVE_GC,   /* tp_flags */
-    ion_event_doc,          /* tp_doc */
-    0,                    /* tp_traverse */
-    ion_event_clear,                    /* tp_clear */
-    0,                    /* tp_richcompare */
-    0,                    /* tp_weaklistoffset */
-    0,                    /* tp_iter */
-    0,                    /* tp_iternext */
-    0,                    /* tp_methods */
-    ion_event_members,                    /* tp_members */
-    0,                    /* tp_getset */
-    0,                    /* tp_base */
-    0,                    /* tp_dict */
-    0,                    /* tp_descr_get */
-    0,                    /* tp_descr_set */
-    0,                    /* tp_dictoffset */
-    ion_event_init,                    /* tp_init */
-    0,/* PyType_GenericAlloc, */        /* tp_alloc */
-    ion_event_new,          /* tp_new */
-    0,/* PyObject_GC_Del, */              /* tp_free */
-};
-
-static PyObject* next(PyObject* self) {
-    PyTypeObject* ion_event_cls = (PyTypeObject*)Py_BuildValue("O", (PyObject*)&PyIonEventType);
-    PyCIonEventObject* ion_event = (PyCIonEventObject*)ion_event_new(ion_event_cls, NULL, NULL);
-    PyObject* events = PyList_New(0);
-    ion_event->event_type = Py_BuildValue("i", 1);
-    ion_event->ion_type = Py_BuildValue("i", 2);
-    ion_event->value = Py_BuildValue("i", 142);
-    //static char* annotations[] = {NULL};
-    ion_event->annotations = PyTuple_New(0);
-    ion_event->field_name = Py_BuildValue("s", NULL);
-    PyList_Append(events, (PyObject*)ion_event);
-    Py_DECREF(ion_event);
-    PyObject* tst = Py_BuildValue("s", NULL);
-    PyList_Append(events, tst);
-    Py_DECREF(tst);
-    //PyCIonEventObject* events[1];
-    //events[0] = ion_event;
-    //return (PyObject*) ion_event;
-    //return (PyObject*)Py_BuildValue("(O)", events);
-    return events;
 }
 
 #define TEMP_BUF_SIZE 0x10000
@@ -552,7 +373,6 @@ static char ioncmodule_docs[] =
 
 static PyMethodDef ioncmodule_funcs[] = {
     {"helloworld", (PyCFunction)helloworld, METH_NOARGS, ioncmodule_docs},
-    {"next", (PyCFunction)next, METH_NOARGS, ioncmodule_docs},
     {"ionc_write", (PyCFunction)ionc_write, METH_VARARGS | METH_KEYWORDS, ioncmodule_docs}, // TODO still think this should be PyCFunctionWithKeywords...
     {"ionc_read", (PyCFunction)ionc_read, METH_NOARGS, ioncmodule_docs},
     {NULL}
@@ -574,17 +394,12 @@ static struct PyModuleDef moduledef = {
 
 static PyObject* init_module(void) {
     PyObject* m;
-    PyIonEventType.tp_new = PyType_GenericNew;
-    if (PyType_Ready(&PyIonEventType) < 0)
-        return NULL;
 #if PY_MAJOR_VERSION >= 3
     m = PyModule_Create(&moduledef);
 #else
     m = Py_InitModule3("ionc", ioncmodule_funcs,
                    "Extension module example!");
 #endif
-    Py_INCREF((PyObject*)&PyIonEventType);
-    PyModule_AddObject(m, "init_cion_event", (PyObject*)&PyIonEventType);
     // TODO is there a destructor for modules? These should be decreffed there
     _decimal_module = PyImport_ImportModule("decimal");
     _decimal_constructor = PyObject_GetAttrString(_decimal_module, "Decimal");
