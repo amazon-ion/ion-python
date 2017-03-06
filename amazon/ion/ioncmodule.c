@@ -24,15 +24,19 @@ static void ion_type_from_py(PyObject* obj, ION_TYPE* out) {
     *out = (ION_TYPE)(PyLong_AsSsize_t(ion_type) << 8);
 }
 
+static void c_string_from_py(PyObject* str, char** out, Py_ssize_t* len_out) {
+#if PY_MAJOR_VERSION >= 3
+    // TODO does this need to work for binary types?
+    *out = PyUnicode_AsUTF8AndSize(str, len_out);
+#else
+    PyString_AsStringAndSize(str, out, len_out);
+#endif
+}
+
 static void ion_string_from_py(PyObject* str, ION_STRING* out) {
     char* c_str = NULL;
     Py_ssize_t c_str_len;
-#if PY_MAJOR_VERSION >= 3
-    // TODO does this need to work for binary types?
-    c_str = PyUnicode_AsUTF8AndSize(str, &c_str_len);
-#else
-    PyString_AsStringAndSize(str, &c_str, &c_str_len);
-#endif
+    c_string_from_py(str, &c_str, &c_str_len);
     ION_STRING_INIT(out);
     ion_string_assign_cstr(out, c_str, c_str_len);
 }
@@ -57,6 +61,7 @@ static iERR write_annotations(hWRITER* writer, PyObject* obj) {
     iRETURN;
 }
 
+// TODO no need to pass around an hWRITER pointer... it's already an opaque handle (void *)
 static iERR ionc_write_value(hWRITER* writer, PyObject* obj) {
     iENTER;
     ION_TYPE* ion_type = NULL;
@@ -74,7 +79,9 @@ static iERR ionc_write_value(hWRITER* writer, PyObject* obj) {
         Py_ssize_t i;
         for (i = 0; i < len; i++) {
             PyObject* child_obj = PySequence_Fast_GET_ITEM(obj, i);
+            // TODO call Py_EnterRecursiveCall
             IONCHECK(ionc_write_value(writer, child_obj));
+            // TODO call Py_LeaveRecursiveCall
         }
         IONCHECK(ion_writer_finish_container(*writer));
     }
@@ -94,23 +101,68 @@ static iERR ionc_write_value(hWRITER* writer, PyObject* obj) {
             ION_STRING field_name;
             ion_string_from_py(key, &field_name);
             IONCHECK(ion_writer_write_field_name(*writer, &field_name));
+            // TODO call Py_EnterRecursiveCall
             IONCHECK(ionc_write_value(writer, child_obj));
+            // TODO call Py_LeaveRecursiveCall
         }
         IONCHECK(ion_writer_finish_container(*writer));
     }
-    else if (PyObject_TypeCheck(obj, &PyUnicode_Type) || PyObject_TypeCheck(obj, &PyBytes_Type)){
+    else if (PyUnicode_Check(obj) || PyObject_TypeCheck(obj, &PyBytes_Type)) {
         if (ion_type == NULL) {
             ION_TYPE type = tid_STRING;
             ion_type = &type;
         }
         ION_STRING string_value;
-        // TODO uncomment
         ion_string_from_py(obj, &string_value);
-        // TODO REMOVE - TESTING
-        //ION_STRING_INIT(&string_value);
-        //ion_string_assign_cstr(&string_value, "abc", 3);
-        // TODO END REMOVE
         IONCHECK(ion_writer_write_string(*writer, &string_value));
+    }
+    else if (PyBool_Check(obj)) { // NOTE: this must precede the INT block because python bools are ints.
+        if (ion_type == NULL) {
+            ION_TYPE type = tid_BOOL;
+            ion_type = &type;
+        }
+        BOOL bool_value;
+        if (obj == Py_True)
+            bool_value = TRUE;
+        else
+            bool_value = FALSE;
+        IONCHECK(ion_writer_write_bool(*writer, bool_value));
+    }
+    else if (
+        #if PY_MAJOR_VERSION < 3 // TODO need to verify this works/is necessary for Python 2. Will PyLong_*() work with PyInt_Type?
+            PyObject_TypeCheck(obj, &PyInt_Type) ||
+        #endif
+            PyObject_TypeCheck(obj, &PyLong_Type) // TODO or just use PyLong_Check ?
+    ) {
+        if (ion_type == NULL) {
+            ION_TYPE type = tid_INT;
+            ion_type = &type;
+        }
+        // TODO obviously only gets 64 bits... document as limitation. There are no APIs to write arbitrary-length ints.
+        IONCHECK(ion_writer_write_long(*writer, PyLong_AsLong(obj)));
+    }
+    else if (PyFloat_Check(obj)) {
+        if (ion_type == NULL) {
+            ION_TYPE type = tid_FLOAT;
+            ion_type = &type;
+        }
+        // TODO verify this works for nan/inf
+        IONCHECK(ion_writer_write_double(*writer, PyFloat_AsDouble(obj)));
+    }
+    else if (PyObject_TypeCheck(obj, (PyTypeObject*)_decimal_constructor)) {
+         if (ion_type == NULL) {
+            ION_TYPE type = tid_DECIMAL;
+            ion_type = &type;
+        }
+        PyObject* decimal_str = PyObject_CallMethod(obj, "__str__", NULL); // TODO converting every decimal to string is slow.
+        char* decimal_c_str = NULL;
+        Py_ssize_t decimal_c_str_len;
+        c_string_from_py(decimal_str, &decimal_c_str, &decimal_c_str_len);
+        decQuad decimal_value;
+        decContext dec_context;
+        decContextDefault(&dec_context, DEC_INIT_DECQUAD);  // TODO this should be done once. The writer already has one, but it's private...
+        decQuadFromString(&decimal_value, decimal_c_str, &dec_context);
+        IONCHECK(ion_writer_write_decimal(*writer, &decimal_value));
     }
     // TODO all other types, else error
     iRETURN;
@@ -156,6 +208,7 @@ ionc_write(PyObject *self, PyObject *args, PyObject *kwds)
     }
     IONCHECK(ion_stream_open_file_out(fstream, &f_ion_stream));
     IONCHECK(_ionc_write(obj, binary, f_ion_stream));
+    fclose(fstream);
 
     return Py_BuildValue("s", NULL);
     fail:
@@ -356,7 +409,9 @@ static iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BO
             child_container = PyList_New(0);
         }
         IONCHECK(ion_reader_step_in(hreader));
+        // TODO call Py_EnterRecursiveCall
         IONCHECK(ionc_read_all(hreader, child_container, child_is_struct));
+        // TODO call Py_LeaveRecursiveCall
         IONCHECK(ion_reader_step_out(hreader));
         ionc_add_to_container(container, child_container, in_struct, &field_name);
         break;
@@ -402,7 +457,7 @@ static PyObject* init_module(void) {
 #endif
     // TODO is there a destructor for modules? These should be decreffed there
     _decimal_module = PyImport_ImportModule("decimal");
-    _decimal_constructor = PyObject_GetAttrString(_decimal_module, "Decimal");
+    _decimal_constructor = PyObject_GetAttrString(_decimal_module, "Decimal");  // TODO or use PyInstance_New?
     _simpletypes_module = PyImport_ImportModule("amazon.ion.simple_types");
     _ion_nature_cls = PyObject_GetAttrString(_simpletypes_module, "IonPyText");
     _ionstring_fromvalue = PyObject_GetAttrString(_ion_nature_cls, "from_value");
