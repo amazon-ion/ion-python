@@ -179,7 +179,7 @@ int _ionc_write(PyObject* obj, PyObject* binary, ION_STREAM* f_ion_stream) {
     IONCHECK(ionc_write_value(&writer, obj));
     // TODO is manual flush needed?
     IONCHECK(ion_writer_close(writer));
-    IONCHECK(ion_stream_close(f_ion_stream));
+    //IONCHECK(ion_stream_close(f_ion_stream)); // callers must close stream themselves
     iRETURN;
 }
 
@@ -191,6 +191,7 @@ ionc_write(PyObject *self, PyObject *args, PyObject *kwds)
     PyObject *obj, *binary;
     ION_STREAM  *f_ion_stream = NULL;
     FILE        *fstream = NULL;
+    BYTE* buf = NULL;
 
     // TODO support sequence_as_stream
     static char *kwlist[] = {"obj", "binary", NULL};
@@ -199,19 +200,28 @@ ionc_write(PyObject *self, PyObject *args, PyObject *kwds)
         goto fail;
     }
 
-    char *pathname = "/Users/greggt/Desktop/ionc_out.ion";
+    IONCHECK(ion_stream_open_memory_only(&f_ion_stream));
+    IONCHECK(_ionc_write(obj, binary, f_ion_stream));
+    POSITION len = ion_stream_get_position(f_ion_stream);
+    IONCHECK(ion_stream_seek(f_ion_stream, 0));
+    // TODO if len > max int32, need to return more than one page...
+    buf = (BYTE*)(malloc((size_t)len));
+    SIZE bytes_read;
+    IONCHECK(ion_stream_read(f_ion_stream, buf, (SIZE)len, &bytes_read));
 
-    fstream = fopen(pathname, "wb");
-    if (!fstream) {
-        printf("\nERROR: can't open file %s\n", pathname);
+    IONCHECK(ion_stream_close(f_ion_stream));
+    if (bytes_read != (SIZE)len) {
+        err = -1;
         goto fail;
     }
-    IONCHECK(ion_stream_open_file_out(fstream, &f_ion_stream));
-    IONCHECK(_ionc_write(obj, binary, f_ion_stream));
-    fclose(fstream);
-
-    return Py_BuildValue("s", NULL);
+    // TODO Py_BuildValue copies all bytes... Can a memoryview over the original bytes be returned, avoiding the copy?
+    PyObject* written = Py_BuildValue("y#", (char*)buf, bytes_read);
+    free(buf);
+    return written;
     fail:
+        if (buf) {
+            free(buf);
+        }
         // TODO raise IonException.
         return Py_BuildValue("s", "ERROR");
 }
@@ -261,28 +271,27 @@ static void ionc_add_to_container(PyObject* pyContainer, PyObject* element, BOOL
     Py_DECREF(element);
 }
 
-static PyObject* ionc_read(PyObject* self) {
+static PyObject* ionc_read(PyObject* self, PyObject *args, PyObject *kwds) {
     iENTER;
     FILE        *fstream = NULL;
     ION_STREAM  *f_ion_stream = NULL;
     hREADER      reader;
     long         size;
-    char        *buffer;
+    char        *buffer = NULL;
     long         result;
-    char        *pathname = "/Users/greggt/Desktop/generated_short.10n";
 
-    fstream = fopen(pathname, "rb");
-    if (!fstream) {
-        printf("\nERROR: can't open file %s\n", pathname);
+    static char *kwlist[] = {"data", NULL};
+    // TODO y# won't work with unicode-type input, only bytes
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "y#", kwlist, &buffer, &size)) {
+        err = -1;
         goto fail;
     }
-
-    IONCHECK(ion_stream_open_file_in(fstream, &f_ion_stream));
-    IONCHECK(ion_reader_open(&reader, f_ion_stream, NULL));
+    // TODO what if size is larger than SIZE ?
+    IONCHECK(ion_reader_open_buffer(&reader, (BYTE*)buffer, (SIZE)size, NULL)); // NULL represents default reader options
     PyObject* top_level_container = PyList_New(0);
     IONCHECK(ionc_read_all(reader, top_level_container, FALSE));
     IONCHECK(ion_reader_close(reader));
-    IONCHECK(ion_stream_close(f_ion_stream));
+    //IONCHECK(ion_stream_close(f_ion_stream));
     return top_level_container;
 fail:
     // TODO raise IonException.
@@ -429,7 +438,7 @@ static char ioncmodule_docs[] =
 static PyMethodDef ioncmodule_funcs[] = {
     {"helloworld", (PyCFunction)helloworld, METH_NOARGS, ioncmodule_docs},
     {"ionc_write", (PyCFunction)ionc_write, METH_VARARGS | METH_KEYWORDS, ioncmodule_docs}, // TODO still think this should be PyCFunctionWithKeywords...
-    {"ionc_read", (PyCFunction)ionc_read, METH_NOARGS, ioncmodule_docs},
+    {"ionc_read", (PyCFunction)ionc_read, METH_VARARGS | METH_KEYWORDS, ioncmodule_docs},
     {NULL}
 };
 
