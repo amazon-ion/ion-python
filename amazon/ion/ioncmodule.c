@@ -110,8 +110,9 @@ static iERR ionc_write_sequence(hWRITER writer, PyObject* sequence) {
         child_obj = PySequence_Fast_GET_ITEM(sequence, i);
         Py_INCREF(child_obj);
         IONCHECK(Py_EnterRecursiveCall(" while writing an Ion sequence"));
-        IONCHECK(ionc_write_value(writer, child_obj));
+        err = ionc_write_value(writer, child_obj);
         Py_LeaveRecursiveCall();
+        IONCHECK(err);
         Py_DECREF(child_obj);
         child_obj = NULL;
     }
@@ -132,8 +133,9 @@ static iERR ionc_write_struct(hWRITER writer, PyObject* dict) {
         ion_string_from_py(key, &field_name);
         IONCHECK(ion_writer_write_field_name(writer, &field_name));
         IONCHECK(Py_EnterRecursiveCall(" while writing an Ion struct"));
-        IONCHECK(ionc_write_value(writer, child_obj));
+        err = ionc_write_value(writer, child_obj);
         Py_LeaveRecursiveCall();
+        IONCHECK(err);
         Py_DECREF(key);
         key = NULL;
         Py_DECREF(child_obj);
@@ -229,21 +231,24 @@ static iERR ionc_write_value(hWRITER writer, PyObject* obj) {
         decQuadFromString(&decimal_value, decimal_c_str, &dec_context);
         IONCHECK(ion_writer_write_decimal(writer, &decimal_value));
     }
+    else {
+        FAILWITH(IERR_INVALID_ARG);
+    }
     // TODO all other types, else error
     iRETURN;
 }
 
-int _ionc_write(PyObject* obj, PyObject* binary, ION_STREAM* f_ion_stream) {
+int _ionc_write(PyObject* obj, PyObject* binary, ION_STREAM* ion_stream) {
     iENTER;
     hWRITER writer;
     ION_WRITER_OPTIONS options;
     memset(&options, 0, sizeof(options));
     options.output_as_binary = PyObject_IsTrue(binary);
 
-    IONCHECK(ion_writer_open(&writer, f_ion_stream, &options));
+    IONCHECK(ion_writer_open(&writer, ion_stream, &options));
     IONCHECK(ionc_write_value(writer, obj));
     IONCHECK(ion_writer_close(writer));
-    //IONCHECK(ion_stream_close(f_ion_stream)); // callers must close stream themselves
+    //IONCHECK(ion_stream_close(ion_stream)); // callers must close stream themselves
     iRETURN;
 }
 
@@ -253,8 +258,7 @@ ionc_write(PyObject *self, PyObject *args, PyObject *kwds)
     iENTER;
 
     PyObject *obj, *binary;
-    ION_STREAM  *f_ion_stream = NULL;
-    FILE        *fstream = NULL;
+    ION_STREAM  *ion_stream = NULL;
     BYTE* buf = NULL;
 
     // TODO support sequence_as_stream
@@ -264,16 +268,16 @@ ionc_write(PyObject *self, PyObject *args, PyObject *kwds)
     }
     Py_INCREF(obj);
     Py_INCREF(binary);
-    IONCHECK(ion_stream_open_memory_only(&f_ion_stream));
-    IONCHECK(_ionc_write(obj, binary, f_ion_stream));
-    POSITION len = ion_stream_get_position(f_ion_stream);
-    IONCHECK(ion_stream_seek(f_ion_stream, 0));
+    IONCHECK(ion_stream_open_memory_only(&ion_stream));
+    IONCHECK(_ionc_write(obj, binary, ion_stream));
+    POSITION len = ion_stream_get_position(ion_stream);
+    IONCHECK(ion_stream_seek(ion_stream, 0));
     // TODO if len > max int32, need to return more than one page...
     buf = (BYTE*)(PyMem_Malloc((size_t)len));
     SIZE bytes_read;
-    IONCHECK(ion_stream_read(f_ion_stream, buf, (SIZE)len, &bytes_read));
+    IONCHECK(ion_stream_read(ion_stream, buf, (SIZE)len, &bytes_read));
 
-    IONCHECK(ion_stream_close(f_ion_stream));
+    IONCHECK(ion_stream_close(ion_stream));
     if (bytes_read != (SIZE)len) {
         FAILWITH(IERR_EOF);
     }
@@ -283,11 +287,11 @@ ionc_write(PyObject *self, PyObject *args, PyObject *kwds)
     Py_DECREF(obj);
     Py_DECREF(binary);
     return written;
-    fail:
-        PyMem_Free(buf);
-        Py_DECREF(obj);
-        Py_DECREF(binary);
-        return PyErr_Format(_ion_exception_cls, "%s", ion_error_to_str(err));
+fail:
+    PyMem_Free(buf);
+    Py_DECREF(obj);
+    Py_DECREF(binary);
+    return PyErr_Format(_ion_exception_cls, "%s", ion_error_to_str(err));
 }
 
 static iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BOOL in_struct);
@@ -326,12 +330,10 @@ static void ionc_add_to_container(PyObject* pyContainer, PyObject* element, BOOL
 
 PyObject* ionc_read(PyObject* self, PyObject *args, PyObject *kwds) {
     iENTER;
-    FILE        *fstream = NULL;
-    ION_STREAM  *f_ion_stream = NULL;
     hREADER      reader;
     long         size;
     char        *buffer = NULL;
-    long         result;
+    PyObject* top_level_container = NULL;
 
     static char *kwlist[] = {"data", NULL};
     // TODO y# on Py3 won't work with unicode-type input, only bytes
@@ -340,11 +342,12 @@ PyObject* ionc_read(PyObject* self, PyObject *args, PyObject *kwds) {
     }
     // TODO what if size is larger than SIZE ?
     IONCHECK(ion_reader_open_buffer(&reader, (BYTE*)buffer, (SIZE)size, NULL)); // NULL represents default reader options
-    PyObject* top_level_container = PyList_New(0);
+    top_level_container = PyList_New(0);
     IONCHECK(ionc_read_all(reader, top_level_container, FALSE));
     IONCHECK(ion_reader_close(reader));
     return top_level_container;
 fail:
+    Py_XDECREF(top_level_container); // TODO need to DECREF all of its children too?
     return PyErr_Format(_ion_exception_cls, "%s", ion_error_to_str(err));
 }
 
@@ -361,13 +364,80 @@ static iERR ionc_read_into_container(hREADER hreader, PyObject* container, BOOL 
     iENTER;
     IONCHECK(ion_reader_step_in(hreader));
     IONCHECK(Py_EnterRecursiveCall(" while reading an Ion container"));
-    IONCHECK(ionc_read_all(hreader, container, is_struct));
+    err = ionc_read_all(hreader, container, is_struct);
     Py_LeaveRecursiveCall();
+    IONCHECK(err);
     IONCHECK(ion_reader_step_out(hreader));
     iRETURN;
 }
 
-#define MICROSECOND_PRECISION = 6
+#define MICROSECOND_PRECISION 6
+
+static iERR ionc_read_timestamp(hREADER hreader, PyObject** timestamp_out) {
+    iENTER;
+    ION_TIMESTAMP timestamp_value;
+    PyObject* timestamp_args = NULL;
+    IONCHECK(ion_reader_read_timestamp(hreader, &timestamp_value));
+    int precision;
+    IONCHECK(ion_timestamp_get_precision(&timestamp_value, &precision));
+    if (precision < ION_TS_YEAR) {
+        FAILWITHMSG(IERR_INVALID_TIMESTAMP, "Found a timestamp with less than year precision."); //TODO have a FAILWITHMSG that actually surfaces the message.
+    }
+    timestamp_args = PyDict_New();
+    PyObject* py_precision = ionc_get_timestamp_precision(precision);
+    PyDict_SetItemString(timestamp_args, "precision", py_precision);
+    BOOL has_local_offset;
+    IONCHECK(ion_timestamp_has_local_offset(&timestamp_value, &has_local_offset));
+    if (has_local_offset) {
+        int off_minutes, off_hours;
+        IONCHECK(ion_timestamp_get_local_offset(&timestamp_value, &off_minutes));
+        off_hours = off_minutes / 60;
+        off_minutes = off_minutes % 60;
+        // Bounds checking is performed in python.
+        PyDict_SetItemString(timestamp_args, "off_hours", PyLong_FromLong(off_hours));
+        PyDict_SetItemString(timestamp_args, "off_minutes", PyLong_FromLong(off_minutes));
+    }
+    switch (precision) {
+    case ION_TS_FRAC:
+    {
+        decQuad fraction = timestamp_value.fraction;
+        int32_t fractional_precision = decQuadGetExponent(&fraction);
+        // TODO assert fractional_precision < 0
+        fractional_precision = fractional_precision * -1;
+        if (fractional_precision > MICROSECOND_PRECISION) {
+            // Python only supports up to microsecond precision
+            FAILWITHMSG(IERR_INVALID_TIMESTAMP, "Timestamp fractional seconds cannot exceed microsecond precision.");
+        }
+        decQuad tmp;
+        decQuadScaleB(&fraction, &fraction, decQuadFromInt32(&tmp, MICROSECOND_PRECISION), &dec_context);
+        int32_t microsecond = decQuadToInt32Exact(&fraction, &dec_context, DEC_ROUND_HALF_EVEN);
+        if (decContextTestStatus(&dec_context, DEC_Inexact)) {
+            // This means the fractional component is not [0, 1) or has more than microsecond precision.
+            decContextClearStatus(&dec_context, DEC_Inexact);
+            FAILWITHMSG(IERR_INVALID_TIMESTAMP, "Timestamp fractional seconds must be in [0,1).");
+        }
+        PyDict_SetItemString(timestamp_args, "fractional_precision", PyLong_FromLong(fractional_precision));
+        PyDict_SetItemString(timestamp_args, "microsecond", PyLong_FromLong(microsecond));
+    }
+    case ION_TS_SEC:
+        PyDict_SetItemString(timestamp_args, "second", PyLong_FromLong(timestamp_value.seconds));
+    case ION_TS_MIN:
+        PyDict_SetItemString(timestamp_args, "minute", PyLong_FromLong(timestamp_value.minutes));
+        PyDict_SetItemString(timestamp_args, "hour", PyLong_FromLong(timestamp_value.hours));
+    case ION_TS_DAY:
+        PyDict_SetItemString(timestamp_args, "day", PyLong_FromLong(timestamp_value.day));
+    case ION_TS_MONTH:
+        PyDict_SetItemString(timestamp_args, "month", PyLong_FromLong(timestamp_value.month));
+    case ION_TS_YEAR:
+        PyDict_SetItemString(timestamp_args, "year", PyLong_FromLong(timestamp_value.year));
+        break;
+    }
+    *timestamp_out = PyObject_Call(_py_timestamp_constructor, PyTuple_New(0), timestamp_args);
+
+fail:
+    Py_XDECREF(timestamp_args);
+    cRETURN;
+}
 
 static iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BOOL in_struct) {
     iENTER;
@@ -482,64 +552,7 @@ static iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BO
     }
     case tid_TIMESTAMP_INT:
     {
-        ION_TIMESTAMP timestamp_value;
-        IONCHECK(ion_reader_read_timestamp(hreader, &timestamp_value));
-        int precision;
-        IONCHECK(ion_timestamp_get_precision(&timestamp_value, &precision));
-        if (precision < ION_TS_YEAR) {
-            FAILWITHMSG(IERR_INVALID_TIMESTAMP, "Found a timestamp with less than year precision.");
-        }
-        // TODO DECREF timestamp_args at the end (would be easier in its own function)
-        PyObject* timestamp_args = PyDict_New();
-        PyObject* py_precision = ionc_get_timestamp_precision(precision);
-        PyDict_SetItemString(timestamp_args, "precision", py_precision);
-        BOOL has_local_offset;
-        IONCHECK(ion_timestamp_has_local_offset(&timestamp_value, &has_local_offset));
-        if (has_local_offset) {
-            int off_minutes, off_hours;
-            IONCHECK(ion_timestamp_get_local_offset(&timestamp_value, &off_minutes));
-            off_hours = off_minutes / 60;
-            off_minutes = off_minutes % 60;
-            // Bounds checking is performed in python.
-            PyDict_SetItemString(timestamp_args, "off_hours", PyLong_FromLong(off_hours));
-            PyDict_SetItemString(timestamp_args, "off_minutes", PyLong_FromLong(off_minutes));
-        }
-        switch (precision) {
-        case ION_TS_FRAC:
-        {
-            decQuad fraction = timestamp_value.fraction;
-            int32_t fractional_precision = decQuadGetExponent(&fraction);
-            // TODO assert fractional_precision < 0
-            fractional_precision = fractional_precision * -1;
-            if (fractional_precision > 6) {  // TODO why can't I use MICROSECOND_PRECISION macro here?
-                // Python only supports up to microsecond precision
-                FAILWITHMSG(IERR_INVALID_TIMESTAMP, "Timestamp fractional seconds cannot exceed microsecond precision.");
-            }
-            decQuad tmp;
-            decQuadScaleB(&fraction, &fraction, decQuadFromInt32(&tmp, 6), &dec_context);
-            int32_t microsecond = decQuadToInt32Exact(&fraction, &dec_context, DEC_ROUND_HALF_EVEN);
-            if (decContextTestStatus(&dec_context, DEC_Inexact)) {
-                // This means the fractional component is not [0, 1) or has more than microsecond precision.
-                decContextClearStatus(&dec_context, DEC_Inexact);
-                FAILWITHMSG(IERR_INVALID_TIMESTAMP, "Timestamp fractional seconds must be in [0,1).");
-            }
-            PyDict_SetItemString(timestamp_args, "fractional_precision", PyLong_FromLong(fractional_precision));
-            PyDict_SetItemString(timestamp_args, "microsecond", PyLong_FromLong(microsecond));
-        }
-        case ION_TS_SEC:
-            PyDict_SetItemString(timestamp_args, "second", PyLong_FromLong(timestamp_value.seconds));
-        case ION_TS_MIN:
-            PyDict_SetItemString(timestamp_args, "minute", PyLong_FromLong(timestamp_value.minutes));
-            PyDict_SetItemString(timestamp_args, "hour", PyLong_FromLong(timestamp_value.hours));
-        case ION_TS_DAY:
-            PyDict_SetItemString(timestamp_args, "day", PyLong_FromLong(timestamp_value.day));
-        case ION_TS_MONTH:
-            PyDict_SetItemString(timestamp_args, "month", PyLong_FromLong(timestamp_value.month));
-        case ION_TS_YEAR:
-            PyDict_SetItemString(timestamp_args, "year", PyLong_FromLong(timestamp_value.year));
-            break;
-        }
-        py_value = PyObject_Call(_py_timestamp_constructor, PyTuple_New(0), timestamp_args);
+        IONCHECK(ionc_read_timestamp(hreader, &py_value));
         ion_nature_constructor = _ionpytimestamp_fromvalue;
         break;
     }
@@ -582,7 +595,7 @@ static iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BO
     }
     case tid_STRUCT_INT:
         py_value = PyDict_New();
-        ionc_read_into_container(hreader, py_value, /*is_struct=*/TRUE);
+        IONCHECK(ionc_read_into_container(hreader, py_value, /*is_struct=*/TRUE));
         ion_nature_constructor = _ionpydict_fromvalue;
         break;
     case tid_SEXP_INT:
@@ -592,7 +605,7 @@ static iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BO
     }
     case tid_LIST_INT:
         py_value = PyList_New(0);
-        ionc_read_into_container(hreader, py_value, /*is_struct=*/FALSE);
+        IONCHECK(ionc_read_into_container(hreader, py_value, /*is_struct=*/FALSE));
         ion_nature_constructor = _ionpylist_fromvalue;
         break;
 
@@ -610,7 +623,13 @@ static iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BO
         );
     }
     ionc_add_to_container(container, py_value, in_struct, &field_name);
-    iRETURN;
+
+fail:
+    if (err) {
+        Py_XDECREF(py_annotations);
+        Py_XDECREF(py_value);
+    }
+    cRETURN;
 }
 
 static char ioncmodule_docs[] =
