@@ -5,6 +5,7 @@
 
 #if PY_MAJOR_VERSION >= 3
     #define IONC_BYTES_FORMAT "y#"
+    #define PyInt_AsSsize_t PyLong_AsSsize_t
 #else
     #define IONC_BYTES_FORMAT "s#"
 #endif
@@ -36,8 +37,12 @@ static PyObject* _ionpydict_fromvalue;
 static PyObject* _ion_core_module;
 static PyObject* _py_ion_type;
 static PyObject* py_ion_type_table[14];
+static int  c_ion_type_table[14];
 static PyObject* _py_timestamp_precision;
 static PyObject* py_ion_timestamp_precision_table[7];
+static PyObject* _six_module; // TODO remove all these six dependencies once verified they're not needed.
+static PyObject* _six_binary_type;
+static PyObject* _six_text_type;
 static PyObject* _exception_module;
 static PyObject* _ion_exception_cls;
 static decContext dec_context;  // TODO verify it's fine to share this for the lifetime of the module.
@@ -47,14 +52,15 @@ PyObject* helloworld(PyObject* self)
     return Py_BuildValue("s", "python extensions");
 }
 
-static void ion_type_from_py(PyObject* obj, ION_TYPE* out) {
+static int ion_type_from_py(PyObject* obj) {
     PyObject* ion_type = NULL;
     if (PyObject_HasAttrString(obj, "ion_type")) {
         ion_type = PyObject_GetAttrString(obj, "ion_type");
     }
-    if (ion_type == NULL) return;
-    *out = (ION_TYPE)(PyLong_AsSsize_t(ion_type) << 8);
+    if (ion_type == NULL) return tid_none_INT;
+    int c_type = c_ion_type_table[PyInt_AsSsize_t(ion_type)];
     Py_DECREF(ion_type);
+    return c_type;
 }
 
 static void c_string_from_py(PyObject* str, char** out, Py_ssize_t* len_out) {
@@ -62,6 +68,7 @@ static void c_string_from_py(PyObject* str, char** out, Py_ssize_t* len_out) {
     // TODO does this need to work for binary types?
     *out = PyUnicode_AsUTF8AndSize(str, len_out);
 #else
+    // NOTE: This returns a string in the default encoding, which should be UTF8.
     PyString_AsStringAndSize(str, out, len_out);
 #endif
 }
@@ -74,13 +81,13 @@ static void ion_string_from_py(PyObject* str, ION_STRING* out) {
     ion_string_assign_cstr(out, c_str, c_str_len);
 }
 
-static iERR write_annotations(hWRITER writer, PyObject* obj) {
+static iERR ionc_write_annotations(hWRITER writer, PyObject* obj) {
     iENTER;
     PyObject* annotations = NULL;
     if (PyObject_HasAttrString(obj, "ion_annotations")) {
         annotations = PyObject_GetAttrString(obj, "ion_annotations");
     }
-    if (annotations == NULL) SUCCEED();
+    if (annotations == NULL || PyObject_Not(annotations)) SUCCEED();
     annotations = PySequence_Fast(annotations, "expected sequence");
     Py_ssize_t len = PySequence_Size(annotations);
     Py_ssize_t i;
@@ -131,6 +138,9 @@ static iERR ionc_write_struct(hWRITER writer, PyObject* dict) {
         Py_INCREF(child_obj);
         ION_STRING field_name;
         ion_string_from_py(key, &field_name);
+        // NOTE: the writer does NOT make a copy of the field name until it is flushed (which happens upon writing its
+        // following value), making it important to INCREF the PyObject that holds the underlying buffer. This ensures
+        // the object is not deallocated before it is flushed.
         IONCHECK(ion_writer_write_field_name(writer, &field_name));
         IONCHECK(Py_EnterRecursiveCall(" while writing an Ion struct"));
         err = ionc_write_value(writer, child_obj);
@@ -149,45 +159,50 @@ fail:
 
 static iERR ionc_write_value(hWRITER writer, PyObject* obj) {
     iENTER;
-    ION_TYPE* ion_type = NULL;
-    ion_type_from_py(obj, ion_type);
-    IONCHECK(write_annotations(writer, obj));
+    int ion_type = ion_type_from_py(obj);
+    IONCHECK(ionc_write_annotations(writer, obj));
     if (PyObject_TypeCheck(obj, &PyList_Type) || PyObject_TypeCheck(obj, &PyTuple_Type)) {
-        if (ion_type == NULL) {
-            ION_TYPE type = tid_LIST; // TODO should tuple implicitly be SEXP for visual match?
-            ion_type = &type;
+        if (ion_type == tid_none_INT) {
+            // TODO should tuple implicitly be SEXP for visual match?
+            ion_type = tid_LIST_INT;
         }
 
-        IONCHECK(ion_writer_start_container(writer, *ion_type));
+        IONCHECK(ion_writer_start_container(writer, (ION_TYPE)ion_type));
         IONCHECK(ionc_write_sequence(writer, obj));
         IONCHECK(ion_writer_finish_container(writer));
     }
     else if (PyObject_TypeCheck(obj, &PyDict_Type)) {
-        if (ion_type == NULL) {
-            ION_TYPE type = tid_STRUCT;
-            ion_type = &type;
+        if (ion_type == tid_none_INT) {
+            ion_type = tid_STRUCT_INT;
         }
-        else {
-            // TODO if ion_type is present, assert it is STRUCT
+        if (tid_STRUCT_INT != ion_type) {
+            FAILWITHMSG(IERR_INVALID_ARG, "Found dict; expected STRUCT Ion type.");
         }
 
-        IONCHECK(ion_writer_start_container(writer, *ion_type));
+        IONCHECK(ion_writer_start_container(writer, (ION_TYPE)ion_type));
         IONCHECK(ionc_write_struct(writer, obj));
         IONCHECK(ion_writer_finish_container(writer));
     }
-    else if (PyUnicode_Check(obj) || PyObject_TypeCheck(obj, &PyBytes_Type)) {
-        if (ion_type == NULL) {
-            ION_TYPE type = tid_STRING;
-            ion_type = &type;
+    //else if (PyObject_TypeCheck(obj, (PyTypeObject*)_six_text_type)) {
+    else if (PyUnicode_Check(obj)) {
+        if (ion_type == tid_none_INT) {
+            ion_type = tid_STRING_INT;
         }
         ION_STRING string_value;
         ion_string_from_py(obj, &string_value);
-        IONCHECK(ion_writer_write_string(writer, &string_value));
+        if (tid_STRING_INT == ion_type) {
+            IONCHECK(ion_writer_write_string(writer, &string_value));
+        }
+        else if (tid_SYMBOL_INT == ion_type) {
+            IONCHECK(ion_writer_write_symbol(writer, &string_value));
+        }
+        else {
+            FAILWITHMSG(IERR_INVALID_ARG, "Found text; expected STRING or SYMBOL Ion type.");
+        }
     }
     else if (PyBool_Check(obj)) { // NOTE: this must precede the INT block because python bools are ints.
-        if (ion_type == NULL) {
-            ION_TYPE type = tid_BOOL;
-            ion_type = &type;
+        if (ion_type == tid_none_INT) {
+            ion_type = tid_BOOL_INT;
         }
         BOOL bool_value;
         if (obj == Py_True)
@@ -202,25 +217,22 @@ static iERR ionc_write_value(hWRITER writer, PyObject* obj) {
         #endif
             PyObject_TypeCheck(obj, &PyLong_Type) // TODO or just use PyLong_Check ?
     ) {
-        if (ion_type == NULL) {
-            ION_TYPE type = tid_INT;
-            ion_type = &type;
+        if (ion_type == tid_none_INT) {
+            ion_type = tid_INT_INT;
         }
         // TODO obviously only gets 64 bits... document as limitation. There are no APIs to write arbitrary-length ints.
         IONCHECK(ion_writer_write_long(writer, PyLong_AsLong(obj)));
     }
     else if (PyFloat_Check(obj)) {
-        if (ion_type == NULL) {
-            ION_TYPE type = tid_FLOAT;
-            ion_type = &type;
+        if (ion_type == tid_none_INT) {
+            ion_type = tid_FLOAT_INT;
         }
         // TODO verify this works for nan/inf
         IONCHECK(ion_writer_write_double(writer, PyFloat_AsDouble(obj)));
     }
     else if (PyObject_TypeCheck(obj, (PyTypeObject*)_decimal_constructor)) {
-        if (ion_type == NULL) {
-            ION_TYPE type = tid_DECIMAL;
-            ion_type = &type;
+        if (ion_type == tid_none_INT) {
+            ion_type = tid_DECIMAL_INT;
         }
         PyObject* decimal_str = PyObject_CallMethod(obj, "__str__", NULL); // TODO converting every decimal to string is slow.
         char* decimal_c_str = NULL;
@@ -231,8 +243,26 @@ static iERR ionc_write_value(hWRITER writer, PyObject* obj) {
         decQuadFromString(&decimal_value, decimal_c_str, &dec_context);
         IONCHECK(ion_writer_write_decimal(writer, &decimal_value));
     }
+    //else if (PyObject_TypeCheck(obj, (PyTypeObject*)_six_binary_type)) {
+    else if (PyBytes_Check(obj)) {
+        if (ion_type == tid_none_INT) {
+            ion_type = tid_BLOB_INT;
+        }
+        char* bytes = NULL;
+        Py_ssize_t len;
+        IONCHECK(PyBytes_AsStringAndSize(obj, &bytes, &len));  // TODO verify this works on Py 2. If not, use PyString_*.
+        if (ion_type == tid_BLOB_INT) {
+            IONCHECK(ion_writer_write_blob(writer, (BYTE*)bytes, len));
+        }
+        else if (ion_type == tid_CLOB_INT) {
+            IONCHECK(ion_writer_write_clob(writer, (BYTE*)bytes, len));
+        }
+        else {
+            FAILWITHMSG(IERR_INVALID_ARG, "Found binary data; expected BLOB or CLOB Ion type.");
+        }
+    }
     else {
-        FAILWITH(IERR_INVALID_ARG);
+        FAILWITH(IERR_INVALID_STATE);
     }
     // TODO all other types, else error
     iRETURN;
@@ -709,6 +739,20 @@ PyObject* ionc_init_module(void) {
     py_ion_type_table[0xC] = PyObject_GetAttrString(_py_ion_type, "LIST");
     py_ion_type_table[0xD] = PyObject_GetAttrString(_py_ion_type, "SEXP");
 
+    c_ion_type_table[0x0] = tid_NULL_INT;
+    c_ion_type_table[0x1] = tid_BOOL_INT;
+    c_ion_type_table[0x2] = tid_INT_INT;
+    c_ion_type_table[0x3] = tid_FLOAT_INT;
+    c_ion_type_table[0x4] = tid_DECIMAL_INT;
+    c_ion_type_table[0x5] = tid_TIMESTAMP_INT;
+    c_ion_type_table[0x6] = tid_SYMBOL_INT;
+    c_ion_type_table[0x7] = tid_STRING_INT;
+    c_ion_type_table[0x8] = tid_CLOB_INT;
+    c_ion_type_table[0x9] = tid_BLOB_INT;
+    c_ion_type_table[0xA] = tid_SEXP_INT;
+    c_ion_type_table[0xB] = tid_LIST_INT;
+    c_ion_type_table[0xC] = tid_STRUCT_INT;
+
     py_ion_timestamp_precision_table[0] = PyObject_GetAttrString(_py_timestamp_precision, "YEAR");
     py_ion_timestamp_precision_table[1] = PyObject_GetAttrString(_py_timestamp_precision, "MONTH");
     py_ion_timestamp_precision_table[2] = PyObject_GetAttrString(_py_timestamp_precision, "DAY");
@@ -716,6 +760,10 @@ PyObject* ionc_init_module(void) {
     py_ion_timestamp_precision_table[4] = PyObject_GetAttrString(_py_timestamp_precision, "MINUTE");
     py_ion_timestamp_precision_table[5] = PyObject_GetAttrString(_py_timestamp_precision, "SECOND");
     py_ion_timestamp_precision_table[6] = PyObject_GetAttrString(_py_timestamp_precision, "SECOND");
+
+    _six_module = PyImport_ImportModule("six");
+    _six_binary_type = PyObject_GetAttrString(_six_module, "binary_type");
+    _six_text_type = PyObject_GetAttrString(_six_module, "text_type");
 
     _exception_module   = PyImport_ImportModule("amazon.ion.exceptions");
     _ion_exception_cls  = PyObject_GetAttrString(_exception_module, "IonException");
