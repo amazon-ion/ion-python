@@ -15,6 +15,7 @@
 #if PY_MAJOR_VERSION >= 3
     #define IONC_BYTES_FORMAT "y#"
     #define PyInt_AsSsize_t PyLong_AsSsize_t
+    #define PyInt_AsLong PyLong_AsLong
 #else
     #define IONC_BYTES_FORMAT "s#"
 #endif
@@ -30,18 +31,21 @@ static int int_attr_by_name(PyObject* obj, char* attr_name) {
     return c_int;
 }
 
+// TODO compare performance of these offset_seconds* methods. The _26 version will work with all versions, so if it is
+// as fast, should be used for all.
 static int offset_seconds_26(PyObject* timedelta) {
-    // TODO needs testing.
-    int microseconds = int_attr_by_name(timedelta, "microseconds");
-    int seconds = int_attr_by_name(timedelta, "seconds");
-    int days = int_attr_by_name(timedelta, "days");
-    return (microseconds + (seconds + days * 24 * 3600) * 1000000) / 1000000;
+    long microseconds = int_attr_by_name(timedelta, "microseconds");
+    long seconds_microseconds = (long)int_attr_by_name(timedelta, "seconds") * 1000000;
+    long days_microseconds = (long)int_attr_by_name(timedelta, "days") * 24 * 3600 * 1000000;
+    return (microseconds + seconds_microseconds + days_microseconds) / 1000000;
 }
 
 static int offset_seconds(PyObject* timedelta) {
     PyObject* py_seconds = PyObject_CallMethod(timedelta, "total_seconds", NULL);
-    int seconds = (int)PyInt_AsSsize_t(py_seconds);
+    PyObject* py_seconds_int = PyObject_CallMethod(py_seconds, "__int__", NULL);
+    int seconds = (int)PyInt_AsSsize_t(py_seconds_int);
     Py_DECREF(py_seconds);
+    Py_DECREF(py_seconds_int);
     return seconds;
 }
 
@@ -200,7 +204,7 @@ static iERR ionc_write_value(hWRITER writer, PyObject* obj) {
     iENTER;
     int ion_type = ion_type_from_py(obj);
     IONCHECK(ionc_write_annotations(writer, obj));
-    if (PyObject_TypeCheck(obj, &PyList_Type) || PyObject_TypeCheck(obj, &PyTuple_Type)) {
+    if (PyList_Check(obj) || PyTuple_Check(obj)) {
         if (ion_type == tid_none_INT) {
             // TODO should tuple implicitly be SEXP for visual match?
             ion_type = tid_LIST_INT;
@@ -213,7 +217,7 @@ static iERR ionc_write_value(hWRITER writer, PyObject* obj) {
         IONCHECK(ionc_write_sequence(writer, obj));
         IONCHECK(ion_writer_finish_container(writer));
     }
-    else if (PyObject_TypeCheck(obj, &PyDict_Type)) {
+    else if (PyDict_Check(obj)) {
         if (ion_type == tid_none_INT) {
             ion_type = tid_STRUCT_INT;
         }
@@ -258,9 +262,9 @@ static iERR ionc_write_value(hWRITER writer, PyObject* obj) {
     }
     else if (
         #if PY_MAJOR_VERSION < 3 // TODO need to verify this works/is necessary for Python 2. Will PyLong_*() work with PyInt_Type?
-            PyObject_TypeCheck(obj, &PyInt_Type) ||
+            PyInt_Check(obj) ||
         #endif
-            PyObject_TypeCheck(obj, &PyLong_Type) // TODO or just use PyLong_Check ?
+            PyLong_Check(obj)
     ) {
         if (ion_type == tid_none_INT) {
             ion_type = tid_INT_INT;
@@ -392,7 +396,6 @@ static iERR ionc_write_value(hWRITER writer, PyObject* obj) {
         }
 
         PyObject* offset_timedelta = PyObject_CallMethod(obj, "utcoffset", NULL);
-        // TODO it's failing around local offsets...
         if (offset_timedelta != Py_None) {
             err = ion_timestamp_set_local_offset(&timestamp_value, offset_seconds(offset_timedelta) / 60);
         }
