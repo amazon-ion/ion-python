@@ -3,6 +3,7 @@
 
 #include "structmember.h"
 #include "ion.h"
+#include "decimal128.h"
 
 PyObject* ionc_init_module(void);
 PyObject* helloworld(PyObject* self);

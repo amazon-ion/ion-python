@@ -1,13 +1,52 @@
 #include "Python.h"
+#include "datetime.h"
 #include "_ioncmodule.h"
 
 #define cRETURN RETURN(__location_name__, __line__, __count__++, err)
+
+#define YEAR_PRECISION 0
+#define MONTH_PRECISION 1
+#define DAY_PRECISION 2
+#define MINUTE_PRECISION 3
+#define SECOND_PRECISION 4
+
+#define MICROSECOND_DIGITS 6
 
 #if PY_MAJOR_VERSION >= 3
     #define IONC_BYTES_FORMAT "y#"
     #define PyInt_AsSsize_t PyLong_AsSsize_t
 #else
     #define IONC_BYTES_FORMAT "s#"
+#endif
+
+static int int_attr_by_name(PyObject* obj, char* attr_name) {
+    // Gets an attribute as an int. NOTE: defaults to 0 if the attribute is None.
+    PyObject* py_int = PyObject_GetAttrString(obj, attr_name);
+    int c_int = 0;
+    if (py_int != Py_None) {
+        c_int = (int)PyInt_AsSsize_t(py_int);
+    }
+    Py_DECREF(py_int);
+    return c_int;
+}
+
+static int offset_seconds_26(PyObject* timedelta) {
+    // TODO needs testing.
+    int microseconds = int_attr_by_name(timedelta, "microseconds");
+    int seconds = int_attr_by_name(timedelta, "seconds");
+    int days = int_attr_by_name(timedelta, "days");
+    return (microseconds + (seconds + days * 24 * 3600) * 1000000) / 1000000;
+}
+
+static int offset_seconds(PyObject* timedelta) {
+    PyObject* py_seconds = PyObject_CallMethod(timedelta, "total_seconds", NULL);
+    int seconds = (int)PyInt_AsSsize_t(py_seconds);
+    Py_DECREF(py_seconds);
+    return seconds;
+}
+
+#if PY_VERSION_HEX < 0x02070000
+    #define offset_seconds(x) offset_seconds_26(x)
 #endif
 
 static PyObject* _decimal_module;
@@ -166,6 +205,9 @@ static iERR ionc_write_value(hWRITER writer, PyObject* obj) {
             // TODO should tuple implicitly be SEXP for visual match?
             ion_type = tid_LIST_INT;
         }
+        if (tid_LIST_INT != ion_type && tid_SEXP_INT != ion_type) {
+            FAILWITHMSG(IERR_INVALID_ARG, "Found sequence; expected LIST or SEXP Ion type.");
+        }
 
         IONCHECK(ion_writer_start_container(writer, (ION_TYPE)ion_type));
         IONCHECK(ionc_write_sequence(writer, obj));
@@ -204,6 +246,9 @@ static iERR ionc_write_value(hWRITER writer, PyObject* obj) {
         if (ion_type == tid_none_INT) {
             ion_type = tid_BOOL_INT;
         }
+        if (tid_BOOL_INT != ion_type) {
+            FAILWITHMSG(IERR_INVALID_ARG, "Found bool; expected BOOL Ion type.");
+        }
         BOOL bool_value;
         if (obj == Py_True)
             bool_value = TRUE;
@@ -220,6 +265,9 @@ static iERR ionc_write_value(hWRITER writer, PyObject* obj) {
         if (ion_type == tid_none_INT) {
             ion_type = tid_INT_INT;
         }
+        if (tid_INT_INT != ion_type) {
+            FAILWITHMSG(IERR_INVALID_ARG, "Found int; expected INT Ion type.");
+        }
         // TODO obviously only gets 64 bits... document as limitation. There are no APIs to write arbitrary-length ints.
         IONCHECK(ion_writer_write_long(writer, PyLong_AsLong(obj)));
     }
@@ -227,12 +275,18 @@ static iERR ionc_write_value(hWRITER writer, PyObject* obj) {
         if (ion_type == tid_none_INT) {
             ion_type = tid_FLOAT_INT;
         }
+        if (tid_FLOAT_INT != ion_type) {
+            FAILWITHMSG(IERR_INVALID_ARG, "Found float; expected FLOAT Ion type.");
+        }
         // TODO verify this works for nan/inf
         IONCHECK(ion_writer_write_double(writer, PyFloat_AsDouble(obj)));
     }
     else if (PyObject_TypeCheck(obj, (PyTypeObject*)_decimal_constructor)) {
         if (ion_type == tid_none_INT) {
             ion_type = tid_DECIMAL_INT;
+        }
+        if (tid_DECIMAL_INT != ion_type) {
+            FAILWITHMSG(IERR_INVALID_ARG, "Found Decimal; expected DECIMAL Ion type.");
         }
         PyObject* decimal_str = PyObject_CallMethod(obj, "__str__", NULL); // TODO converting every decimal to string is slow.
         char* decimal_c_str = NULL;
@@ -260,6 +314,93 @@ static iERR ionc_write_value(hWRITER writer, PyObject* obj) {
         else {
             FAILWITHMSG(IERR_INVALID_ARG, "Found binary data; expected BLOB or CLOB Ion type.");
         }
+    }
+    else if (PyDateTime_Check(obj)) {
+        if (ion_type == tid_none_INT) {
+            ion_type = tid_TIMESTAMP_INT;
+        }
+        if (tid_TIMESTAMP_INT != ion_type) {
+            FAILWITHMSG(IERR_INVALID_ARG, "Found datetime; expected TIMESTAMP Ion type.");
+        }
+        ION_TIMESTAMP timestamp_value;
+        int year, month, day, hour, minute, second;
+        short precision, fractional_precision;
+
+        if (PyObject_HasAttrString(obj, "precision")) {
+            // This is a Timestamp.
+            precision = int_attr_by_name(obj, "precision");
+            fractional_precision = int_attr_by_name(obj, "fractional_precision");
+        }
+        else {
+            // This is a naive datetime. It always has maximum precision.
+            precision = SECOND_PRECISION;
+            fractional_precision = MICROSECOND_DIGITS;
+        }
+
+        year = int_attr_by_name(obj, "year");
+        if (precision == SECOND_PRECISION) {
+            month = int_attr_by_name(obj, "month");
+            day = int_attr_by_name(obj, "day");
+            hour = int_attr_by_name(obj, "hour");
+            minute = int_attr_by_name(obj, "minute");
+            second = int_attr_by_name(obj, "second");
+            int microsecond = int_attr_by_name(obj, "microsecond");
+            if (fractional_precision > 0) {
+                decQuad fraction;
+                decNumber helper, dec_number_precision;
+                decQuadFromInt32(&fraction, (int32_t)microsecond);
+                decQuad tmp;
+                decQuadScaleB(&fraction, &fraction, decQuadFromInt32(&tmp, -MICROSECOND_DIGITS), &dec_context);
+                decQuadToNumber(&fraction, &helper);
+                decNumberRescale(&helper, &helper, decNumberFromInt32(&dec_number_precision, -fractional_precision), &dec_context);
+                if (decContextTestStatus(&dec_context, DEC_Inexact)) {
+                    // This means the fractional component is not [0, 1) or has more than microsecond precision.
+                    decContextClearStatus(&dec_context, DEC_Inexact);
+                    FAILWITHMSG(IERR_INVALID_TIMESTAMP, "Requested fractional timestamp precision results in data loss.");
+                }
+                decQuadFromNumber(&fraction, &helper, &dec_context);
+                IONCHECK(ion_timestamp_for_fraction(&timestamp_value, year, month, day, hour, minute, second, &fraction, &dec_context));
+            }
+            else if (microsecond > 0) {
+                FAILWITHMSG(IERR_INVALID_TIMESTAMP, "Not enough fractional precision for timestamp.");
+            }
+            else {
+                IONCHECK(ion_timestamp_for_second(&timestamp_value, year, month, day, hour, minute, second));
+            }
+        }
+        else if (precision == MINUTE_PRECISION) {
+            month = int_attr_by_name(obj, "month");
+            day = int_attr_by_name(obj, "day");
+            hour = int_attr_by_name(obj, "hour");
+            minute = int_attr_by_name(obj, "minute");
+            IONCHECK(ion_timestamp_for_minute(&timestamp_value, year, month, day, hour, minute));
+        }
+        else if (precision == DAY_PRECISION) {
+            month = int_attr_by_name(obj, "month");
+            day = int_attr_by_name(obj, "day");
+            IONCHECK(ion_timestamp_for_day(&timestamp_value, year, month, day));
+        }
+        else if (precision == MONTH_PRECISION) {
+            month = int_attr_by_name(obj, "month");
+            IONCHECK(ion_timestamp_for_month(&timestamp_value, year, month));
+        }
+        else if (precision == YEAR_PRECISION) {
+            IONCHECK(ion_timestamp_for_year(&timestamp_value, year));
+        }
+        else {
+            FAILWITHMSG(IERR_INVALID_STATE, "Invalid timestamp precision.");
+        }
+
+        PyObject* offset_timedelta = PyObject_CallMethod(obj, "utcoffset", NULL);
+        // TODO it's failing around local offsets...
+        if (offset_timedelta != Py_None) {
+            err = ion_timestamp_set_local_offset(&timestamp_value, offset_seconds(offset_timedelta) / 60);
+        }
+        Py_DECREF(offset_timedelta);
+        IONCHECK(err);
+
+        IONCHECK(ion_writer_write_timestamp(writer, &timestamp_value));
+
     }
     else {
         FAILWITH(IERR_INVALID_STATE);
@@ -401,8 +542,6 @@ static iERR ionc_read_into_container(hREADER hreader, PyObject* container, BOOL 
     iRETURN;
 }
 
-#define MICROSECOND_PRECISION 6
-
 static iERR ionc_read_timestamp(hREADER hreader, PyObject** timestamp_out) {
     iENTER;
     ION_TIMESTAMP timestamp_value;
@@ -434,12 +573,12 @@ static iERR ionc_read_timestamp(hREADER hreader, PyObject** timestamp_out) {
         int32_t fractional_precision = decQuadGetExponent(&fraction);
         // TODO assert fractional_precision < 0
         fractional_precision = fractional_precision * -1;
-        if (fractional_precision > MICROSECOND_PRECISION) {
+        if (fractional_precision > MICROSECOND_DIGITS) {
             // Python only supports up to microsecond precision
             FAILWITHMSG(IERR_INVALID_TIMESTAMP, "Timestamp fractional seconds cannot exceed microsecond precision.");
         }
         decQuad tmp;
-        decQuadScaleB(&fraction, &fraction, decQuadFromInt32(&tmp, MICROSECOND_PRECISION), &dec_context);
+        decQuadScaleB(&fraction, &fraction, decQuadFromInt32(&tmp, MICROSECOND_DIGITS), &dec_context);
         int32_t microsecond = decQuadToInt32Exact(&fraction, &dec_context, DEC_ROUND_HALF_EVEN);
         if (decContextTestStatus(&dec_context, DEC_Inexact)) {
             // This means the fractional component is not [0, 1) or has more than microsecond precision.
@@ -687,6 +826,8 @@ static struct PyModuleDef moduledef = {
 #endif
 
 PyObject* ionc_init_module(void) {
+    PyDateTime_IMPORT;
+
     PyObject* m;
 #if PY_MAJOR_VERSION >= 3
     m = PyModule_Create(&moduledef);
