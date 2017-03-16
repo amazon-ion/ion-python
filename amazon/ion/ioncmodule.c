@@ -202,6 +202,10 @@ fail:
 
 static iERR ionc_write_value(hWRITER writer, PyObject* obj) {
     iENTER;
+    if (obj == Py_None) {
+        IONCHECK(ion_writer_write_null(writer));
+        SUCCEED();
+    }
     int ion_type = ion_type_from_py(obj);
     IONCHECK(ionc_write_annotations(writer, obj));
     if (PyList_Check(obj) || PyTuple_Check(obj)) {
@@ -284,6 +288,12 @@ static iERR ionc_write_value(hWRITER writer, PyObject* obj) {
         }
         // TODO verify this works for nan/inf
         IONCHECK(ion_writer_write_double(writer, PyFloat_AsDouble(obj)));
+    }
+    else if (PyObject_TypeCheck(obj, (PyTypeObject*)_ionpynull_cls)) {
+        if (ion_type == tid_none_INT) {
+            ion_type = tid_NULL_INT;
+        }
+        IONCHECK(ion_writer_write_typed_null(writer, (ION_TYPE)ion_type));
     }
     else if (PyObject_TypeCheck(obj, (PyTypeObject*)_decimal_constructor)) {
         if (ion_type == tid_none_INT) {
