@@ -20,12 +20,12 @@ static char _err_msg[ERR_MSG_MAX_LEN];
 
 #if PY_MAJOR_VERSION >= 3
     #define IONC_BYTES_FORMAT "y#"
-    #define IONC_READ_ARGS_FORMAT "y#O"
+    #define IONC_READ_ARGS_FORMAT "y#OO"
     #define PyInt_AsSsize_t PyLong_AsSsize_t
     #define PyInt_AsLong PyLong_AsLong
 #else
     #define IONC_BYTES_FORMAT "s#"
-    #define IONC_READ_ARGS_FORMAT "s#O"
+    #define IONC_READ_ARGS_FORMAT "s#OO"
 #endif
 
 static int int_attr_by_name(PyObject* obj, char* attr_name) {
@@ -173,7 +173,7 @@ static iERR ionc_write_annotations(hWRITER writer, PyObject* obj) {
             err = ion_writer_add_annotation(writer, &annotation);
         }
         else if (PyObject_TypeCheck(pyAnnotation, (PyTypeObject*)_py_symboltoken_constructor)){
-            err = ionc_write_symboltoken(writer, pyAnnotation);
+            err = ionc_write_symboltoken(writer, pyAnnotation);  // TODO this is being written as a symbol value, not an annotation!
         }
         Py_DECREF(pyAnnotation);
         if (err) break;
@@ -235,6 +235,22 @@ fail:
     cRETURN;
 }
 
+static iERR ionc_write_big_int(hWRITER writer, PyObject *obj) {
+    iENTER;
+    PyObject* int_str = PyObject_CallMethod(obj, "__str__", NULL); // TODO couldn't find a direct method for this.
+    //PyObject *int_str = PyString_FromFormat("%ld", PyInt_AsLong(obj));
+    ION_STRING string_value;
+    ion_string_from_py(obj, &string_value);
+    //ion_string_assign_cstr(&string_value, "4294967295", 10); // TODO for debugging. Remove and uncomment the commented lines in this method
+    ION_INT ion_int_value;
+    IONCHECK(ion_int_init(&ion_int_value, NULL));
+    IONCHECK(ion_int_from_string(&ion_int_value, &string_value));
+    IONCHECK(ion_writer_write_ion_int(writer, &ion_int_value));
+fail:
+    Py_DECREF(int_str);
+    cRETURN;
+}
+
 static iERR ionc_write_value(hWRITER writer, PyObject* obj) {
     iENTER;
     if (obj == Py_None) {
@@ -284,8 +300,14 @@ static iERR ionc_write_value(hWRITER writer, PyObject* obj) {
             ion_type = tid_INT_INT;
         }
         if (tid_INT_INT == ion_type) {
-            // TODO obviously only gets 64 bits... document as limitation. There are no APIs to write arbitrary-length ints.
-            IONCHECK(ion_writer_write_long(writer, PyLong_AsLong(obj)));
+            //int overflow;
+            //long long_value = PyLong_AsLongAndOverflow(obj, &overflow);
+            //if (overflow) {
+                IONCHECK(ionc_write_big_int(writer, obj));
+            //}
+            //else {
+            //    IONCHECK(ion_writer_write_long(writer, long_value));
+            //}
         }
         else if (tid_BOOL_INT == ion_type) {
             IONCHECK(ion_writer_write_bool(writer, PyInt_AsSsize_t(obj)));
@@ -465,7 +487,7 @@ static iERR ionc_write_value(hWRITER writer, PyObject* obj) {
         IONCHECK(ion_writer_finish_container(writer));
     }
     else {
-        FAILWITH(IERR_INVALID_STATE);
+        _FAILWITHMSG(IERR_INVALID_STATE, "Cannot dump arbitrary object types.");
     }
     // TODO all other types, else error
     iRETURN;
@@ -543,14 +565,20 @@ fail:
     Py_DECREF(obj);
     Py_DECREF(binary);
     Py_DECREF(sequence_as_stream);
-    PyObject* exception = PyErr_Format(_ion_exception_cls, "%s %s", ion_error_to_str(err), _err_msg);
-    _err_msg[0] = "\0"; // TODO This is meant to make sure the error message isn't reused. Test.
+    PyObject* exception = NULL;
+    if (err == IERR_INVALID_STATE) {
+        exception = PyErr_Format(PyExc_TypeError, "%s", _err_msg);
+    }
+    else {
+        exception = PyErr_Format(_ion_exception_cls, "%s %s", ion_error_to_str(err), _err_msg);
+    }
+    _err_msg[0] = '\0'; // TODO This is meant to make sure the error message isn't reused. Test.
     return exception;
 }
 
-static iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BOOL in_struct);
+static iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BOOL in_struct, BOOL emit_bare_values);
 
-static iERR ionc_read_all(hREADER hreader, PyObject* container, BOOL in_struct) {
+iERR ionc_read_all(hREADER hreader, PyObject* container, BOOL in_struct, BOOL emit_bare_values) {
     iENTER;
     ION_TYPE t;
     for (;;) {
@@ -561,13 +589,14 @@ static iERR ionc_read_all(hREADER hreader, PyObject* container, BOOL in_struct) 
             assert(t == tid_EOF && "next() at end");
             break;
         }
-        IONCHECK(ionc_read_value(hreader, t, container, in_struct));
+        IONCHECK(ionc_read_value(hreader, t, container, in_struct, emit_bare_values));
     }
     iRETURN;
 }
 
 static PyObject* ion_build_py_string(ION_STRING* string_value) {
     // TODO Test non-ASCII compatibility.
+    // NOTE: this does a copy, which is good.
     return PyUnicode_FromStringAndSize((char*)(string_value->value), string_value->length);
 }
 
@@ -587,18 +616,18 @@ PyObject* ionc_read(PyObject* self, PyObject *args, PyObject *kwds) {
     hREADER      reader;
     long         size;
     char        *buffer = NULL;
-    PyObject* top_level_container = NULL;
-    PyObject* single_value;
+    PyObject *top_level_container = NULL;
+    PyObject *single_value, *emit_bare_values;
 
-    static char *kwlist[] = {"data", "single_value", NULL};
+    static char *kwlist[] = {"data", "single_value", "emit_bare_values", NULL};
     // TODO y# on Py3 won't work with unicode-type input, only bytes
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, IONC_READ_ARGS_FORMAT, kwlist, &buffer, &size, &single_value)) {
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, IONC_READ_ARGS_FORMAT, kwlist, &buffer, &size, &single_value, &emit_bare_values)) {
         FAILWITH(IERR_INVALID_ARG);
     }
     // TODO what if size is larger than SIZE ?
     IONCHECK(ion_reader_open_buffer(&reader, (BYTE*)buffer, (SIZE)size, NULL)); // NULL represents default reader options
     top_level_container = PyList_New(0);
-    IONCHECK(ionc_read_all(reader, top_level_container, FALSE));
+    IONCHECK(ionc_read_all(reader, top_level_container, FALSE, emit_bare_values == Py_True));
     IONCHECK(ion_reader_close(reader));
     if (single_value == Py_True) {
         Py_ssize_t len = PyList_Size(top_level_container);
@@ -614,7 +643,7 @@ PyObject* ionc_read(PyObject* self, PyObject *args, PyObject *kwds) {
 fail:
     Py_XDECREF(top_level_container); // TODO need to DECREF all of its children too?
     PyObject* exception = PyErr_Format(_ion_exception_cls, "%s %s", ion_error_to_str(err), _err_msg);
-    _err_msg[0] = "\0"; // TODO This is meant to make sure the error message isn't reused. Test.
+    _err_msg[0] = '\0'; // TODO This is meant to make sure the error message isn't reused. Test.
     return exception;
 }
 
@@ -627,11 +656,11 @@ static PyObject* ionc_get_timestamp_precision(int precision) {
     return py_ion_timestamp_precision_table[precision_index];
 }
 
-static iERR ionc_read_into_container(hREADER hreader, PyObject* container, BOOL is_struct) {
+static iERR ionc_read_into_container(hREADER hreader, PyObject* container, BOOL is_struct, BOOL emit_bare_values) {
     iENTER;
     IONCHECK(ion_reader_step_in(hreader));
     IONCHECK(Py_EnterRecursiveCall(" while reading an Ion container"));
-    err = ionc_read_all(hreader, container, is_struct);
+    err = ionc_read_all(hreader, container, is_struct, emit_bare_values);
     Py_LeaveRecursiveCall();
     IONCHECK(err);
     IONCHECK(ion_reader_step_out(hreader));
@@ -704,11 +733,10 @@ fail:
     cRETURN;
 }
 
-static iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BOOL in_struct) {
+static iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BOOL in_struct, BOOL emit_bare_values_global) {
     iENTER;
 
-    BOOL        emit_bare_values = TRUE; // TODO allow this config option to be passed in, initialize here. This allows pure python values to be emitted when they type is unambiguous and the ion value is unannotated.
-
+    BOOL        emit_bare_values = emit_bare_values_global;
     BOOL        is_null;
     ION_STRING  field_name;
     SIZE        annotation_count;
@@ -791,7 +819,7 @@ static iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BO
         }
         else {
             IONCHECK(err);
-            py_value = Py_BuildValue("i", ion_int64);
+            py_value = Py_BuildValue("l", ion_int64);
         }
         ion_nature_constructor = _ionpyint_fromvalue;
         break;
@@ -860,7 +888,7 @@ static iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BO
     }
     case tid_STRUCT_INT:
         py_value = PyDict_New();
-        IONCHECK(ionc_read_into_container(hreader, py_value, /*is_struct=*/TRUE));
+        IONCHECK(ionc_read_into_container(hreader, py_value, /*is_struct=*/TRUE, emit_bare_values));
         ion_nature_constructor = _ionpydict_fromvalue;
         break;
     case tid_SEXP_INT:
@@ -870,7 +898,7 @@ static iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BO
     }
     case tid_LIST_INT:
         py_value = PyList_New(0);
-        IONCHECK(ionc_read_into_container(hreader, py_value, /*is_struct=*/FALSE));
+        IONCHECK(ionc_read_into_container(hreader, py_value, /*is_struct=*/FALSE, emit_bare_values));
         ion_nature_constructor = _ionpylist_fromvalue;
         break;
 

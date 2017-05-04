@@ -46,11 +46,11 @@ setup(
     ext_modules=[
         Extension(
             'amazon.ion.ionc',
-            include_dirs=['/Users/greggt/Documents/workspace/ion-c/ionc/inc', '/Users/greggt/Documents/workspace/ion-c/decNumber'],
+            include_dirs=['amazon/ion', '/usr/local/include/ionc', '/usr/local/include/decNumber'],
             libraries=['ionc', 'decNumber'],
-            library_dirs=['/Users/greggt/Documents/workspace/ion-c/build/release/ionc', '/Users/greggt/Documents/workspace/ion-c/build/release/decNumber'],
-            runtime_library_dirs=['/Users/greggt/Documents/workspace/ion-c/build/release/ionc', '/Users/greggt/Documents/workspace/ion-c/build/release/decNumber'],
-            extra_link_args=['-Wl,-rpath,/Users/greggt/Documents/workspace/ion-c/build/release/ionc'],
+            #library_dirs=['/Users/greggt/Documents/workspace/ion-c/build/release/ionc', '/Users/greggt/Documents/workspace/ion-c/build/release/decNumber'],
+            #runtime_library_dirs=['/Users/greggt/Documents/workspace/ion-c/build/release/ionc', '/Users/greggt/Documents/workspace/ion-c/build/release/decNumber'],
+            #extra_link_args=['-Wl,-rpath,/Users/greggt/Documents/workspace/ion-c/build/release/ionc:/Users/greggt/Documents/workspace/ion-c/build/release/decNumber'],
             sources=['amazon/ion/ioncmodule.c']
         ),
     ],

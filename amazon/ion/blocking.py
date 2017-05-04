@@ -129,7 +129,10 @@ class BinaryWriter:
             if symbol_text is not None:
                 key = symbol_text
         except AttributeError:
-            assert isinstance(symbol, six.text_type)
+            # assert isinstance(symbol, six.text_type)
+            if not isinstance(symbol, six.text_type):  # TODO this is a quick hack to support data loaded by simplejson for benchmarks. On Py2, its keys are str (binary type).
+                assert isinstance(symbol, six.binary_type)
+                symbol = six.text_type(symbol)
             key = symbol
             symbol_text = symbol
         token = self.__local_symbols.get(key)

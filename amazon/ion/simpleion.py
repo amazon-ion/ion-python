@@ -25,6 +25,7 @@ from io import TextIOBase
 from itertools import chain
 
 import six
+import amazon.ion.ionc as ionc
 
 from amazon.ion.ionc_ctypes import ION_TYPE_EOF, IonReader, IonC, ION_TYPE_FROM_TID
 from amazon.ion.reader_text import text_reader
@@ -249,6 +250,15 @@ def _dump_events(obj, writer, field=None):
     writer.send(event)
 
 
+def _dump_extension(obj, fp, imports=None, binary=True, sequence_as_stream=False, skipkeys=False, ensure_ascii=True,
+                check_circular=True, allow_nan=True, cls=None, indent=None,
+                separators=None, encoding='utf-8', default=None, use_decimal=True, namedtuple_as_object=True,
+                tuple_as_array=True, bigint_as_string=False, sort_keys=False, item_sort_key=None, for_json=None,
+                ignore_nan=False, int_as_string_bitcount=None, iterable_as_array=False, **kw):
+    res = ionc.ionc_write(obj, binary, sequence_as_stream)
+    fp.write(res)
+
+
 def dumps(obj, skipkeys=False, ensure_ascii=True, check_circular=True, allow_nan=True, cls=None, indent=None,
           separators=None, encoding='utf-8', default=None, use_decimal=True, namedtuple_as_object=True,
           tuple_as_array=True, bigint_as_string=False, sort_keys=False, item_sort_key=None, for_json=None,
@@ -409,6 +419,12 @@ def _load_native(out, reader, in_struct=False):
             add(scalar)
 
 
+def _load_extension(fp, catalog=None, single_value=True, encoding='utf-8', cls=None, object_hook=None, parse_float=None,
+                    parse_int=None, parse_constant=None, object_pairs_hook=None, use_decimal=None, **kw):
+    data = fp.read()
+    return ionc.ionc_read(data, single_value, False)  # TODO last param is emit_bare_values, which should be enabled in benchmarks. Allow configuring.
+
+
 _FROM_ION_TYPE = [
     IonPyNull,
     IonPyBool,
@@ -458,5 +474,5 @@ def loads(fp, encoding='utf-8', cls=None, object_hook=None, parse_float=None, pa
 
 
 _event_based = False
-dump = dump_events if _event_based else dump_direct
-load = load_native  #load_events if _event_based else load_direct
+dump = _dump_extension #dump_events if _event_based else dump_direct
+load = _load_extension  #load_native  #load_events if _event_based else load_direct
