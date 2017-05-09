@@ -24,7 +24,7 @@ setup(
     name='amazon.ion',
     version='0.1.0post1',
     description='A Python implementation of Amazon Ion.',
-    url='http://github.com/amznlabs/ion-python',
+    url='http://github.com/amzn/ion-python',
     author='Amazon Ion Team',
     author_email='ion-team@amazon.com',
     license='Apache License 2.0',

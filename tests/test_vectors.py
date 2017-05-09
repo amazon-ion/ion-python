@@ -83,14 +83,14 @@ def _open(file):
 
 _SKIP_LIST = (
     # TEXT:
-    _good_file(u'subfieldVarUInt.ion'),  # TODO amznlabs/ion-python#34
-    _good_file(u'subfieldVarUInt32bit.ion'),  # TODO amznlabs/ion-python#34
-    _equivs_file(u'timestampsLargeFractionalPrecision.ion'),  # TODO amznlabs/ion-python#35
-    _equivs_file(u'structsFieldsRepeatedNames.ion'),  # TODO amznlabs/ion-python#36
-    _nonequivs_file(u'structs.ion'),  # TODO amznlabs/ion-python#36
-    _nonequivs_file(u'symbolTablesUnknownText.ion'),  # TODO amznlabs/ion-python#46
+    _good_file(u'subfieldVarUInt.ion'),  # TODO amzn/ion-python#34
+    _good_file(u'subfieldVarUInt32bit.ion'),  # TODO amzn/ion-python#34
+    _equivs_file(u'timestampsLargeFractionalPrecision.ion'),  # TODO amzn/ion-python#35
+    _equivs_file(u'structsFieldsRepeatedNames.ion'),  # TODO amzn/ion-python#36
+    _nonequivs_file(u'structs.ion'),  # TODO amzn/ion-python#36
+    _nonequivs_file(u'symbolTablesUnknownText.ion'),  # TODO amzn/ion-python#46
     # BINARY:
-    _good_file(u'item1.10n'),  # TODO amznlabs/ion-python#46
+    _good_file(u'item1.10n'),  # TODO amzn/ion-python#46
 )
 
 _DEBUG_WHITELIST = (
