@@ -1,4 +1,4 @@
-# Copyright 2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# Copyright 2016-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License").
 # You may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@ setup(
     name='amazon.ion',
     version='0.1.1',
     description='A Python implementation of Amazon Ion.',
-    url='http://github.com/amznlabs/ion-python',
+    url='http://github.com/amzn/ion-python',
     author='Amazon Ion Team',
     author_email='ion-team@amazon.com',
     license='Apache License 2.0',
