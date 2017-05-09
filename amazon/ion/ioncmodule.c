@@ -20,12 +20,12 @@ static char _err_msg[ERR_MSG_MAX_LEN];
 
 #if PY_MAJOR_VERSION >= 3
     #define IONC_BYTES_FORMAT "y#"
-    #define IONC_READ_ARGS_FORMAT "y#OO"
+    #define IONC_READ_ARGS_FORMAT "OOO"
     #define PyInt_AsSsize_t PyLong_AsSsize_t
     #define PyInt_AsLong PyLong_AsLong
 #else
     #define IONC_BYTES_FORMAT "s#"
-    #define IONC_READ_ARGS_FORMAT "s#OO"
+    #define IONC_READ_ARGS_FORMAT "OOO"
 #endif
 
 static int int_attr_by_name(PyObject* obj, char* attr_name) {
@@ -240,7 +240,7 @@ static iERR ionc_write_big_int(hWRITER writer, PyObject *obj) {
     PyObject* int_str = PyObject_CallMethod(obj, "__str__", NULL); // TODO couldn't find a direct method for this.
     //PyObject *int_str = PyString_FromFormat("%ld", PyInt_AsLong(obj));
     ION_STRING string_value;
-    ion_string_from_py(obj, &string_value);
+    ion_string_from_py(int_str, &string_value);
     //ion_string_assign_cstr(&string_value, "4294967295", 10); // TODO for debugging. Remove and uncomment the commented lines in this method
     ION_INT ion_int_value;
     IONCHECK(ion_int_init(&ion_int_value, NULL));
@@ -343,9 +343,9 @@ static iERR ionc_write_value(hWRITER writer, PyObject* obj) {
         char* decimal_c_str = NULL;
         Py_ssize_t decimal_c_str_len;
         c_string_from_py(decimal_str, &decimal_c_str, &decimal_c_str_len);
-        Py_DECREF(decimal_str);
         decQuad decimal_value;
         decQuadFromString(&decimal_value, decimal_c_str, &dec_context);
+        Py_DECREF(decimal_str);
         IONCHECK(ion_writer_write_decimal(writer, &decimal_value));
     }
     //else if (PyObject_TypeCheck(obj, (PyTypeObject*)_six_binary_type)) {
@@ -615,15 +615,17 @@ PyObject* ionc_read(PyObject* self, PyObject *args, PyObject *kwds) {
     iENTER;
     hREADER      reader;
     long         size;
-    char        *buffer = NULL;
+    char     *buffer = NULL;
+    PyObject *py_buffer = NULL;
     PyObject *top_level_container = NULL;
     PyObject *single_value, *emit_bare_values;
 
     static char *kwlist[] = {"data", "single_value", "emit_bare_values", NULL};
     // TODO y# on Py3 won't work with unicode-type input, only bytes
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, IONC_READ_ARGS_FORMAT, kwlist, &buffer, &size, &single_value, &emit_bare_values)) {
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, IONC_READ_ARGS_FORMAT, kwlist, &py_buffer, &single_value, &emit_bare_values)) {
         FAILWITH(IERR_INVALID_ARG);
     }
+   PyString_AsStringAndSize(py_buffer, &buffer, &size);
     // TODO what if size is larger than SIZE ?
     IONCHECK(ion_reader_open_buffer(&reader, (BYTE*)buffer, (SIZE)size, NULL)); // NULL represents default reader options
     top_level_container = PyList_New(0);
@@ -795,16 +797,17 @@ static iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BO
     }
     case tid_INT_INT:
     {
-        int64_t ion_int64;
-        err = ion_reader_read_int64(hreader, &ion_int64);
-        if (err == IERR_NUMERIC_OVERFLOW) {
-            err = 0;
+        //int64_t ion_int64;
+        //err = ion_reader_read_int64(hreader, &ion_int64);
+        //if (err == IERR_NUMERIC_OVERFLOW) {
+        //    err = 0;
+            // TODO add ion-c API to return an int64 if possible, or an ION_INT if necessary
             ION_INT ion_int_value;
             IONCHECK(ion_int_init(&ion_int_value, hreader));
             IONCHECK(ion_reader_read_ion_int(hreader, &ion_int_value));
             SIZE int_char_len, int_char_written;
             IONCHECK(ion_int_char_length(&ion_int_value, &int_char_len));
-            char* ion_int_str = (char*)PyMem_Malloc(int_char_len);
+            char* ion_int_str = (char*)PyMem_Malloc(int_char_len + 1); // Leave room for \0
             err = ion_int_to_char(&ion_int_value, (BYTE*)ion_int_str, int_char_len, &int_char_written);
             if (err) {
                 PyMem_Free(ion_int_str);
@@ -816,11 +819,11 @@ static iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BO
             }
             py_value = PyLong_FromString(ion_int_str, NULL, 10);
             PyMem_Free(ion_int_str);
-        }
-        else {
-            IONCHECK(err);
-            py_value = Py_BuildValue("l", ion_int64);
-        }
+        //}
+        //else {
+        //    IONCHECK(err);
+        //    py_value = Py_BuildValue("l", ion_int64);
+        //}
         ion_nature_constructor = _ionpyint_fromvalue;
         break;
     }
@@ -870,19 +873,27 @@ static iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BO
     case tid_BLOB_INT:
     {
         SIZE length, bytes_read;
+        char *buf = NULL;
         IONCHECK(ion_reader_get_lob_size(hreader, &length));
-        BYTE *buf = (BYTE*)PyMem_Malloc((size_t)length);
-        err = ion_reader_read_lob_bytes(hreader, buf, length, &bytes_read);
-        if (err) {
-            PyMem_Free(buf);
-            IONCHECK(err);
+        if (length) {
+            buf = (char*)PyMem_Malloc((size_t)length);
+            err = ion_reader_read_lob_bytes(hreader, (BYTE *)buf, length, &bytes_read);
+            if (err) {
+                PyMem_Free(buf);
+                IONCHECK(err);
+            }
+            if (length != bytes_read) {
+                PyMem_Free(buf);
+                FAILWITH(IERR_EOF);
+            }
         }
-        if (length != bytes_read) {
-            PyMem_Free(buf);
-            FAILWITH(IERR_EOF);
+        else {
+            buf = "";
         }
-        py_value = Py_BuildValue(IONC_BYTES_FORMAT, (char*)buf, length);
-        PyMem_Free(buf);
+        py_value = Py_BuildValue(IONC_BYTES_FORMAT, buf, length);
+        if (length) {
+            PyMem_Free(buf);
+        }
         ion_nature_constructor = _ionpybytes_fromvalue;
         break;
     }
@@ -1017,8 +1028,8 @@ PyObject* ionc_init_module(void) {
     c_ion_type_table[0x7] = tid_STRING_INT;
     c_ion_type_table[0x8] = tid_CLOB_INT;
     c_ion_type_table[0x9] = tid_BLOB_INT;
-    c_ion_type_table[0xA] = tid_SEXP_INT;
-    c_ion_type_table[0xB] = tid_LIST_INT;
+    c_ion_type_table[0xA] = tid_LIST_INT;
+    c_ion_type_table[0xB] = tid_SEXP_INT;
     c_ion_type_table[0xC] = tid_STRUCT_INT;
 
     py_ion_timestamp_precision_table[0] = PyObject_GetAttrString(_py_timestamp_precision, "YEAR");

@@ -180,53 +180,53 @@ SIMPLE_SCALARS_MAP_TEXT = {
 }
 
 SIMPLE_SCALARS_MAP_BINARY = {
-    # _IT.NULL: (
-    #     (None, b'\x0F'),
-    # ),
-    # _IT.BOOL: (
-    #     (None, b'\x1F'),
-    #     (False, b'\x10'),
-    #     (True, b'\x11')
-    # ),
-    _IT.INT: (
-        # (None, b'\x2F'),
-        # (0, b'\x20'),
-        # (1, b'\x21\x01'),
-        # (-1, b'\x31\x01'),
-        (0xFFFFFFFF, b'\x24\xFF\xFF\xFF\xFF'),
-        # (-0xFFFFFFFF, b'\x34\xFF\xFF\xFF\xFF'),
-        # (0xFFFFFFFFFFFFFFFF, b'\x28\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF'),
-        # (-0xFFFFFFFFFFFFFFFF, b'\x38\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF'),
-        # (0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,
-        #  b'\x2E\x90\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF'),
-        # (-0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,
-        #  b'\x3E\x90\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF'),
+    _IT.NULL: (
+        (None, b'\x0F'),
     ),
-    # _IT.FLOAT: (
-    #     (None, b'\x4F'),
-    #     (0e0, b'\x40'),
-    #     (1e0, b'\x48\x3F\xF0\x00\x00\x00\x00\x00\x00'),
-    #     (-1e0, b'\x48\xBF\xF0\x00\x00\x00\x00\x00\x00'),
-    #     (1e1, b'\x48\x40\x24\x00\x00\x00\x00\x00\x00'),
-    #     (-1e1, b'\x48\xC0\x24\x00\x00\x00\x00\x00\x00'),
-    #     (float('inf'), b'\x48\x7F\xF0\x00\x00\x00\x00\x00\x00'),
-    #     (float('-inf'), b'\x48\xFF\xF0\x00\x00\x00\x00\x00\x00'),
-    # ),
-    # _IT.DECIMAL: (
-    #     (None, b'\x5F'),
-    #     (_D(0), b'\x50'),
-    #     (_D(0).copy_negate(), b'\x52\x80\x80'),
-    #     (_D("1e1"), b'\x52\x81\x01'),
-    #     (_D("1e0"), b'\x52\x80\x01'),
-    #     (_D("1e-1"), b'\x52\xC1\x01'),
-    #     (_D("0e-1"), b'\x51\xC1'),
-    #     (_D("0e1"), b'\x51\x81'),
-    #     (_D("-1e1"), b'\x52\x81\x81'),
-    #     (_D("-1e0"), b'\x52\x80\x81'),
-    #     (_D("-1e-1"), b'\x52\xC1\x81'),
-    #     (_D("-0e-1"), b'\x52\xC1\x80'),
-    #     (_D("-0e1"), b'\x52\x81\x80'),
-    # ),
+    _IT.BOOL: (
+        (None, b'\x1F'),
+        (False, b'\x10'),
+        (True, b'\x11')
+    ),
+    _IT.INT: (
+        (None, b'\x2F'),
+        (0, b'\x20'),
+        (1, b'\x21\x01'),
+        (-1, b'\x31\x01'),
+        (0xFFFFFFFF, b'\x24\xFF\xFF\xFF\xFF'),
+        (-0xFFFFFFFF, b'\x34\xFF\xFF\xFF\xFF'),
+        (0xFFFFFFFFFFFFFFFF, b'\x28\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF'),
+        (-0xFFFFFFFFFFFFFFFF, b'\x38\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF'),
+        (0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,
+         b'\x2E\x90\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF'),
+        (-0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,
+         b'\x3E\x90\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF'),
+    ),
+    _IT.FLOAT: (
+        (None, b'\x4F'),
+        (0e0, b'\x40'),
+        (1e0, b'\x48\x3F\xF0\x00\x00\x00\x00\x00\x00'),
+        (-1e0, b'\x48\xBF\xF0\x00\x00\x00\x00\x00\x00'),
+        (1e1, b'\x48\x40\x24\x00\x00\x00\x00\x00\x00'),
+        (-1e1, b'\x48\xC0\x24\x00\x00\x00\x00\x00\x00'),
+        (float('inf'), b'\x48\x7F\xF0\x00\x00\x00\x00\x00\x00'),
+        (float('-inf'), b'\x48\xFF\xF0\x00\x00\x00\x00\x00\x00'),
+    ),
+    _IT.DECIMAL: (
+        (None, b'\x5F'),
+        (_D(0), b'\x50'),
+        (_D(0).copy_negate(), b'\x52\x80\x80'),
+        (_D("1e1"), b'\x52\x81\x01'),
+        (_D("1e0"), b'\x52\x80\x01'),
+        (_D("1e-1"), b'\x52\xC1\x01'),
+        (_D("0e-1"), b'\x51\xC1'),
+        (_D("0e1"), b'\x51\x81'),
+        (_D("-1e1"), b'\x52\x81\x81'),
+        (_D("-1e0"), b'\x52\x80\x81'),
+        (_D("-1e-1"), b'\x52\xC1\x81'),
+        (_D("-0e-1"), b'\x52\xC1\x80'),
+        (_D("-0e1"), b'\x52\x81\x80'),
+    ),
     # _IT.TIMESTAMP: (
     #     (None, b'\x6F'),
     #     # TODO Clarify whether there's a valid zero-length Timestamp representation.
@@ -296,27 +296,27 @@ SIMPLE_SCALARS_MAP_BINARY = {
     #     (u'a\U0001f4a9c', b'\x86' + bytearray([b for b in u'a\U0001f4a9c'.encode('utf-8')])),
     #     (u'a\u0009\x0a\x0dc', b'\x85' + bytearray([b for b in 'a\t\n\rc'.encode('utf-8')])),
     # ),
-    # _IT.CLOB: (
-    #     (None, b'\x9F'),
-    #     (b'', b'\x90'),
-    #     (b'abc', b'\x93' + b'abc'),
-    #     (b'abcdefghijklmno', b'\x9E\x8Fabcdefghijklmno'),
-    # # ),
-    # _IT.BLOB: (
-    #     (None, b'\xAF'),
-    #     (b'', b'\xA0'),
-    #     (b'abc', b'\xA3' + b'abc'),
-    #     (b'abcdefghijklmno', b'\xAE\x8Fabcdefghijklmno'),
-    # ),
-    # _IT.LIST: (
-    #     (None, b'\xBF'),
-    # ),
-    # _IT.SEXP: (
-    #     (None, b'\xCF'),
-    # ),
-    # _IT.STRUCT: (
-    #     (None, b'\xDF'),
-    # ),
+    _IT.CLOB: (
+        (None, b'\x9F'),
+        (b'', b'\x90'),
+        (b'abc', b'\x93' + b'abc'),
+        (b'abcdefghijklmno', b'\x9E\x8Fabcdefghijklmno'),
+    ),
+    _IT.BLOB: (
+        (None, b'\xAF'),
+        (b'', b'\xA0'),
+        (b'abc', b'\xA3' + b'abc'),
+        (b'abcdefghijklmno', b'\xAE\x8Fabcdefghijklmno'),
+    ),
+    _IT.LIST: (
+        (None, b'\xBF'),
+    ),
+    _IT.SEXP: (
+        (None, b'\xCF'),
+    ),
+    _IT.STRUCT: (
+        (None, b'\xDF'),
+    ),
 }
 
 
