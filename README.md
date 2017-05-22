@@ -7,6 +7,9 @@ for Python.
 This package is designed to work with **Python 2.6+** and **Python 3.3+**
 
 ## Development
+The respository has a submodule, so use the `--recursive` option when cloning to
+clone the submodules as well.
+
 It is recommended to use `virtualenv` to create a clean environment to build/test Ion Python.
 
 ```
