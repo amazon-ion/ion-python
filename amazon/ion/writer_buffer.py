@@ -52,26 +52,32 @@ class BufferTree:
     nodes to be added as siblings of that subtree's start node.
     It is important that there is exactly one call to start_container per call
     to ``end_container``. Nodes representing the start of a container subtree
-    are kept in a stack; upon calling ``end_container``, the subtree represented
-    by the node that was created by the most recent call to start_container will
-    be stepped out. Other than that, no container semantics are asserted by this class.
+    are kept in a stack; upon calling ``end_container``, the subtree
+    represented by the node that was created by the most recent call to
+    start_container will be stepped out. Other than that, no container
+    semantics are asserted by this class.
 
     Scalar values are treated as child nodes of the current container subtree
     (which may be at the top-level if the current container subtree's root node
-    is the root node of the BufferTree). Calling add_scalar_value will add a new
-    node as a child of the current container subtree. A container subtree's
+    is the root node of the BufferTree). Calling add_scalar_value will add a
+    new node as a child of the current container subtree. A container subtree's
     children are ordered.
 
     If None values are passed in to end_container or add_scalar_value,
-    nodes will be added to the tree, in the same way as described above, but no value
-    will be yielded for that node upon drain.
+    nodes will be added to the tree, in the same way as described above, but no
+    value will be yielded for that node upon drain.
     """
     def __init__(self):
         self.__root = None
         self.__container_lengths = None  # Stack of pending container lengths.
         self.__container_nodes = None  # Stack of pending container nodes.
-        self.__container_node = None  # Node representing the currently active container.
-        self.current_container_length = None  # Length of the currently active container.
+
+        # Node representing the currently active container.
+        self.__container_node = None
+
+        # Length of the currently active container.
+        self.current_container_length = None
+
         self.__reset()
 
     def __reset(self):
@@ -116,8 +122,8 @@ class BufferTree:
         self.__container_node.add_leaf(_Node(header_buf))
         self.__container_node = self.__container_nodes.pop()
         parent_container_length = self.__container_lengths.pop()
-        self.current_container_length = \
-            parent_container_length + self.current_container_length + len(header_buf)
+        self.current_container_length = parent_container_length + \
+            self.current_container_length + len(header_buf)
 
     def add_scalar_value(self, value_buf):
         """Add a node to the tree containing a scalar value.
@@ -135,9 +141,9 @@ class BufferTree:
             any: The current node's value.
         """
         if self.__container_nodes:
-            raise ValueError("Attempted to drain without ending all containers.")
+            raise ValueError(
+                "Attempted to drain without ending all containers.")
         for buf in self.__depth_traverse(self.__root):
             if buf is not None:
                 yield buf
         self.__reset()
-

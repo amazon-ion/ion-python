@@ -85,7 +85,7 @@ def test_container_length():
     buf = BufferTree()
     buf.start_container()
     buf.add_scalar_value(b'234')
-    assert 3 ==  buf.current_container_length
+    assert 3 == buf.current_container_length
     buf.end_container(b'1')
     assert 4 == buf.current_container_length
     assert_buffer(buf)

@@ -25,9 +25,10 @@ from functools import partial
 from io import BytesIO
 from struct import unpack
 
-from .core import ION_STREAM_INCOMPLETE_EVENT, ION_STREAM_END_EVENT, ION_VERSION_MARKER_EVENT,\
-                  IonEventType, IonType, IonEvent, IonThunkEvent, Transition, \
-                  TimestampPrecision, Timestamp, OffsetTZInfo, MICROSECOND_PRECISION
+from .core import ION_STREAM_INCOMPLETE_EVENT, ION_STREAM_END_EVENT, \
+    ION_VERSION_MARKER_EVENT, IonEventType, IonType, IonEvent, IonThunkEvent, \
+    Transition, TimestampPrecision, Timestamp, OffsetTZInfo, \
+    MICROSECOND_PRECISION
 from .exceptions import IonException
 from .util import coroutine, record, Enum
 from .reader import reader_trampoline, BufferQueue, ReadEventType
@@ -35,7 +36,10 @@ from .symbols import SYMBOL_ZERO_TOKEN, SymbolToken
 
 
 class _TypeID(Enum):
-    """Type IDs in the binary encoding which is distinct from the :class:`IonType` enum."""
+    """
+    Type IDs in the binary encoding which is distinct from the :class:`IonType`
+    enum.
+    """
     NULL = 0
     BOOL = 1
     POS_INT = 2
@@ -200,7 +204,9 @@ def _parse_decimal(buf):
 
 
 def _parse_sid_iter(data):
-    """Parses the given :class:`bytes` data as a list of :class:`SymbolToken`"""
+    """
+    Parses the given :class:`bytes` data as a list of :class:`SymbolToken`
+    """
     limit = len(data)
     buf = BytesIO(data)
     while buf.tell() < limit:
@@ -208,22 +214,24 @@ def _parse_sid_iter(data):
         yield SymbolToken(None, sid)
 
 
-class _HandlerContext(record(
-        'position', 'limit', 'queue', 'field_name', 'annotations', 'depth', 'whence'
-    )):
+class _HandlerContext(
+        record(
+            'position', 'limit', 'queue', 'field_name', 'annotations', 'depth',
+            'whence')):
     """A context for a handler co-routine.
 
     Args:
         position (int): The offset of the *start* of the data being parsed.
-        limit (Optional[int]): The logical offset that represents the *end* of the container.
+        limit (Optional[int]): The logical offset that represents the *end* of
+        the container.
         queue (BufferQueue): The data source for the handler.
-        field_name (Optional[SymbolToken]): The token representing the field name for the handled
-            value.
-        annotations (Optional[Sequence[SymbolToken]]): The sequence of annotations tokens
-            for the value to be parsed.
+        field_name (Optional[SymbolToken]): The token representing the field
+            name for the handled value.
+        annotations (Optional[Sequence[SymbolToken]]): The sequence of
+            annotations tokens for the value to be parsed.
         depth (int): the depth of the parser.
-        whence (Coroutine): The reference to the co-routine that this handler should delegate
-            back to when the handler is logically done.
+        whence (Coroutine): The reference to the co-routine that this handler
+            should delegate back to when the handler is logically done.
     """
     @property
     def remaining(self):
@@ -232,9 +240,13 @@ class _HandlerContext(record(
             return _STREAM_REMAINING
         return self.limit - self.queue.position
 
-    def read_data_transition(self, length, whence=None,
-                             skip=False, stream_event=ION_STREAM_INCOMPLETE_EVENT):
-        """Returns an immediate event_transition to read a specified number of bytes."""
+    def read_data_transition(
+            self, length, whence=None, skip=False,
+            stream_event=ION_STREAM_INCOMPLETE_EVENT):
+        """
+        Returns an immediate event_transition to read a specified number of
+        bytes.
+        """
         if whence is None:
             whence = self.whence
 
@@ -242,14 +254,19 @@ class _HandlerContext(record(
             None, _read_data_handler(length, whence, self, skip, stream_event)
         )
 
-    def event_transition(self, event_cls, event_type,
-                         ion_type=None, value=None, annotations=None, depth=None, whence=None):
-        """Returns an ion event event_transition that yields to another co-routine.
+    def event_transition(
+            self, event_cls, event_type, ion_type=None, value=None,
+            annotations=None, depth=None, whence=None):
+        """
+        Returns an ion event event_transition that yields to another
+        co-routine.
 
-        If ``annotations`` is not specified, then the ``annotations`` are the annotations of this
+        If ``annotations`` is not specified, then the ``annotations`` are the
+        annotations of this context.
+        If ``depth`` is not specified, then the ``depth`` is depth of this
         context.
-        If ``depth`` is not specified, then the ``depth`` is depth of this context.
-        If ``whence`` is not specified, then ``whence`` is the whence of this context.
+        If ``whence`` is not specified, then ``whence`` is the whence of this
+        context.
         """
         if annotations is None:
             annotations = self.annotations
@@ -257,7 +274,8 @@ class _HandlerContext(record(
             annotations = ()
         if not (event_type is IonEventType.CONTAINER_START) and \
                 annotations and (self.limit - self.queue.position) != 0:
-            # This value is contained in an annotation wrapper, from which its limit was inherited. It must have
+            # This value is contained in an annotation wrapper, from which its
+            # limit was inherited. It must have
             # reached, but not surpassed, that limit.
             raise IonException('Incorrect annotation wrapper length.')
 
@@ -268,9 +286,9 @@ class _HandlerContext(record(
             whence = self.whence
 
         return Transition(
-            event_cls(event_type, ion_type, value, self.field_name, annotations, depth),
-            whence
-        )
+            event_cls(
+                event_type, ion_type, value, self.field_name, annotations,
+                depth), whence)
 
     def immediate_transition(self, delegate=None):
         """Returns an immediate transition to another co-routine.
@@ -312,15 +330,17 @@ class _HandlerContext(record(
 
 
 def _create_delegate_handler(delegate):
-    """Creates a handler function that creates a co-routine that can yield once with the given
-    positional arguments to the delegate as a transition.
+    """
+    Creates a handler function that creates a co-routine that can yield once
+    with the given positional arguments to the delegate as a transition.
 
     Args:
         delegate (Coroutine): The co-routine to delegate to.
 
     Returns:
-        A :class:`callable` handler that returns a co-routine that ignores the data it receives
-        and sends with the arguments given to the handler as a :class:`Transition`.
+        A :class:`callable` handler that returns a co-routine that ignores the
+            data it receives and sends with the arguments given to the handler
+            as a :class:`Transition`.
     """
     @coroutine
     def handler(*args):
@@ -331,22 +351,28 @@ def _create_delegate_handler(delegate):
 
 
 @coroutine
-def _read_data_handler(length, whence, ctx, skip=False, stream_event=ION_STREAM_INCOMPLETE_EVENT):
-    """Creates a co-routine for retrieving data up to a requested size.
+def _read_data_handler(
+        length, whence, ctx, skip=False,
+        stream_event=ION_STREAM_INCOMPLETE_EVENT):
+    """
+    Creates a co-routine for retrieving data up to a requested size.
 
     Args:
         length (int): The minimum length requested.
-        whence (Coroutine): The co-routine to return to after the data is satisfied.
+        whence (Coroutine): The co-routine to return to after the data is
+            satisfied.
         ctx (_HandlerContext): The context for the read.
-        skip (Optional[bool]): Whether the requested number of bytes should be skipped.
-        stream_event (Optional[IonEvent]): The stream event to return if no bytes are read or
-            available.
+        skip (Optional[bool]): Whether the requested number of bytes should be
+            skipped.
+        stream_event (Optional[IonEvent]): The stream event to return if no
+            bytes are read or available.
     """
     trans = None
     queue = ctx.queue
 
     if length > ctx.remaining:
-        raise IonException('Length overrun: %d bytes, %d remaining' % (length, ctx.remaining))
+        raise IonException(
+            'Length overrun: %d bytes, %d remaining' % (length, ctx.remaining))
 
     # Make sure to check the queue first.
     queue_len = len(queue)
@@ -377,7 +403,8 @@ def _read_data_handler(length, whence, ctx, skip=False, stream_event=ION_STREAM_
                 pos_adjustment = data_len
                 if length < 0:
                     pos_adjustment += length
-                    # More data than we need to skip, so make sure to accumulate that remnant.
+                    # More data than we need to skip, so make sure to
+                    # accumulate that remnant.
                     queue.extend(data[length:])
                 queue.position += pos_adjustment
         if length <= 0:
@@ -436,7 +463,8 @@ def _nop_pad_handler(ion_type, length, ctx):
 
     if ctx.field_name is not None and ctx.field_name != SYMBOL_ZERO_TOKEN:
         raise IonException(
-            'Cannot have NOP pad with non-zero symbol field, field SID %d' % ctx.field_name)
+            'Cannot have NOP pad with non-zero symbol field, field SID %d' %
+            ctx.field_name)
 
     if length > 0:
         yield ctx.read_data_transition(length, ctx.whence, skip=True)
@@ -453,7 +481,10 @@ def _static_scalar_handler(ion_type, value, ctx):
 
 @coroutine
 def _length_scalar_handler(scalar_factory, ion_type, length, ctx):
-    """Handles scalars, ``scalar_factory`` is a function that returns a value or thunk."""
+    """
+    Handles scalars, ``scalar_factory`` is a function that returns a value or
+    thunk.
+    """
     _, self = yield
     if length == 0:
         data = b''
@@ -466,11 +497,14 @@ def _length_scalar_handler(scalar_factory, ion_type, length, ctx):
     if callable(scalar):
         # TODO Wrap the exception to get context position.
         event_cls = IonThunkEvent
-    yield ctx.event_transition(event_cls, IonEventType.SCALAR, ion_type, scalar)
+    yield ctx.event_transition(
+        event_cls, IonEventType.SCALAR, ion_type, scalar)
 
 
 @coroutine
-def _start_type_handler(field_name, whence, ctx, expects_ivm=False, at_top=False, annotations=None):
+def _start_type_handler(
+        field_name, whence, ctx, expects_ivm=False, at_top=False,
+        annotations=None):
     _, self = yield
 
     child_position = ctx.queue.position
@@ -488,7 +522,8 @@ def _start_type_handler(field_name, whence, ctx, expects_ivm=False, at_top=False
             'Expected binary version marker, got: %02X' % type_octet)
 
     handler = _HANDLER_DISPATCH_TABLE[type_octet]
-    child_ctx = ctx.derive_child_context(child_position, field_name, annotations, whence)
+    child_ctx = ctx.derive_child_context(
+        child_position, field_name, annotations, whence)
     yield ctx.immediate_transition(handler(child_ctx))
 
 
@@ -501,7 +536,8 @@ def _annotation_handler(ion_type, length, ctx):
     if ctx.annotations is not None:
         raise IonException('Annotation cannot be nested in annotations')
 
-    # We have to replace our context for annotations specifically to encapsulate the limit
+    # We have to replace our context for annotations specifically to
+    # encapsulate the limit
     ctx = ctx.derive_container_context(length, add_depth=0)
     # Immediately read the length field and the annotations
     (ann_length, _), _ = yield ctx.immediate_transition(
@@ -509,7 +545,9 @@ def _annotation_handler(ion_type, length, ctx):
     )
 
     if ann_length < 1:
-        raise IonException('Invalid annotation length subfield; annotation wrapper must have at least one annotation.')
+        raise IonException(
+            'Invalid annotation length subfield; annotation wrapper must '
+            'have at least one annotation.')
 
     # Read/parse the annotations.
     yield ctx.read_data_transition(ann_length, self)
@@ -522,16 +560,17 @@ def _annotation_handler(ion_type, length, ctx):
 
     # Go parse the start of the value but go back to the real parent container.
     yield ctx.immediate_transition(
-        _start_type_handler(ctx.field_name, ctx.whence, ctx, annotations=annotations)
-    )
+        _start_type_handler(
+            ctx.field_name, ctx.whence, ctx, annotations=annotations))
 
 
 @coroutine
 def _ordered_struct_start_handler(handler, ctx):
-    """Handles the special case of ordered structs, specified by the type ID 0xD1.
+    """
+    Handles the special case of ordered structs, specified by the type ID 0xD1.
 
-    This coroutine's only purpose is to ensure that the struct in question declares at least one field name/value pair,
-    as required by the spec.
+    This coroutine's only purpose is to ensure that the struct in question
+    declares at least one field name/value pair, as required by the spec.
     """
     _, self = yield
     self_handler = _create_delegate_handler(self)
@@ -539,8 +578,11 @@ def _ordered_struct_start_handler(handler, ctx):
         _var_uint_field_handler(self_handler, ctx)
     )
     if length < 2:
-        # A valid field name/value pair is at least two octets: one for the field name SID and one for the value.
-        raise IonException('Ordered structs (type ID 0xD1) must have at least one field name/value pair.')
+        # A valid field name/value pair is at least two octets: one for the
+        # field name SID and one for the value.
+        raise IonException(
+            'Ordered structs (type ID 0xD1) must have at least one field '
+            'name/value pair.')
     yield ctx.immediate_transition(handler(length, ctx))
 
 
@@ -551,15 +593,15 @@ def _container_start_handler(ion_type, length, ctx):
 
     container_ctx = ctx.derive_container_context(length)
     if ctx.annotations and ctx.limit != container_ctx.limit:
-        # 'ctx' is the annotation wrapper context. `container_ctx` represents the wrapper's 'value' subfield. Their
-        # limits must match.
+        # 'ctx' is the annotation wrapper context. `container_ctx` represents
+        # the wrapper's 'value' subfield. Their limits must match.
         raise IonException('Incorrect annotation wrapper length.')
     delegate = _container_handler(ion_type, container_ctx)
 
     # We start the container, and transition to the new container processor.
     yield ctx.event_transition(
-        IonEvent, IonEventType.CONTAINER_START, ion_type, value=None, whence=delegate
-    )
+        IonEvent, IonEventType.CONTAINER_START, ion_type, value=None,
+        whence=delegate)
 
 
 @coroutine
@@ -567,7 +609,8 @@ def _container_handler(ion_type, ctx):
     """Handler for the body of a container (or the top-level stream).
 
     Args:
-        ion_type (Optional[IonType]): The type of the container or ``None`` for the top-level.
+        ion_type (Optional[IonType]): The type of the container or ``None``
+            for the top-level.
         ctx (_HandlerContext): The context for the container.
     """
     transition = None
@@ -582,9 +625,9 @@ def _container_handler(ion_type, ctx):
             # We are at the end of the container.
             # Yield the close event and go to enclosing container.
             yield Transition(
-                IonEvent(IonEventType.CONTAINER_END, ion_type, depth=ctx.depth-1),
-                ctx.whence
-            )
+                IonEvent(
+                    IonEventType.CONTAINER_END, ion_type, depth=ctx.depth-1),
+                ctx.whence)
 
         if ion_type is IonType.STRUCT:
             # Read the field name.
@@ -598,8 +641,8 @@ def _container_handler(ion_type, ctx):
 
         expects_ivm = first and at_top
         transition = ctx.immediate_transition(
-            _start_type_handler(field_name, self, ctx, expects_ivm, at_top=at_top)
-        )
+            _start_type_handler(
+                field_name, self, ctx, expects_ivm, at_top=at_top))
         first = False
 
 
@@ -705,18 +748,22 @@ def _timestamp_factory(data):
             fraction = _parse_decimal(buf)
             if fraction < 0 or fraction >= 1:
                 raise IonException(
-                    'Timestamp has a fractional component out of bounds: %s' % fraction)
+                    'Timestamp has a fractional component out of bounds: %s' %
+                    fraction)
             fraction_exponent = fraction.as_tuple().exponent
             if fraction == 0 and fraction_exponent > -1:
-                # According to the spec, fractions with coefficients of zero and exponents >= zero are ignored.
+                # According to the spec, fractions with coefficients of zero
+                # and exponents >= zero are ignored.
                 microsecond = 0
                 fractional_precision = None
             else:
                 fractional_precision = -1 * fraction_exponent
                 if fractional_precision > MICROSECOND_PRECISION:
                     raise IonException(
-                        'Timestamp has a fractional component %s with greater than microsecond precision.' % fraction)
-                microsecond = fraction.scaleb(MICROSECOND_PRECISION).to_integral_value()
+                        'Timestamp has a fractional component %s with greater '
+                        'than microsecond precision.' % fraction)
+                microsecond = fraction.scaleb(
+                    MICROSECOND_PRECISION).to_integral_value()
 
         return Timestamp.adjust_from_utc_fields(
             year, month, day,
@@ -759,23 +806,27 @@ _HANDLER_DISPATCH_TABLE = [None] * 256
 def _bind_invalid_handlers():
     """Seeds the co-routine table with all invalid handlers."""
     for type_octet in range(256):
-        _HANDLER_DISPATCH_TABLE[type_octet] = partial(_invalid_handler, type_octet)
+        _HANDLER_DISPATCH_TABLE[type_octet] = partial(
+            _invalid_handler, type_octet)
 
 
 def _bind_null_handlers():
     for tid in _NULLABLE_TIDS:
         type_octet = _gen_type_octet(tid, _NULL_LN)
         ion_type = _TID_VALUE_TYPE_TABLE[tid]
-        _HANDLER_DISPATCH_TABLE[type_octet] = partial(_static_scalar_handler, ion_type, None)
+        _HANDLER_DISPATCH_TABLE[type_octet] = partial(
+            _static_scalar_handler, ion_type, None)
 
 
 def _bind_static_scalar_handlers():
     for type_octet, ion_type, value in _STATIC_SCALARS:
-        _HANDLER_DISPATCH_TABLE[type_octet] = partial(_static_scalar_handler, ion_type, value)
+        _HANDLER_DISPATCH_TABLE[type_octet] = partial(
+            _static_scalar_handler, ion_type, value)
 
 
 def _bind_length_handlers(tids, user_handler, lns):
-    """Binds a set of handlers with the given factory.
+    """
+    Binds a set of handlers with the given factory.
 
     Args:
         tids (Sequence[int]): The Type IDs to bind to.
@@ -789,31 +840,38 @@ def _bind_length_handlers(tids, user_handler, lns):
             type_octet = _gen_type_octet(tid, ln)
             ion_type = _TID_VALUE_TYPE_TABLE[tid]
             if ln == 1 and ion_type is IonType.STRUCT:
-                handler = partial(_ordered_struct_start_handler, partial(user_handler, ion_type))
+                handler = partial(
+                    _ordered_struct_start_handler,
+                    partial(user_handler, ion_type))
             elif ln < _LENGTH_FIELD_FOLLOWS:
                 # Directly partially bind length.
                 handler = partial(user_handler, ion_type, ln)
             else:
                 # Delegate to length field parsing first.
-                handler = partial(_var_uint_field_handler, partial(user_handler, ion_type))
+                handler = partial(
+                    _var_uint_field_handler, partial(user_handler, ion_type))
             _HANDLER_DISPATCH_TABLE[type_octet] = handler
 
 
-def _bind_length_scalar_handlers(tids, scalar_factory, lns=_NON_ZERO_LENGTH_LNS):
-    """Binds a set of scalar handlers for an inclusive range of low-nibble values.
+def _bind_length_scalar_handlers(
+        tids, scalar_factory, lns=_NON_ZERO_LENGTH_LNS):
+    """
+    Binds a set of scalar handlers for an inclusive range of low-nibble values.
 
     Args:
         tids (Sequence[int]): The Type IDs to bind to.
         scalar_factory (Callable): The factory for the scalar parsing function.
-            This function can itself return a function representing a thunk to defer the
-            scalar parsing or a direct value.
+            This function can itself return a function representing a thunk to
+            defer the scalar parsing or a direct value.
         lns (Sequence[int]): The low-nibble lengths to bind to.
     """
     handler = partial(_length_scalar_handler, scalar_factory)
     return _bind_length_handlers(tids, handler, lns)
 
+
 # First seed all type byte handlers with invalid.
 _bind_invalid_handlers()
+
 
 # Populate the actual handlers.
 _HANDLER_DISPATCH_TABLE[_IVM_START_OCTET] = _ivm_handler
@@ -821,14 +879,17 @@ _bind_null_handlers()
 _bind_static_scalar_handlers()
 _bind_length_scalar_handlers([_TypeID.POS_INT], partial(_int_factory, 1))
 _bind_length_scalar_handlers([_TypeID.NEG_INT], partial(_int_factory, -1))
-_bind_length_scalar_handlers([_TypeID.FLOAT], _float_factory, lns=_FLOAT_LN_TABLE.keys())
+_bind_length_scalar_handlers(
+    [_TypeID.FLOAT], _float_factory, lns=_FLOAT_LN_TABLE.keys())
 _bind_length_scalar_handlers([_TypeID.DECIMAL], _decimal_factory)
 _bind_length_scalar_handlers([_TypeID.TIMESTAMP], _timestamp_factory)
 _bind_length_scalar_handlers([_TypeID.STRING], _string_factory)
 _bind_length_scalar_handlers([_TypeID.SYMBOL], _symbol_factory)
 _bind_length_scalar_handlers([_TypeID.CLOB, _TypeID.BLOB], _lob_factory)
-_bind_length_handlers(_CONTAINER_TIDS, _container_start_handler, _ALL_LENGTH_LNS)
-_bind_length_handlers([_TypeID.ANNOTATION], _annotation_handler, _ANNOTATION_LENGTH_LNS)
+_bind_length_handlers(
+    _CONTAINER_TIDS, _container_start_handler, _ALL_LENGTH_LNS)
+_bind_length_handlers(
+    [_TypeID.ANNOTATION], _annotation_handler, _ANNOTATION_LENGTH_LNS)
 _bind_length_handlers([_TypeID.NULL], _nop_pad_handler, _ALL_LENGTH_LNS)
 
 # Make immutable.
@@ -839,21 +900,23 @@ def raw_reader(queue=None):
     """Returns a raw binary reader co-routine.
 
     Args:
-        queue (Optional[BufferQueue]): The buffer read data for parsing, if ``None`` a
-            new one will be created.
+        queue (Optional[BufferQueue]): The buffer read data for parsing, if
+        ``None`` a new one will be created.
 
     Yields:
-        IonEvent: parse events, will have an event type of ``INCOMPLETE`` if data is needed
-            in the middle of a value or ``STREAM_END`` if there is no data **and** the parser
-            is not in the middle of parsing a value.
+        IonEvent: parse events, will have an event type of ``INCOMPLETE`` if
+            data is needed in the middle of a value or ``STREAM_END`` if there
+            is no data **and** the parser is not in the middle of parsing a
+            value.
 
-            Receives :class:`DataEvent`, with :class:`ReadEventType` of ``NEXT`` or ``SKIP``
-            to iterate over values, or ``DATA`` if the last event was a ``INCOMPLETE``
-            or ``STREAM_END`` event type.
+            Receives :class:`DataEvent`, with :class:`ReadEventType` of
+            ``NEXT`` or ``SKIP`` to iterate over values, or ``DATA`` if the
+            last event was a ``INCOMPLETE`` or ``STREAM_END`` event type.
 
-            ``SKIP`` is only allowed within a container. A reader is *in* a container
-            when the ``CONTAINER_START`` event type is encountered and *not in* a container
-            when the ``CONTAINER_END`` event type for that container is encountered.
+            ``SKIP`` is only allowed within a container. A reader is *in* a
+            container when the ``CONTAINER_START`` event type is encountered
+            and *not in* a container when the ``CONTAINER_END`` event type for
+            that container is encountered.
     """
     if queue is None:
         queue = BufferQueue()
@@ -868,5 +931,6 @@ def raw_reader(queue=None):
     )
 
     return reader_trampoline(_container_handler(None, ctx))
+
 
 binary_reader = raw_reader

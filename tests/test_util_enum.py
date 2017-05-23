@@ -52,6 +52,7 @@ def test_enum_as_int():
     assert SimpleEnum.A == 1
     assert SimpleEnum.A is not 1
 
+
 def test_malformed_enum():
     with pytest.raises(TypeError):
         class BadEnum(Enum):

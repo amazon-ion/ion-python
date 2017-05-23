@@ -14,8 +14,8 @@
 
 """The type mappings for the ``simplejson``-like API.
 
-In particular, this module provides the extension to native Python data types with
-particulars of the Ion data model.
+In particular, this module provides the extension to native Python data types
+with particulars of the Ion data model.
 """
 
 # Python 2/3 compatibility
@@ -29,23 +29,26 @@ import six
 
 from amazon.ion.symbols import SymbolToken
 from .core import TIMESTAMP_PRECISION_FIELD
-from .core import Timestamp, IonEvent, IonType, TIMESTAMP_FRACTION_PRECISION_FIELD, TimestampPrecision, \
-    MICROSECOND_PRECISION
+from .core import Timestamp, IonEvent, TIMESTAMP_FRACTION_PRECISION_FIELD, \
+    TimestampPrecision, MICROSECOND_PRECISION
 
 
 class _IonNature(object):
     """Mix-in for Ion related properties.
 
     Attributes:
-        ion_event (Optional[IonEvent]): The event, if any associated with the value.
+        ion_event (Optional[IonEvent]): The event, if any associated with the
+            value.
         ion_type (IonType): The Ion type for the value.
-        ion_annotations (Sequence[unicode]): The annotations associated with the value.
+        ion_annotations (Sequence[unicode]): The annotations associated with
+            the value.
 
     Notes:
-        There is no ``field_name`` attribute as that is generally modeled as a property of the
-        container.
+        There is no ``field_name`` attribute as that is generally modeled as a
+        property of the container.
 
-        The ``ion_event`` field is only provided if the value was derived from a low-level event.
+        The ``ion_event`` field is only provided if the value was derived from
+        a low-level event.
         User constructed values will generally not set this field.
     """
     def __init__(self, *args, **kwargs):
@@ -56,7 +59,8 @@ class _IonNature(object):
     def _copy(self):
         """Copies this instance. Its IonEvent (if any) is not preserved.
 
-        Keeping this protected until/unless we decide there's use for it publicly.
+        Keeping this protected until/unless we decide there's use for it
+        publicly.
         """
         args, kwargs = self._to_constructor_args(self)
         value = self.__class__(*args, **kwargs)
@@ -79,8 +83,8 @@ class _IonNature(object):
         if ion_event.value is not None:
             args, kwargs = cls._to_constructor_args(ion_event.value)
         else:
-            # if value is None (i.e. this is a container event), args must be empty or initialization of the
-            # underlying container will fail.
+            # if value is None (i.e. this is a container event), args must be
+            # empty or initialization of the underlying container will fail.
             args, kwargs = (), {}
         value = cls(*args, **kwargs)
         value.ion_event = ion_event
@@ -90,12 +94,16 @@ class _IonNature(object):
 
     @classmethod
     def from_value(cls, ion_type, value, annotations=()):
-        """Constructs a value as a copy with an associated Ion type and annotations.
+        """
+        Constructs a value as a copy with an associated Ion type and
+        annotations.
 
         Args:
             ion_type (IonType): The associated Ion type.
-            value (Any): The value to construct from, generally of type ``cls``.
-            annotations (Sequence[unicode]):  The sequence Unicode strings decorating this value.
+            value (Any): The value to construct from, generally of type
+                ``cls``.
+            annotations (Sequence[unicode]):  The sequence Unicode strings
+                decorating this value.
         """
         if value is None:
             value = IonPyNull()
@@ -112,7 +120,8 @@ class _IonNature(object):
 
         Args:
             event_type (IonEventType): The type of the resulting event.
-            field_name (Optional[text]): The field name associated with this value, if any.
+            field_name (Optional[text]): The field name associated with this
+                value, if any.
             depth (Optional[int]): The depth of this value.
 
         Returns:
@@ -122,8 +131,10 @@ class _IonNature(object):
             value = self
             if isinstance(self, IonPyNull):
                 value = None
-            self.ion_event = IonEvent(event_type, ion_type=self.ion_type, value=value, field_name=field_name,
-                                      annotations=self.ion_annotations, depth=depth)
+            self.ion_event = IonEvent(
+                event_type, ion_type=self.ion_type, value=value,
+                field_name=field_name, annotations=self.ion_annotations,
+                depth=depth)
         return self.ion_event
 
 
@@ -137,7 +148,7 @@ def _ion_type_for(name, base_cls):
 
 
 if six.PY2:
-    IonPyInt = _ion_type_for('IonPyInt', long)
+    IonPyInt = _ion_type_for('IonPyInt', long)  # noqa: F821
 else:
     IonPyInt = _ion_type_for('IonPyInt', int)
 
@@ -169,14 +180,17 @@ class IonPyTimestamp(Timestamp, _IonNature):
 
     @staticmethod
     def _to_constructor_args(ts):
-        args = (ts.year, ts.month, ts.day, ts.hour, ts.minute, ts.second, ts.microsecond, ts.tzinfo)
+        args = (
+            ts.year, ts.month, ts.day, ts.hour, ts.minute, ts.second,
+            ts.microsecond, ts.tzinfo)
         kwargs = {}
         precision = getattr(ts, TIMESTAMP_PRECISION_FIELD, None)
         if precision is None:
             precision = TimestampPrecision.SECOND
         kwargs[TIMESTAMP_PRECISION_FIELD] = precision
         try:
-            fractional_precision = getattr(ts, TIMESTAMP_FRACTION_PRECISION_FIELD)
+            fractional_precision = getattr(
+                ts, TIMESTAMP_FRACTION_PRECISION_FIELD)
         except AttributeError:
             fractional_precision = MICROSECOND_PRECISION
         kwargs[TIMESTAMP_FRACTION_PRECISION_FIELD] = fractional_precision
@@ -211,4 +225,6 @@ def is_null(value):
 
 
 IonPyList = _ion_type_for('IonPyList', list)
-IonPyDict = _ion_type_for('IonPyDict', dict)  # TODO support multiple mappings for same field name (iteration only).
+
+# TODO support multiple mappings for same field name (iteration only).
+IonPyDict = _ion_type_for('IonPyDict', dict)

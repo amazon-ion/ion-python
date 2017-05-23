@@ -27,15 +27,18 @@ class WriteEventType(Enum):
     """Events that can come from an Ion writer co-routine.
 
     Attributes:
-        HAS_PENDING: Indicates that the writer has more pending events to yield,
-            and that it should be sent ``None`` as the event to *flush* them out.
-            Generally, this is signalled when an internal buffer has been filled by an input event and needs
-            to be flushed in order to make progress.
+        HAS_PENDING: Indicates that the writer has more pending events to
+            yield, and that it should be sent ``None`` as the event to *flush*
+            them out. Generally, this is signalled when an internal buffer has
+            been filled by an input event and needs to be flushed in order to
+            make progress.
         NEEDS_INPUT: Indicates that the writer has no pending events to yield
             and that it should be sent a :class:`amazon.ion.core.IonEvent`.
-        COMPLETE: Indicates that the writer has flushed out complete Ion values at the top-level.
-            This is similar to ``NEEDS_INPUT`` except that it signifies point that all data emitted by the writer
-            is in sync with the events given to it.
+        COMPLETE: Indicates that the writer has flushed out complete Ion values
+            at the top-level.
+            This is similar to ``NEEDS_INPUT`` except that it signifies point
+            that all data emitted by the writer is in sync with the events
+            given to it.
     """
     HAS_PENDING = 1
     NEEDS_INPUT = 2
@@ -46,16 +49,21 @@ NOOP_WRITER_EVENT = DataEvent(WriteEventType.COMPLETE, b'')
 
 
 def partial_transition(data, delegate):
-    """Generates a :class:`Transition` that has an event indicating ``HAS_PENDING``."""
+    """
+    Generates a :class:`Transition` that has an event indicating
+    ``HAS_PENDING``.
+    """
     return Transition(DataEvent(WriteEventType.HAS_PENDING, data), delegate)
 
 
 def validate_scalar_value(value, expected_types):
     if not isinstance(value, expected_types):
-        raise TypeError('Expected type %s, found %s.' % (expected_types, type(value)))
+        raise TypeError(
+            'Expected type %s, found %s.' % (expected_types, type(value)))
 
 
-# To be used when an event of type IonType.NULL is encountered, but its value is not None.
+# To be used when an event of type IonType.NULL is encountered, but its value
+# is not None.
 def illegal_state_null(ion_event):
     assert ion_event.ion_type is IonType.NULL
     assert ion_event.value is not None
@@ -79,13 +87,14 @@ def serialize_scalar(ion_event, jump_table, null_table):
 def writer_trampoline(start):
     """Provides the co-routine trampoline for a writer state machine.
 
-    The given co-routine is a state machine that yields :class:`Transition` and takes
-    a :class:`Transition` with a :class:`amazon.ion.core.IonEvent` and the co-routine itself.
+    The given co-routine is a state machine that yields :class:`Transition` and
+    takes a :class:`Transition` with a :class:`amazon.ion.core.IonEvent` and
+    the co-routine itself.
 
     Notes:
-        A writer delimits its logical flush points with ``WriteEventType.COMPLETE``, depending
-        on the configuration, a user may need to send an ``IonEventType.STREAM_END`` to
-        force this to occur.
+        A writer delimits its logical flush points with
+        ``WriteEventType.COMPLETE``, depending on the configuration, a user may
+        need to send an ``IonEventType.STREAM_END`` to force this to occur.
 
     Args:
         start: The writer co-routine to initially delegate to.
@@ -93,7 +102,8 @@ def writer_trampoline(start):
     Yields:
         DataEvent: the result of serialization.
 
-        Receives :class:`amazon.ion.core.IonEvent` to serialize into :class:`DataEvent`.
+        Receives :class:`amazon.ion.core.IonEvent` to serialize into
+        :class:`DataEvent`.
     """
     trans = Transition(None, start)
     while True:
@@ -102,11 +112,15 @@ def writer_trampoline(start):
             if ion_event is None:
                 raise TypeError('Cannot start Writer with no event')
         else:
-            if trans.event.type is WriteEventType.HAS_PENDING and ion_event is not None:
-                raise TypeError('Writer expected to receive no event: %r' % (ion_event,))
-            if trans.event.type is not WriteEventType.HAS_PENDING and ion_event is None:
+            if trans.event.type is WriteEventType.HAS_PENDING and \
+                    ion_event is not None:
+                raise TypeError(
+                    'Writer expected to receive no event: %r' % (ion_event,))
+            if trans.event.type is not WriteEventType.HAS_PENDING and \
+                    ion_event is None:
                 raise TypeError('Writer expected to receive event')
-            if ion_event is not None and ion_event.event_type is IonEventType.INCOMPLETE:
+            if ion_event is not None and \
+                    ion_event.event_type is IonEventType.INCOMPLETE:
                 raise TypeError('Writer cannot receive INCOMPLETE event')
         trans = trans.delegate.send(Transition(ion_event, trans.delegate))
 
@@ -119,7 +133,8 @@ def _drain(writer, ion_event):
 
     Args:
         writer (Coroutine): A writer co-routine.
-        ion_event (amazon.ion.core.IonEvent): The first event to apply to the writer.
+        ion_event (amazon.ion.core.IonEvent): The first event to apply to the
+            writer.
 
     Yields:
         DataEvent: Yields each pending data event.
@@ -133,7 +148,9 @@ def _drain(writer, ion_event):
 
 @coroutine
 def blocking_writer(writer, output):
-    """Provides an implementation of using the writer co-routine with a file-like object.
+    """
+    Provides an implementation of using the writer co-routine with a file-like
+    object.
 
     Args:
         writer (Coroutine): A writer co-routine.

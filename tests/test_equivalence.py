@@ -25,10 +25,12 @@ from itertools import chain
 
 from datetime import datetime, timedelta
 
-from amazon.ion.core import IonType, timestamp, TimestampPrecision, OffsetTZInfo
+from amazon.ion.core import IonType, timestamp, TimestampPrecision, \
+        OffsetTZInfo
 from amazon.ion.equivalence import ion_equals
-from amazon.ion.simple_types import IonPyNull, IonPyInt, IonPyBool, IonPyFloat, IonPyDecimal, IonPyText, IonPyBytes, \
-    IonPyList, IonPyTimestamp, IonPySymbol, IonPyDict, _IonNature
+from amazon.ion.simple_types import IonPyNull, IonPyInt, IonPyBool, \
+    IonPyFloat, IonPyDecimal, IonPyText, IonPyBytes, IonPyList, \
+    IonPyTimestamp, IonPySymbol, IonPyDict, _IonNature
 from amazon.ion.symbols import SymbolToken, ImportLocation
 from tests import parametrize
 
@@ -61,7 +63,8 @@ _struct = partial(_ion_nature, IonPyDict, _IT.STRUCT)
 
 
 _EQUIVS = (
-    # For each tuple, all elements in that tuple are equivalent under the Ion data model.
+    # For each tuple, all elements in that tuple are equivalent under the Ion
+    # data model.
     (None, _null(_IT.NULL), _null(_IT.NULL)),
     (True, _bool(True), _bool(1)),
     (False, _bool(0), _bool(False)),
@@ -74,13 +77,16 @@ _EQUIVS = (
     (float('nan'), float('nan')),
     (float('+inf'), float('+inf')),
     (float('-inf'), float('-inf')),
-    (_D(0), _D('0'), _decimal(_D(0)), _decimal(_D('0')), _D('0.'), _decimal(_D('0.'))),
+    (
+        _D(0), _D('0'), _decimal(_D(0)), _decimal(_D('0')), _D('0.'),
+        _decimal(_D('0.'))),
     (_D('0.0'), _decimal(_D('0.0')), _D('0e-1'), _decimal(_D('0e-1'))),
     (_D('1.'), _decimal(_D('1e0')), _D('1e-0')),
     (_D('1e2'), _decimal(_D('1e2'))),
     (_D('-0.'), _D('-0'), _decimal(_D('-0.')), _decimal(_D('-0'))),
     (
-        # Regular datetimes are always seconds precision with 6 digits of fractional precision.
+        # Regular datetimes are always seconds precision with 6 digits of
+        # fractional precision.
         _dt(1, 1, 1),
         _dt(1, 1, 1, 0, 0, 0),
         _timestamp(_dt(1, 1, 1, 0, 0, 0, 0, tzinfo=None)),
@@ -92,7 +98,8 @@ _EQUIVS = (
         _string(u'abc')
     ),
     (
-        # Having the same text makes all these equivalent, regardless of symbol ID or import location.
+        # Having the same text makes all these equivalent, regardless of symbol
+        # ID or import location.
         u'abc',
         _symbol_text(u'abc'),
         _symbol_token(_ST(u'abc', None)),
@@ -103,7 +110,8 @@ _EQUIVS = (
         _symbol_token(_ST(u'abc', 10, ImportLocation(u'bar', 2)))
     ),
     (
-        # Symbols with unknown text from a local symbol table context are equivalent to each other.
+        # Symbols with unknown text from a local symbol table context are
+        # equivalent to each other.
         _symbol_token(_ST(None, 10)),
         _symbol_token(_ST(None, 11)),
         _ST(None, 12),
@@ -145,13 +153,19 @@ _EQUIVS_INSTANTS = (
         _dt(2000, 1, 1),
         _dt(2000, 1, 1, tzinfo=(OffsetTZInfo())),
         _dt(2000, 1, 1, 1, tzinfo=OffsetTZInfo(timedelta(hours=1))),
-        _ts(1999, 12, 31, 23, 59, off_hours=0, off_minutes=-1, precision=_TP.SECOND),
-        _timestamp(_ts(2000, 1, 1, 1, off_hours=1, off_minutes=0, precision=_TP.SECOND)),
+        _ts(
+            1999, 12, 31, 23, 59, off_hours=0, off_minutes=-1,
+            precision=_TP.SECOND),
+        _timestamp(
+            _ts(
+                2000, 1, 1, 1, off_hours=1, off_minutes=0,
+                precision=_TP.SECOND)),
     ),
 )
 
 _NONEQUIVS = (
-    # For each tuple, each element is not equivalent to any other element equivalent under the Ion data model.
+    # For each tuple, each element is not equivalent to any other element
+    # equivalent under the Ion data model.
     (None, 0, _null(_IT.BOOL)),
     (True, False),
     (True, _bool(False)),
@@ -182,15 +196,24 @@ _NONEQUIVS = (
         _timestamp(_ts(1, 1, 1, precision=_TP.DAY)),
         _ts(1, microsecond=0, precision=_TP.SECOND, fractional_precision=3),
         _dt(1, 1, 1, tzinfo=OffsetTZInfo()),
-        _timestamp(_ts(1, microsecond=0, precision=_TP.SECOND, fractional_precision=6, off_hours=-1, off_minutes=0)),
+        _timestamp(
+            _ts(
+                1, microsecond=0, precision=_TP.SECOND, fractional_precision=6,
+                off_hours=-1, off_minutes=0)),
         None
     ),
     (
-        # Timestamps that represent the same instant with different offsets are not equivalent.
+        # Timestamps that represent the same instant with different offsets
+        # are not equivalent.
         _dt(2000, 1, 1),
         _dt(2000, 1, 1, tzinfo=OffsetTZInfo()),
-        _timestamp(_ts(2000, 1, 1, 1, off_hours=1, off_minutes=0, precision=_TP.SECOND)),
-        _ts(1999, 12, 31, 23, 59, off_hours=0, off_minutes=-1, precision=_TP.SECOND),
+        _timestamp(
+            _ts(
+                2000, 1, 1, 1, off_hours=1, off_minutes=0,
+                precision=_TP.SECOND)),
+        _ts(
+            1999, 12, 31, 23, 59, off_hours=0, off_minutes=-1,
+            precision=_TP.SECOND),
         None,
     ),
     (
@@ -256,13 +279,15 @@ class _Parameter:
     def __str__(self):
         return self.desc
 
+
 _P = _Parameter
 
 
 def _desc(a, b, operator):
     def _str(val):
         if isinstance(val, _IonNature):
-            return '%s(%s, ion_type=%s, ion_annotations=%s)' % (type(val), val, val.ion_type, val.ion_annotations)
+            return '%s(%s, ion_type=%s, ion_annotations=%s)' % (
+                type(val), val, val.ion_type, val.ion_annotations)
         return '%s(%s)' % (type(val), val)
     return 'assert %s %s %s' % (_str(a), operator, _str(b))
 
@@ -274,7 +299,8 @@ def _equivs_param(a, b, timestamp_instants_only=False):
     return _P(_desc(a, b, '=='), assert_equivalent)
 
 
-_equivs_timestamp_instants_param = partial(_equivs_param, timestamp_instants_only=True)
+_equivs_timestamp_instants_param = partial(
+    _equivs_param, timestamp_instants_only=True)
 
 
 def _nonequivs_param(a, b):
@@ -292,8 +318,10 @@ _TEST_ANNOTATIONS = (
 
 
 def _generate_annotations():
-    """Circularly generates sequences of test annotations. The annotations sequence yielded from this generator must
-    never be equivalent to the annotations sequence last yielded by this generator.
+    """
+    Circularly generates sequences of test annotations. The annotations
+    sequence yielded from this generator must never be equivalent to the
+    annotations sequence last yielded by this generator.
     """
     i = 0
     while True:
@@ -301,6 +329,7 @@ def _generate_annotations():
         i += 1
         if i == len(_TEST_ANNOTATIONS):
             i = 0
+
 
 _annotations_generator = iter(_generate_annotations())
 
@@ -315,8 +344,9 @@ def _generate_equivs(equivs, param_func=_equivs_param):
         for i in range(seq_len):
             for j in range(seq_len):
                 yield param_func(seq[i], seq[j])
-                # Now, for pairs that are otherwise equivalent, add differing annotation(s) if possible and make sure
-                # they're no longer equivalent.
+                # Now, for pairs that are otherwise equivalent, add differing
+                # annotation(s) if possible and make sure they're no longer
+                # equivalent.
                 has_ion_nature = False
                 a = seq[i]
                 b = seq[j]

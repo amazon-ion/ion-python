@@ -28,13 +28,15 @@ import six
 
 from amazon.ion.reader_text import text_reader
 from amazon.ion.writer_text import text_writer
-from .core import IonEvent, IonEventType, IonType, ION_STREAM_END_EVENT, Timestamp, ION_VERSION_MARKER_EVENT
+from .core import IonEvent, IonEventType, IonType, ION_STREAM_END_EVENT, \
+    Timestamp, ION_VERSION_MARKER_EVENT
 from .exceptions import IonException
 from .reader import blocking_reader, NEXT_EVENT
 from .reader_binary import binary_reader
 from .reader_managed import managed_reader
-from .simple_types import IonPyList, IonPyDict, IonPyNull, IonPyBool, IonPyInt, IonPyFloat, IonPyDecimal, \
-    IonPyTimestamp, IonPyText, IonPyBytes, IonPySymbol, is_null
+from .simple_types import IonPyList, IonPyDict, IonPyNull, IonPyBool, \
+    IonPyInt, IonPyFloat, IonPyDecimal, IonPyTimestamp, IonPyText, \
+    IonPyBytes, IonPySymbol, is_null
 from .symbols import SymbolToken
 from .writer import blocking_writer
 from .writer_binary import binary_writer
@@ -45,12 +47,17 @@ _IVM = b'\xe0\x01\x00\xea'
 _TEXT_TYPES = (TextIOBase, six.StringIO)
 
 
-def dump(obj, fp, imports=None, binary=True, sequence_as_stream=False, skipkeys=False, ensure_ascii=True, check_circular=True, allow_nan=True, cls=None, indent=None,
-         separators=None, encoding='utf-8', default=None, use_decimal=True, namedtuple_as_object=True,
-         tuple_as_array=True, bigint_as_string=False, sort_keys=False, item_sort_key=None, for_json=None,
-         ignore_nan=False, int_as_string_bitcount=None, iterable_as_array=False, **kw):
-    """Serialize ``obj`` as an Ion-formatted stream to ``fp`` (a file-like object), using the following conversion
-    table::
+def dump(
+        obj, fp, imports=None, binary=True, sequence_as_stream=False,
+        skipkeys=False, ensure_ascii=True, check_circular=True, allow_nan=True,
+        cls=None, indent=None, separators=None, encoding='utf-8', default=None,
+        use_decimal=True, namedtuple_as_object=True, tuple_as_array=True,
+        bigint_as_string=False, sort_keys=False, item_sort_key=None,
+        for_json=None, ignore_nan=False, int_as_string_bitcount=None,
+        iterable_as_array=False, **kw):
+    """
+    Serialize ``obj`` as an Ion-formatted stream to ``fp`` (a file-like
+    object), using the following conversion table::
         +-------------------+-------------------+
         |  Python           |       Ion         |
         |-------------------+-------------------|
@@ -99,14 +106,18 @@ def dump(obj, fp, imports=None, binary=True, sequence_as_stream=False, skipkeys=
         +-------------------+-------------------+
 
     Args:
-        obj (Any): A python object to serialize according to the above table. Any Python object which is neither an
-            instance of or inherits from one of the types in the above table will raise TypeError.
+        obj (Any): A python object to serialize according to the above table.
+            Any Python object which is neither an instance of or inherits from
+            one of the types in the above table will raise TypeError.
         fp (BaseIO): A file-like object.
-        imports (Optional[Sequence[SymbolTable]]): A sequence of shared symbol tables to be used by by the writer.
-        binary (Optional[True|False]): When True, outputs binary Ion. When false, outputs text Ion.
-        sequence_as_stream (Optional[True|False]): When True, if ``obj`` is a sequence, it will be treated as a stream
-            of top-level Ion values (i.e. the resulting Ion data will begin with ``obj``'s first element).
-            Default: False.
+        imports (Optional[Sequence[SymbolTable]]): A sequence of shared symbol
+            tables to be used by by the writer.
+        binary (Optional[True|False]): When True, outputs binary Ion. When
+            false, outputs text Ion.
+        sequence_as_stream (Optional[True|False]): When True, if ``obj`` is a
+            sequence, it will be treated as a stream of top-level Ion values
+            (i.e. the resulting Ion data will begin with ``obj``'s first
+            element).  Default: False.
         skipkeys: NOT IMPLEMENTED
         ensure_ascii: NOT IMPLEMENTED
         check_circular: NOT IMPLEMENTED
@@ -131,15 +142,19 @@ def dump(obj, fp, imports=None, binary=True, sequence_as_stream=False, skipkeys=
     """
     raw_writer = binary_writer(imports) if binary else text_writer()
     writer = blocking_writer(raw_writer, fp)
-    writer.send(ION_VERSION_MARKER_EVENT)  # The IVM is emitted automatically in binary; it's optional in text.
+
+    # The IVM is emitted automatically in binary; it's optional in text.
+    writer.send(ION_VERSION_MARKER_EVENT)
+
     if sequence_as_stream and isinstance(obj, (list, tuple)):
-        # Treat this top-level sequence as a stream; serialize its elements as top-level values, but don't serialize the
-        # sequence itself.
+        # Treat this top-level sequence as a stream; serialize its elements as
+        # top-level values, but don't serialize the sequence itself.
         for top_level in obj:
             _dump(top_level, writer)
     else:
         _dump(obj, writer)
     writer.send(ION_STREAM_END_EVENT)
+
 
 _FROM_TYPE = dict(chain(
     six.iteritems({
@@ -183,9 +198,11 @@ def _dump(obj, writer, field=None):
         ion_nature = False
     if not null and ion_type.is_container:
         if ion_nature:
-            event = obj.to_event(IonEventType.CONTAINER_START, field_name=field)
+            event = obj.to_event(
+                IonEventType.CONTAINER_START, field_name=field)
         else:
-            event = IonEvent(IonEventType.CONTAINER_START, ion_type, field_name=field)
+            event = IonEvent(
+                IonEventType.CONTAINER_START, ion_type, field_name=field)
         writer.send(event)
         if ion_type is IonType.STRUCT:
             for field, val in six.iteritems(obj):
@@ -199,22 +216,29 @@ def _dump(obj, writer, field=None):
         if ion_nature:
             event = obj.to_event(IonEventType.SCALAR, field_name=field)
         else:
-            event = IonEvent(IonEventType.SCALAR, ion_type, obj, field_name=field)
+            event = IonEvent(
+                IonEventType.SCALAR, ion_type, obj, field_name=field)
     writer.send(event)
 
 
-def dumps(obj, skipkeys=False, ensure_ascii=True, check_circular=True, allow_nan=True, cls=None, indent=None,
-          separators=None, encoding='utf-8', default=None, use_decimal=True, namedtuple_as_object=True,
-          tuple_as_array=True, bigint_as_string=False, sort_keys=False, item_sort_key=None, for_json=None,
-          ignore_nan=False, int_as_string_bitcount=None, iterable_as_array=False, **kw):
+def dumps(
+        obj, skipkeys=False, ensure_ascii=True, check_circular=True,
+        allow_nan=True, cls=None, indent=None, separators=None,
+        encoding='utf-8', default=None, use_decimal=True,
+        namedtuple_as_object=True, tuple_as_array=True, bigint_as_string=False,
+        sort_keys=False, item_sort_key=None, for_json=None, ignore_nan=False,
+        int_as_string_bitcount=None, iterable_as_array=False, **kw):
     """Not yet implemented"""
     raise IonException("Not yet implemented")
 
 
-def load(fp, catalog=None, single_value=True, encoding='utf-8', cls=None, object_hook=None, parse_float=None,
-         parse_int=None, parse_constant=None, object_pairs_hook=None, use_decimal=None, **kw):
-    """Deserialize ``fp`` (a file-like object), which contains a text or binary Ion stream, to a Python object using the
-    following conversion table::
+def load(
+        fp, catalog=None, single_value=True, encoding='utf-8', cls=None,
+        object_hook=None, parse_float=None, parse_int=None,
+        parse_constant=None, object_pairs_hook=None, use_decimal=None, **kw):
+    """
+    Deserialize ``fp`` (a file-like object), which contains a text or binary
+    Ion stream, to a Python object using the following conversion table::
         +-------------------+-------------------+
         |  Ion              |     Python        |
         |-------------------+-------------------|
@@ -247,11 +271,14 @@ def load(fp, catalog=None, single_value=True, encoding='utf-8', cls=None, object
 
     Args:
         fp (BaseIO): A file-like object containing Ion data.
-        catalog (Optional[SymbolTableCatalog]): The catalog to use for resolving symbol table imports.
-        single_value (Optional[True|False]): When True, the data in ``obj`` is interpreted as a single Ion value, and
-            will be returned without an enclosing container. If True and there are multiple top-level values in the Ion
-            stream, IonException will be raised. NOTE: this means that when data is dumped using
-            ``sequence_as_stream=True``, it must be loaded using ``single_value=False``. Default: True.
+        catalog (Optional[SymbolTableCatalog]): The catalog to use for
+        resolving symbol table imports.
+        single_value (Optional[True|False]): When True, the data in ``obj`` is
+            interpreted as a single Ion value, and will be returned without an
+            enclosing container. If True and there are multiple top-level
+            values in the Ion stream, IonException will be raised. NOTE: this
+            means that when data is dumped using ``sequence_as_stream=True``,
+            it must be loaded using ``single_value=False``. Default: True.
         encoding: NOT IMPLEMENTED
         cls: NOT IMPLEMENTED
         object_hook: NOT IMPLEMENTED
@@ -282,7 +309,9 @@ def load(fp, catalog=None, single_value=True, encoding='utf-8', cls=None, object
     _load(out, reader)
     if single_value:
         if len(out) != 1:
-            raise IonException('Stream contained %d values; expected a single value.' % (len(out),))
+            raise IonException(
+                'Stream contained %d values; expected a single value.' %
+                (len(out),))
         return out[0]
     return out
 
@@ -318,10 +347,13 @@ def _load(out, reader, end_type=IonEventType.STREAM_END, in_struct=False):
         ion_type = event.ion_type
         if event.event_type is IonEventType.CONTAINER_START:
             container = _FROM_ION_TYPE[ion_type].from_event(event)
-            _load(container, reader, IonEventType.CONTAINER_END, ion_type is IonType.STRUCT)
+            _load(
+                container, reader, IonEventType.CONTAINER_END,
+                ion_type is IonType.STRUCT)
             add(container)
         elif event.event_type is IonEventType.SCALAR:
-            if event.value is None or ion_type is IonType.NULL or event.ion_type.is_container:
+            if event.value is None or ion_type is IonType.NULL or \
+                    event.ion_type.is_container:
                 scalar = IonPyNull.from_event(event)
             else:
                 scalar = _FROM_ION_TYPE[ion_type].from_event(event)
@@ -329,7 +361,9 @@ def _load(out, reader, end_type=IonEventType.STREAM_END, in_struct=False):
         event = reader.send(NEXT_EVENT)
 
 
-def loads(fp, encoding='utf-8', cls=None, object_hook=None, parse_float=None, parse_int=None, parse_constant=None,
-          object_pairs_hook=None, use_decimal=None, **kw):
+def loads(
+        fp, encoding='utf-8', cls=None, object_hook=None, parse_float=None,
+        parse_int=None, parse_constant=None, object_pairs_hook=None,
+        use_decimal=None, **kw):
     """Not yet implemented"""
     raise IonException("Not yet implemented")

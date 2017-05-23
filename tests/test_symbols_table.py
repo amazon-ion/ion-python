@@ -63,7 +63,7 @@ def test_system_symbols():
 
 class _P(record('name', 'version', 'symbols', ('exc', ValueError))):
     def __str__(self):
-        return  '{p.name!r}, {p.version}, {p.symbols!r}'.format(p = self)
+        return '{p.name!r}, {p.version}, {p.symbols!r}'.format(p=self)
 
 
 @tests.parametrize(
@@ -100,7 +100,8 @@ PLACEHOLDER = symbols.placeholder_symbol_table(u'placeholder', 1, 10)
 PLACEHOLDER_TEXTS = tuple(itertools.repeat(None, 10))
 
 SUB_SOURCE_LESS_SYMBOLS = symbols.substitute_symbol_table(BAR_TABLE, 3, 10)
-SUB_SOURCE_LESS_TEXTS = tuple(itertools.chain(BAR_TEXTS, itertools.repeat(None, 4)))
+SUB_SOURCE_LESS_TEXTS = tuple(
+    itertools.chain(BAR_TEXTS, itertools.repeat(None, 4)))
 
 SUB_SOURCE_MORE_SYMBOLS = symbols.substitute_symbol_table(BAR_TABLE, 1, 4)
 SUB_SOURCE_MORE_TEXTS = BAR_TEXTS[:4]
@@ -109,9 +110,11 @@ SUB_SOURCE_EQUAL_SYMBOLS = symbols.substitute_symbol_table(BAR_TABLE, 2, 6)
 SUB_SOURCE_EQUAL_TEXTS = BAR_TEXTS
 
 
-class _P(record('desc', 'table', 'name', 'version', 'is_substitute', 'symbol_texts')):
+class _P(
+    record(
+        'desc', 'table', 'name', 'version', 'is_substitute', 'symbol_texts')):
     def __str__(self):
-        return  self.desc
+        return self.desc
 
 
 @tests.parametrize(
@@ -178,10 +181,10 @@ def test_shared_symbols(p):
         assert symbols.ImportLocation(p.name, curr_sid) == token.location
         curr_sid += 1
 
-    assert None == p.table.get(u'z')
+    assert None is p.table.get(u'z')
     with pytest.raises(KeyError):
         p.table[u'z']
-    assert None == p.table.get(1024)
+    assert None is p.table.get(1024)
     with pytest.raises(KeyError):
         p.table[1024]
 
@@ -240,7 +243,10 @@ _SID_START = len(symbols.SYSTEM_SYMBOL_TABLE) + 1
 _COLLIDE_SID_START = len(symbols.SYSTEM_SYMBOL_TABLE) + len(COLLIDE_TABLE) + 1
 
 
-class _P(record('desc', 'symbol_texts', 'tokens', ('imports', ()), ('symbol_count_override', None))):
+class _P(
+        record(
+            'desc', 'symbol_texts', 'tokens', ('imports', ()),
+            ('symbol_count_override', None))):
     def __str__(self):
         return self.desc
 
@@ -341,4 +347,3 @@ def test_local_symbols(p):
 
     with pytest.raises(KeyError):
         table[1000]
-

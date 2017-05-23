@@ -19,10 +19,9 @@ from __future__ import print_function
 
 from tests import parametrize
 
-from amazon.ion.writer_binary_raw_fields import _write_int, _write_int_uncached, _write_varint, \
-                                                _write_varint_uncached, _write_uint, \
-                                                _write_uint_uncached, _write_varuint, \
-                                                _write_varuint_uncached, _CACHE_SIZE
+from amazon.ion.writer_binary_raw_fields import _write_int, \
+    _write_int_uncached, _write_varint, _write_varint_uncached, _write_uint, \
+    _write_uint_uncached, _write_varuint, _write_varuint_uncached, _CACHE_SIZE
 
 
 class WriteParameter:
@@ -32,7 +31,8 @@ class WriteParameter:
         self.methods = methods
 
     def __str__(self):
-        return "[" + str(self.value) + ", " + str(self.expected) + ", " + str(self.methods) + "]"
+        return "[" + str(self.value) + ", " + str(self.expected) + ", " + \
+            str(self.methods) + "]"
 
 
 int_methods = (_write_int, _write_int_uncached)
@@ -131,7 +131,9 @@ def test_value_boundaries(p):
 )
 def test_boundaries_signed(p):
     half = _CACHE_SIZE // 2
-    assert_cached_values(p, range(-half - 1, half))  # Go just past the cache boundaries.
+
+    # Go just past the cache boundaries.
+    assert_cached_values(p, range(-half - 1, half))
 
 
 @parametrize(

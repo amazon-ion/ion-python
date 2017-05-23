@@ -21,18 +21,19 @@ from itertools import chain
 
 from tests import parametrize, listify
 from tests.reader_util import reader_scaffold, add_depths
-from tests.event_aliases import *
+from tests.event_aliases import e_int, e_read, partial, NEXT_EVENT, \
+    e_start_struct, e_symbol, e_start_list, e_string, e_end_struct, \
+    e_end_list, NEXT, IVM, END
 
 from amazon.ion.exceptions import IonException, CannotSubstituteTable
-from amazon.ion.reader_managed import managed_reader, _ImportDesc, _IonManagedThunkEvent
+from amazon.ion.reader_managed import managed_reader, _ImportDesc, \
+    _IonManagedThunkEvent
 from amazon.ion.symbols import shared_symbol_table, local_symbol_table, \
-                               SymbolToken, ImportLocation, \
-                               SymbolTableCatalog, \
-                               SYSTEM_SYMBOL_TABLE, \
-                               TEXT_ION, TEXT_ION_1_0, TEXT_ION_SYMBOL_TABLE, \
-                               TEXT_NAME, TEXT_VERSION, TEXT_MAX_ID, \
-                               TEXT_IMPORTS, TEXT_SYMBOLS
+   SymbolToken, ImportLocation, SymbolTableCatalog, SYSTEM_SYMBOL_TABLE, \
+   TEXT_ION, TEXT_ION_1_0, TEXT_ION_SYMBOL_TABLE, TEXT_NAME, TEXT_VERSION, \
+   TEXT_MAX_ID, TEXT_IMPORTS, TEXT_SYMBOLS
 from amazon.ion.util import coroutine, record
+from amazon.ion.core import IonType, IonEventType, IonEvent
 
 _DATA = e_read(b'DUMMY')
 
@@ -45,7 +46,8 @@ _desc = _ImportDesc
 
 
 def _nextify(iter_func):
-    """Creates a decorator that generates event pairs of ``(NEXT_EVENT, event)``
+    """
+    Creates a decorator that generates event pairs of ``(NEXT_EVENT, event)``
     where ``event`` are instances returned by the decorated function.
     """
     def delegate(*args, **kw_args):
@@ -87,8 +89,8 @@ def _lst(imports=None, symbols=None, token=_system_sid_token):
         sys (SymbolTable): The symbol table to resolve SIDs from.
         imports (Optional[Iterable[_ImportDesc]]): The symbol tables to import.
         symbols (Optional[Iterable[Unicode]]): The local symbols to declare.
-        token (Optional[Callable]): Function to construct the token directly from text,
-            by default it uses the system symbol table.
+        token (Optional[Callable]): Function to construct the token directly
+        from text, by default it uses the system symbol table.
     Returns:
         List[Tuple[ReadEvent,IonEvent]]
     """
@@ -97,7 +99,8 @@ def _lst(imports=None, symbols=None, token=_system_sid_token):
 
     if imports is not None:
         if imports is _APPEND:
-            yield e_symbol(token(TEXT_ION_SYMBOL_TABLE), field_name=(token(TEXT_IMPORTS)))
+            yield e_symbol(
+                token(TEXT_ION_SYMBOL_TABLE), field_name=(token(TEXT_IMPORTS)))
         else:
             yield e_start_list(field_name=(token(TEXT_IMPORTS)))
             for desc in imports:
@@ -142,7 +145,8 @@ _SHADOW_ION_DESC = _desc(
 def _test_catalog():
     catalog = SymbolTableCatalog()
     foo_1 = shared_symbol_table(u'foo', 1, [u'a', u'b'])
-    foo_3 = shared_symbol_table(u'foo', 3, [u'c', u'd', u'e', u'f'], imports=[foo_1])
+    foo_3 = shared_symbol_table(
+        u'foo', 3, [u'c', u'd', u'e', u'f'], imports=[foo_1])
     bar_1 = shared_symbol_table(u'bar', 1, [u'x', u'y', u'z'])
     zoo_4 = shared_symbol_table(u'zoo', 4, [u'm', u'n', u'o'])
 
@@ -177,11 +181,14 @@ def _create_lst_params(
     """
 
     Args:
-        prefix_desc (Optional[String]): The prefix for the test parameter description.
-        prefix_pairs (Optional[Iterable[Tuple[DataEvent, IonEvent]]]): The prefix of event pairs to
-            put into the inner stream, should only be system values.
+        prefix_desc (Optional[String]): The prefix for the test parameter
+        description.
+        prefix_pairs (Optional[Iterable[Tuple[DataEvent, IonEvent]]]): The
+            prefix of event pairs to put into the inner stream, should only be
+            system values.
         token (Optional[Callable]): The token encoder.
-        append_start (Optional[int]): The start of the LST for direct append test cases.
+        append_start (Optional[int]): The start of the LST for direct append
+            test cases.
     """
     if prefix_pairs is None:
         prefix_pairs = [(NEXT, IVM)]
@@ -230,10 +237,10 @@ def _create_lst_params(
         ),
         _P(
             desc='IMPORTS ONLY - PLACEHOLDER',
-            inner=_lst(imports=[_desc(u'unknown', 1, 10), _desc(u'other', 1, 5)], token=token) + [
-                (NEXT, e_symbol(_sid(10))),
-                (NEXT, e_symbol(_sid(22))),
-            ],
+            inner=_lst(
+                imports=[_desc(u'unknown', 1, 10), _desc(u'other', 1, 5)],
+                token=token) + [
+                    (NEXT, e_symbol(_sid(10))), (NEXT, e_symbol(_sid(22)))],
             outer=[
                 (NEXT, e_symbol(_tok(None, 10, _loc(u'unknown', 1)))),
                 (NEXT, e_symbol(_tok(None, 22, _loc(u'other', 3)))),
@@ -241,10 +248,9 @@ def _create_lst_params(
         ),
         _P(
             desc='IMPORTS ONLY - EXACT MATCH, NO MAX ID',
-            inner=_lst(imports=[_desc(u'foo', 3), _desc(u'bar', 1)], token=token) + [
-                (NEXT, e_symbol(_sid(15))),
-                (NEXT, e_symbol(_sid(16))),
-            ],
+            inner=_lst(
+                imports=[_desc(u'foo', 3), _desc(u'bar', 1)], token=token) + [
+                (NEXT, e_symbol(_sid(15))), (NEXT, e_symbol(_sid(16)))],
             outer=[
                 (NEXT, e_symbol(_tok(u'f', 15, _loc(u'foo', 6)))),
                 (NEXT, e_symbol(_tok(u'x', 16, _loc(u'bar', 1)))),
@@ -294,7 +300,8 @@ def _create_lst_params(
         ),
         _P(
             desc='APPEND SYSTEM SYMBOLS',
-            inner=_lst(imports=_APPEND, symbols=[u'a', u'b', u'c'], token=token) + [
+            inner=_lst(
+                imports=_APPEND, symbols=[u'a', u'b', u'c'], token=token) + [
                 (NEXT, e_symbol(_sid(append_start + 1))),
                 (NEXT, e_symbol(_sid(append_start + 3))),
             ],
@@ -308,7 +315,9 @@ def _create_lst_params(
             inner=_lst(symbols=[u'a', u'b', u'c'], token=token) + [
                 (NEXT, e_symbol(_sid(10))),
                 (NEXT, e_symbol(_sid(12))),
-            ] + _lst(imports=_APPEND, symbols=[u'd', u'e', u'f'], token=_system_sid_token) + [
+            ] + _lst(
+                imports=_APPEND, symbols=[u'd', u'e', u'f'],
+                token=_system_sid_token) + [
                 (NEXT, e_symbol(_sid(10))),
                 (NEXT, e_symbol(_sid(13))),
                 (NEXT, e_symbol(_sid(15))),
@@ -330,7 +339,9 @@ def _create_lst_params(
             ) + [
                 (NEXT, e_symbol(_sid(10))),
                 (NEXT, e_symbol(_sid(14))),
-            ] + _lst(imports=_APPEND, symbols=[u'dd', u'ee', u'ff'], token=_system_sid_token) + [
+            ] + _lst(
+                imports=_APPEND, symbols=[u'dd', u'ee', u'ff'],
+                token=_system_sid_token) + [
                 (NEXT, e_symbol(_sid(11))),
                 (NEXT, e_symbol(_sid(15))),
                 (NEXT, e_symbol(_sid(18))),
@@ -348,7 +359,7 @@ def _create_lst_params(
         yield _P(
             desc='LST - ' + prefix_desc + ' - ' + param.desc,
             catalog=_test_catalog(),
-            inner= prefix_pairs + param.inner,
+            inner=prefix_pairs + param.inner,
             outer=param.outer
         )
 
@@ -415,7 +426,8 @@ _BASIC_PARAMS = [
     _create_lst_params(
         prefix_desc='SHADOW LOCAL',
         prefix_pairs=_lst(symbols=_SHADOW_ION_TEXTS),
-        token=_create_local_sid_token(local_symbol_table(symbols=_SHADOW_ION_TEXTS)),
+        token=_create_local_sid_token(
+            local_symbol_table(symbols=_SHADOW_ION_TEXTS)),
         append_start=SYSTEM_SYMBOL_TABLE.max_id + len(_SHADOW_ION_TEXTS)
     ),
     _create_lst_params(
@@ -424,7 +436,8 @@ _BASIC_PARAMS = [
     ),
 ))
 def test_managed_reader(p):
-    reader_scaffold(managed_reader(_predefined_reader(p.inner), p.catalog), p.outer)
+    reader_scaffold(
+        managed_reader(_predefined_reader(p.inner), p.catalog), p.outer)
 
 
 def test_managed_thunk_event():
@@ -432,8 +445,8 @@ def test_managed_thunk_event():
         IonEventType.SCALAR, IonType.INT, 5, _tok(u'foo', None), ()
     )
     thunk_event = _IonManagedThunkEvent(
-        IonEventType.SCALAR, IonType.INT, lambda: 5, lambda: _tok(u'foo', None), lambda: (), None
-    )
+        IonEventType.SCALAR, IonType.INT, lambda: 5,
+        lambda: _tok(u'foo', None), lambda: (), None)
 
     assert thunk_event == event
 

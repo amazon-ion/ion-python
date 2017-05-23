@@ -36,7 +36,9 @@ class _P(record('desc', 'input', 'expected')):
 @parametrize(
     _P('ASCII', u'abcd', _unichr_list(u'abcd')),
     _P('BMP SEQUENCE', u'abcd\u3000', _unichr_list(u'abcd\u3000')),
-    _P('NON-BMP SEQUENCE', u'abcd\U0001f4a9', _unichr_list(u'abcd') + [0x1F4A9]),
+    _P(
+        'NON-BMP SEQUENCE', u'abcd\U0001f4a9',
+        _unichr_list(u'abcd') + [0x1F4A9]),
     _P('UNPAIRED LOW', u'\udc00', ValueError),
     _P('UNPAIRED HIGH AT END', u'\ud800', ValueError),
     _P('UNPAIRED HIGH IN MID', u'\ud800a', ValueError),

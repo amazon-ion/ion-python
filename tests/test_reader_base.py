@@ -30,7 +30,8 @@ from tests.trampoline_util import trampoline_scaffold
 from amazon.ion.core import Transition
 from amazon.ion.core import ION_VERSION_MARKER_EVENT
 from amazon.ion.core import ION_STREAM_INCOMPLETE_EVENT, ION_STREAM_END_EVENT
-from amazon.ion.reader import read_data_event, reader_trampoline, blocking_reader
+from amazon.ion.reader import read_data_event, reader_trampoline, \
+    blocking_reader
 from amazon.ion.reader import NEXT_EVENT, SKIP_EVENT
 from amazon.ion.util import coroutine, record
 
@@ -43,9 +44,12 @@ _end_transition = partial(Transition, ION_STREAM_END_EVENT)
 _event_transition = partial(Transition, _TRIVIAL_ION_EVENT)
 
 
-class ReaderTrampolineParameters(record('desc', 'coroutine', 'input', 'expected', ('allow_flush', False))):
+class ReaderTrampolineParameters(
+        record(
+            'desc', 'coroutine', 'input', 'expected', ('allow_flush', False))):
     def __str__(self):
         return self.desc
+
 
 _P = ReaderTrampolineParameters
 
@@ -191,7 +195,9 @@ def _asserts_events(expecteds, outputs, allow_flush=False):
         desc='PREMATURE EOF',
         coroutine=_asserts_events(
             [NEXT_EVENT, read_data_event(b'a'), read_data_event(b'b')],
-            [ION_STREAM_END_EVENT, ION_STREAM_INCOMPLETE_EVENT, ION_STREAM_INCOMPLETE_EVENT],
+            [
+                ION_STREAM_END_EVENT, ION_STREAM_INCOMPLETE_EVENT,
+                ION_STREAM_INCOMPLETE_EVENT],
             allow_flush=False
         ),
         data=b'ab',
@@ -202,7 +208,9 @@ def _asserts_events(expecteds, outputs, allow_flush=False):
         desc='FLUSH',
         coroutine=_asserts_events(
             [NEXT_EVENT, read_data_event(b'a'), read_data_event(b'b')],
-            [ION_STREAM_END_EVENT, ION_STREAM_INCOMPLETE_EVENT, ION_STREAM_INCOMPLETE_EVENT],
+            [
+                ION_STREAM_END_EVENT, ION_STREAM_INCOMPLETE_EVENT,
+                ION_STREAM_INCOMPLETE_EVENT],
             allow_flush=True
         ),
         data=b'ab',
@@ -213,7 +221,9 @@ def _asserts_events(expecteds, outputs, allow_flush=False):
         desc='SINGLE EVENT, THEN NATURAL EOF',
         coroutine=_asserts_events(
             [NEXT_EVENT, read_data_event(b'a'), NEXT_EVENT],
-            [ION_STREAM_END_EVENT, ION_VERSION_MARKER_EVENT, ION_STREAM_END_EVENT]
+            [
+                ION_STREAM_END_EVENT, ION_VERSION_MARKER_EVENT,
+                ION_STREAM_END_EVENT]
         ),
         data=b'a',
         input=[NEXT_EVENT, NEXT_EVENT],

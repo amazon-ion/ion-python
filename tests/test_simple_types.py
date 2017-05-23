@@ -21,14 +21,16 @@ from datetime import datetime
 from decimal import Decimal
 
 from tests import parametrize, listify
-from tests.event_aliases import *
+from tests.event_aliases import e_null, e_int, e_bool, e_float, e_decimal, \
+    e_timestamp, e_symbol, e_string, e_clob, e_start_sexp, e_start_struct, \
+    e_scalar
 
-from amazon.ion.core import Timestamp, TimestampPrecision
+from amazon.ion.core import Timestamp, TimestampPrecision, IonType
 from amazon.ion.util import record
 from amazon.ion.symbols import SymbolToken
-from amazon.ion.simple_types import is_null, IonPyNull, IonPyBool, IonPyInt, IonPyFloat, \
-                                    IonPyDecimal, IonPyTimestamp, IonPyText, IonPyBytes, \
-                                    IonPyList, IonPyDict, IonPySymbol
+from amazon.ion.simple_types import is_null, IonPyNull, IonPyBool, IonPyInt, \
+    IonPyFloat, IonPyDecimal, IonPyTimestamp, IonPyText, IonPyBytes, \
+    IonPyList, IonPyDict, IonPySymbol
 from amazon.ion.equivalence import ion_equals
 from amazon.ion.simpleion import _ion_type
 
@@ -50,12 +52,15 @@ _EVENT_TYPES = [
     (IonPyFloat, e_float(1e0)),
     (IonPyDecimal, e_decimal(Decimal('1.1'))),
     (IonPyTimestamp, e_timestamp(datetime(2012, 1, 1))),
-    (IonPyTimestamp, e_timestamp(Timestamp(2012, 1, 1, precision=TimestampPrecision.DAY))),
+    (
+        IonPyTimestamp, e_timestamp(
+            Timestamp(2012, 1, 1, precision=TimestampPrecision.DAY))),
     (IonPySymbol, e_symbol(SymbolToken(u'Hola', None, None))),
     (IonPyText, e_string(u'Hello')),
     (IonPyBytes, e_clob(b'Goodbye')),
 
-    # Technically this is not how we shape the event, but the container types don't care
+    # Technically this is not how we shape the event, but the container types
+    # don't care
     (IonPyList, e_start_sexp([1, 2, 3])),
     (IonPyDict, e_start_struct({u'hello': u'world'}))
 ]
@@ -65,10 +70,11 @@ _EVENT_TYPES = [
 def event_type_parameters():
     for cls, event in _EVENT_TYPES:
         yield _P(
-            desc='EVENT TO %s - %s - %r' % (cls.__name__, event.ion_type.name, event.value),
+            desc='EVENT TO %s - %s - %r' % (
+                cls.__name__, event.ion_type.name, event.value),
             type=cls,
-            event=event.derive_annotations(_TEST_ANNOTATIONS).derive_field_name(_TEST_FIELD_NAME)
-        )
+            event=event.derive_annotations(
+                _TEST_ANNOTATIONS).derive_field_name(_TEST_FIELD_NAME))
 
 
 @parametrize(*event_type_parameters())
@@ -78,7 +84,8 @@ def test_event_types(p):
 
     event_output = p.type.from_event(p.event)
     value_output = p.type.from_value(ion_type, value, p.event.annotations)
-    to_event_output = value_output.to_event(p.event.event_type, p.event.field_name, p.event.depth)
+    to_event_output = value_output.to_event(
+        p.event.event_type, p.event.field_name, p.event.depth)
     assert p.event == to_event_output
 
     if p.type is IonPyNull:
@@ -96,7 +103,8 @@ def test_event_types(p):
         assert value_output == value
         assert value == value_output
 
-        # Derive a new event from just the value because equality is stricter in some cases.
+        # Derive a new event from just the value because equality is stricter
+        # in some cases.
         value_event = e_scalar(ion_type, value)
         output_event = e_scalar(ion_type, event_output)
         assert value_event == output_event
@@ -108,6 +116,7 @@ def test_event_types(p):
     assert value_output.ion_event is to_event_output
     assert value_output.ion_type is ion_type
     assert p.event.annotations == value_output.ion_annotations
+
 
 def test_subclass_types():
     class Foo(dict):

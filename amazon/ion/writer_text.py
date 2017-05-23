@@ -34,13 +34,15 @@ from amazon.ion.symbols import SymbolToken
 from . import symbols
 
 from .util import coroutine, unicode_iter
-from .core import DataEvent, Transition, IonEventType, IonType, TIMESTAMP_PRECISION_FIELD, TimestampPrecision, \
-    _ZERO_DELTA, TIMESTAMP_FRACTION_PRECISION_FIELD, MICROSECOND_PRECISION
-from .writer import partial_transition, writer_trampoline, serialize_scalar, validate_scalar_value, \
-    illegal_state_null, NOOP_WRITER_EVENT
+from .core import DataEvent, Transition, IonEventType, IonType, \
+    TIMESTAMP_PRECISION_FIELD, TimestampPrecision, _ZERO_DELTA, \
+    TIMESTAMP_FRACTION_PRECISION_FIELD, MICROSECOND_PRECISION
+from .writer import partial_transition, writer_trampoline, serialize_scalar, \
+    validate_scalar_value, illegal_state_null, NOOP_WRITER_EVENT
 from .writer import WriteEventType
 
-_IVM_WRITER_EVENT = DataEvent(WriteEventType.COMPLETE, symbols.TEXT_ION_1_0.encode())
+_IVM_WRITER_EVENT = DataEvent(
+    WriteEventType.COMPLETE, symbols.TEXT_ION_1_0.encode())
 
 _NULL_TYPE_NAMES = [
     b'null',
@@ -66,16 +68,20 @@ def _serialize_bool(ion_event):
         return b'false'
 
 
-def _serialize_scalar_from_string_representation_factory(type_name, types, str_func=str):
-    """Builds functions that leverage Python ``str()`` or similar functionality.
+def _serialize_scalar_from_string_representation_factory(
+        type_name, types, str_func=str):
+    """
+    Builds functions that leverage Python ``str()`` or similar functionality.
 
     Args:
         type_name (str): The name of the Ion type.
         types (Union[Sequence[type],type]): The Python types to validate for.
-        str_func (Optional[Callable]): The function to convert the value with, defaults to ``str``.
+        str_func (Optional[Callable]): The function to convert the value with,
+            defaults to ``str``.
 
     Returns:
-        function: The function for serializing scalars of a given type to Ion text bytes.
+        function: The function for serializing scalars of a given type to Ion
+        text bytes.
     """
     def serialize(ion_event):
         value = ion_event.value
@@ -106,6 +112,7 @@ def _float_str(val):
     if _EXPONENT_PAT.search(text) is None:
         text += 'e0'
     return text
+
 
 _serialize_float = _serialize_scalar_from_string_representation_factory(
     'float', float,
@@ -141,10 +148,12 @@ def _bytes_utc_offset(dt):
 
 def _bytes_datetime(dt):
     original_dt = dt
-    precision = getattr(original_dt, TIMESTAMP_PRECISION_FIELD, TimestampPrecision.SECOND)
+    precision = getattr(
+        original_dt, TIMESTAMP_PRECISION_FIELD, TimestampPrecision.SECOND)
     if dt.year < 1900:
-        # In some Python interpreter versions, strftime inexplicably does not support pre-1900 years.
-        # This unfortunate ugliness compensates for that.
+        # In some Python interpreter versions, strftime inexplicably does not
+        # support pre-1900 years. This unfortunate ugliness compensates for
+        # that.
         year = str(dt.year)
         year = ('0' * (4 - len(year))) + year
         dt = dt.replace(year=2008)  # Note: this fake year must be a leap year.
@@ -172,13 +181,16 @@ def _bytes_datetime(dt):
     else:
         return tz_string + _bytes_utc_offset(dt)
 
-    fractional_precision = getattr(original_dt, TIMESTAMP_FRACTION_PRECISION_FIELD, MICROSECOND_PRECISION)
+    fractional_precision = getattr(
+        original_dt, TIMESTAMP_FRACTION_PRECISION_FIELD, MICROSECOND_PRECISION)
     if fractional_precision:
         fractional = dt.strftime('%f')
         assert len(fractional) == MICROSECOND_PRECISION
-        if fractional[fractional_precision:] != ('0' * (MICROSECOND_PRECISION - fractional_precision)):
-            raise ValueError('Found timestamp fractional with more than the specified %d digits of precision.'
-                             % (fractional_precision,))
+        if fractional[fractional_precision:] != (
+                '0' * (MICROSECOND_PRECISION - fractional_precision)):
+            raise ValueError(
+                'Found timestamp fractional with more than the specified %d '
+                'digits of precision.' % (fractional_precision,))
         fractional = fractional[:fractional_precision]
         tz_string += '.' + fractional
 
@@ -197,7 +209,8 @@ _PRINTABLE_ASCII_END = 0x7E
 
 
 def _is_printable_ascii(code_point):
-    return code_point >= _PRINTABLE_ASCII_START and code_point <= _PRINTABLE_ASCII_END
+    return code_point >= _PRINTABLE_ASCII_START and \
+        code_point <= _PRINTABLE_ASCII_END
 
 
 _SERIALIZE_COMMON_ESCAPE_MAP = {
@@ -273,7 +286,9 @@ _LOB_END = b'}}'
 
 def _serialize_clob(ion_event):
     value = ion_event.value
-    return _bytes_text(six.iterbytes(value), _DOUBLE_QUOTE, prefix=_LOB_START, suffix=_LOB_END)
+    return _bytes_text(
+        six.iterbytes(value), _DOUBLE_QUOTE, prefix=_LOB_START,
+        suffix=_LOB_END)
 
 
 def _serialize_blob(ion_event):
@@ -295,7 +310,9 @@ _SERIALIZE_SCALAR_JUMP_TABLE = {
 }
 
 
-_serialize_scalar = partial(serialize_scalar, jump_table=_SERIALIZE_SCALAR_JUMP_TABLE, null_table=_NULL_TYPE_NAMES)
+_serialize_scalar = partial(
+    serialize_scalar, jump_table=_SERIALIZE_SCALAR_JUMP_TABLE,
+    null_table=_NULL_TYPE_NAMES)
 
 
 _TOP_LEVEL_DELIMITER = b' '
@@ -304,7 +321,8 @@ _ANNOTATION_DELIMITER = b'::'
 
 
 def _serialize_field_name(ion_event):
-    return _serialize_symbol_value(ion_event.field_name, suffix=_FIELD_NAME_DELIMITER)
+    return _serialize_symbol_value(
+        ion_event.field_name, suffix=_FIELD_NAME_DELIMITER)
 
 
 def _serialize_annotation_value(annotation):
@@ -328,6 +346,7 @@ def _serialize_container_factory(suffix, container_map):
     serialize.__name__ = '_serialize_container_' + suffix
     return serialize
 
+
 _CONTAINER_START_MAP = {
     IonType.STRUCT: b'{',
     IonType.LIST: b'[',
@@ -344,9 +363,12 @@ _CONTAINER_DELIMITER_MAP = {
     IonType.SEXP: b' ',
 }
 
-_serialize_container_start = _serialize_container_factory('start', _CONTAINER_START_MAP)
-_serialize_container_end = _serialize_container_factory('end', _CONTAINER_END_MAP)
-_serialize_container_delimiter = _serialize_container_factory('delimiter', _CONTAINER_DELIMITER_MAP)
+_serialize_container_start = _serialize_container_factory(
+    'start', _CONTAINER_START_MAP)
+_serialize_container_end = _serialize_container_factory(
+    'end', _CONTAINER_END_MAP)
+_serialize_container_delimiter = _serialize_container_factory(
+    'delimiter', _CONTAINER_DELIMITER_MAP)
 
 
 @coroutine
@@ -358,12 +380,14 @@ def _raw_writer_coroutine(depth=0, container_event=None, whence=None):
         delegate = self
 
         if has_written_values and not ion_event.event_type.ends_container:
-            # TODO This will always emit a delimiter for containers--should make it not do that.
+            # TODO This will always emit a delimiter for containers--should
+            # make it not do that.
             # Write the delimiter for the next value.
             if depth == 0:
                 yield partial_transition(_TOP_LEVEL_DELIMITER, self)
             else:
-                yield partial_transition(_serialize_container_delimiter(container_event), self)
+                yield partial_transition(
+                    _serialize_container_delimiter(container_event), self)
 
         if depth > 0 \
                 and container_event.ion_type is IonType.STRUCT \
@@ -374,7 +398,8 @@ def _raw_writer_coroutine(depth=0, container_event=None, whence=None):
         if ion_event.event_type.begins_value:
             # Write the annotations.
             for annotation in ion_event.annotations:
-                yield partial_transition(_serialize_annotation_value(annotation), self)
+                yield partial_transition(
+                    _serialize_annotation_value(annotation), self)
 
         if depth == 0:
             # Serialize at the top-level.
@@ -383,25 +408,32 @@ def _raw_writer_coroutine(depth=0, container_event=None, whence=None):
             elif ion_event.event_type is IonEventType.VERSION_MARKER:
                 writer_event = _IVM_WRITER_EVENT
             elif ion_event.event_type is IonEventType.SCALAR:
-                writer_event = DataEvent(WriteEventType.COMPLETE, _serialize_scalar(ion_event))
+                writer_event = DataEvent(
+                    WriteEventType.COMPLETE, _serialize_scalar(ion_event))
             elif ion_event.event_type is IonEventType.CONTAINER_START:
-                writer_event = DataEvent(WriteEventType.NEEDS_INPUT, _serialize_container_start(ion_event))
+                writer_event = DataEvent(
+                    WriteEventType.NEEDS_INPUT,
+                    _serialize_container_start(ion_event))
                 delegate = _raw_writer_coroutine(1, ion_event, self)
             else:
                 raise TypeError('Invalid event: %s' % ion_event)
         else:
             # Serialize within a container.
             if ion_event.event_type is IonEventType.SCALAR:
-                writer_event = DataEvent(WriteEventType.NEEDS_INPUT, _serialize_scalar(ion_event))
+                writer_event = DataEvent(
+                    WriteEventType.NEEDS_INPUT, _serialize_scalar(ion_event))
             elif ion_event.event_type is IonEventType.CONTAINER_START:
-                writer_event = DataEvent(WriteEventType.NEEDS_INPUT, _serialize_container_start(ion_event))
+                writer_event = DataEvent(
+                    WriteEventType.NEEDS_INPUT,
+                    _serialize_container_start(ion_event))
                 delegate = _raw_writer_coroutine(depth + 1, ion_event, self)
             elif ion_event.event_type is IonEventType.CONTAINER_END:
                 if depth == 1:
                     write_type = WriteEventType.COMPLETE
                 else:
                     write_type = WriteEventType.NEEDS_INPUT
-                writer_event = DataEvent(write_type, _serialize_container_end(container_event))
+                writer_event = DataEvent(
+                    write_type, _serialize_container_end(container_event))
                 delegate = whence
             else:
                 raise TypeError('Invalid event: %s' % ion_event)
@@ -417,11 +449,13 @@ def raw_writer():
     Yields:
         DataEvent: serialization events to write out
 
-        Receives :class:`amazon.ion.core.IonEvent` or ``None`` when the co-routine yields
+        Receives :class:`amazon.ion.core.IonEvent` or ``None`` when the
+            co-routine yields
         ``HAS_PENDING`` :class:`WriteEventType` events.
     """
     return writer_trampoline(_raw_writer_coroutine())
 
 
-# TODO Determine if we need to do anything special for non-raw writer.  Validation?
+# TODO Determine if we need to do anything special for non-raw writer.
+# Validation?
 text_writer = raw_writer

@@ -25,10 +25,12 @@ from decimal import Decimal
 
 from amazon.ion.symbols import SymbolToken
 from tests import parametrize
-from tests.writer_util import assert_writer_events, generate_scalars, generate_containers, \
-                              WriterParameter, SIMPLE_SCALARS_MAP_BINARY, ION_ENCODED_INT_ZERO, VARUINT_END_BYTE
+from tests.writer_util import assert_writer_events, generate_scalars, \
+    generate_containers, WriterParameter, SIMPLE_SCALARS_MAP_BINARY, \
+    ION_ENCODED_INT_ZERO, VARUINT_END_BYTE
 
-from amazon.ion.core import IonEvent, IonType, IonEventType, timestamp, TimestampPrecision
+from amazon.ion.core import IonEvent, IonType, IonEventType, timestamp, \
+    TimestampPrecision
 from amazon.ion.writer import blocking_writer
 from amazon.ion.writer_binary_raw import _raw_binary_writer, _write_length
 from amazon.ion.writer_buffer import BufferTree
@@ -131,8 +133,12 @@ _P_FAILURES = [
     _P(
         desc="INSUFFICIENT TIMESTAMP PRECISION",
         events=[
-            _E(_ET.SCALAR, _IT.TIMESTAMP,
-               timestamp(1, 1, 1, 1, 1, 1, 123456, precision=TimestampPrecision.SECOND, fractional_precision=3))
+            _E(
+                _ET.SCALAR, _IT.TIMESTAMP,
+                timestamp(
+                    1, 1, 1, 1, 1, 1, 123456,
+                    precision=TimestampPrecision.SECOND,
+                    fractional_precision=3))
         ],
         expected=ValueError
     )
@@ -172,25 +178,36 @@ _SIMPLE_CONTAINER_MAP = {
         ),
         (
             (_E(_ET.SCALAR, _IT.INT, 0, field_name=SymbolToken(None, 10)),),
-            bytearray([
-                0xDE,  # The lower nibble may vary by implementation. It does not indicate actual length unless it's 0.
-                VARUINT_END_BYTE | 2,  # Field name 10 and value 0 each fit in 1 byte.
-                VARUINT_END_BYTE | 10,
-                ION_ENCODED_INT_ZERO
-            ])
+            bytearray(
+                [
+                    # The lower nibble may vary by implementation. It does not
+                    # indicate actual length unless it's 0.
+                    0xDE,
+
+                    # Field name 10 and value 0 each fit in 1 byte.
+                    VARUINT_END_BYTE | 2,
+
+                    VARUINT_END_BYTE | 10,
+                    ION_ENCODED_INT_ZERO])
         ),
     ),
 }
 
 
-_generate_simple_scalars = partial(generate_scalars, SIMPLE_SCALARS_MAP_BINARY, True)
-_generate_simple_containers = partial(generate_containers, _SIMPLE_CONTAINER_MAP, True)
+_generate_simple_scalars = partial(
+    generate_scalars, SIMPLE_SCALARS_MAP_BINARY, True)
+_generate_simple_containers = partial(
+    generate_containers, _SIMPLE_CONTAINER_MAP, True)
 
 
 def _generate_annotated_values():
-    for value_p in chain(_generate_simple_scalars(), _generate_simple_containers()):
-        events = (value_p.events[0].derive_annotations(
-            [SymbolToken(None, 10), SymbolToken(None, 11)]),) + value_p.events[1:]
+    for value_p in chain(
+            _generate_simple_scalars(), _generate_simple_containers()):
+        events = (
+            value_p.events[0].derive_annotations(
+                [
+                    SymbolToken(None, 10), SymbolToken(None, 11)]),
+            ) + value_p.events[1:]
         annot_length = 2  # 10 and 11 each fit in one VarUInt byte
         annot_length_length = 1  # 2 fits in one VarUInt byte
         value_length = len(value_p.expected)

@@ -26,20 +26,22 @@ from amazon.ion.exceptions import IonException
 from amazon.ion.symbols import SymbolToken, SYSTEM_SYMBOL_TABLE
 from amazon.ion.writer_binary import _IVM
 from amazon.ion.core import IonType, IonEvent, IonEventType, OffsetTZInfo
-from amazon.ion.simple_types import IonPyDict, IonPyText, IonPyList, IonPyNull, IonPyBool, IonPyInt, IonPyFloat, \
-    IonPyDecimal, IonPyTimestamp, IonPyBytes, IonPySymbol, _IonNature
+from amazon.ion.simple_types import IonPyDict, IonPyText, IonPyList, \
+    IonPyNull, IonPyInt, IonPyBytes, _IonNature
 from amazon.ion.equivalence import ion_equals
 from amazon.ion.simpleion import dump, load, _ion_type, _FROM_ION_TYPE
 from amazon.ion.util import record
 from amazon.ion.writer_binary_raw import _serialize_symbol, _write_length
-from tests.writer_util import VARUINT_END_BYTE, ION_ENCODED_INT_ZERO, SIMPLE_SCALARS_MAP_BINARY, SIMPLE_SCALARS_MAP_TEXT
+from tests.writer_util import VARUINT_END_BYTE, ION_ENCODED_INT_ZERO, \
+    SIMPLE_SCALARS_MAP_BINARY, SIMPLE_SCALARS_MAP_TEXT
 from tests import parametrize
 
 
 _st = partial(SymbolToken, sid=None, location=None)
 
 
-class _Parameter(record('desc', 'obj', 'expected', 'has_symbols', ('stream', False))):
+class _Parameter(
+        record('desc', 'obj', 'expected', 'has_symbols', ('stream', False))):
     def __str__(self):
         return self.desc
 
@@ -48,6 +50,7 @@ class _Expected:
     def __init__(self, binary, text):
         self.binary = [binary]
         self.text = [text]
+
 
 _SIMPLE_CONTAINER_MAP = {
     IonType.LIST: (
@@ -108,24 +111,34 @@ _SIMPLE_CONTAINER_MAP = {
         (
             [{u'foo': 0}, ],
             _Expected(
-                bytearray([
-                    0xDE,  # The lower nibble may vary. It does not indicate actual length unless it's 0.
-                    VARUINT_END_BYTE | 2,  # Field name 10 and value 0 each fit in 1 byte.
-                    VARUINT_END_BYTE | 10,
-                    ION_ENCODED_INT_ZERO
-                ]),
+                bytearray(
+                    [
+                        # The lower nibble may vary. It does not indicate
+                        # actual length unless it's 0.
+                        0xDE,
+
+                        # Field name 10 and value 0 each fit in 1 byte.
+                        VARUINT_END_BYTE | 2,
+
+                        VARUINT_END_BYTE | 10,
+                        ION_ENCODED_INT_ZERO]),
                 b"{'foo':0}"
             )
         ),
         (
             [IonPyDict.from_value(IonType.STRUCT, {u'foo': 0}), ],
             _Expected(
-                bytearray([
-                    0xDE,  # The lower nibble may vary. It does not indicate actual length unless it's 0.
-                    VARUINT_END_BYTE | 2,  # Field name 10 and value 0 each fit in 1 byte.
-                    VARUINT_END_BYTE | 10,
-                    ION_ENCODED_INT_ZERO
-                ]),
+                bytearray(
+                    [
+                        # The lower nibble may vary. It does not indicate
+                        # actual length unless it's 0.
+                        0xDE,
+
+                        # Field name 10 and value 0 each fit in 1 byte.
+                        VARUINT_END_BYTE | 2,
+
+                        VARUINT_END_BYTE | 10,
+                        ION_ENCODED_INT_ZERO]),
                 b"{'foo':0}"
             )
         ),
@@ -139,21 +152,32 @@ def generate_scalars_binary(scalars_map, preceding_symbols=0):
             native_expected = expected
             has_symbols = False
             if native is None:
-                # An un-adorned 'None' doesn't contain enough information to determine its Ion type
+                # An un-adorned 'None' doesn't contain enough information to
+                # determine its Ion type
                 native_expected = b'\x0f'
             elif ion_type is IonType.CLOB:
-                # All six.binary_type are treated as BLOBs unless wrapped by an _IonNature
-                tid = six.byte2int(expected) + 0x10  # increment upper nibble for clob -> blob; keep lower nibble
+                # All six.binary_type are treated as BLOBs unless wrapped by an
+                # _IonNature
+
+                # increment upper nibble for clob -> blob; keep lower nibble
+                tid = six.byte2int(expected) + 0x10
+
                 native_expected = bytearray([tid]) + expected[1:]
             elif ion_type is IonType.SYMBOL and native is not None:
                 has_symbols = True
             elif ion_type is IonType.STRING:
                 # Encode all strings as symbols too.
                 symbol_expected = _serialize_symbol(
-                    IonEvent(IonEventType.SCALAR, IonType.SYMBOL, SymbolToken(None, 10 + preceding_symbols)))
-                yield _Parameter(IonType.SYMBOL.name + ' ' + native,
-                                 IonPyText.from_value(IonType.SYMBOL, native), symbol_expected, True)
-            yield _Parameter('%s %s' % (ion_type.name, native), native, native_expected, has_symbols)
+                    IonEvent(
+                        IonEventType.SCALAR, IonType.SYMBOL,
+                        SymbolToken(None, 10 + preceding_symbols)))
+                yield _Parameter(
+                    IonType.SYMBOL.name + ' ' + native,
+                    IonPyText.from_value(IonType.SYMBOL, native),
+                    symbol_expected, True)
+            yield _Parameter(
+                '%s %s' % (ion_type.name, native), native, native_expected,
+                has_symbols)
             wrapper = _FROM_ION_TYPE[ion_type].from_value(ion_type, native)
             yield _Parameter(repr(wrapper), wrapper, expected, has_symbols)
 
@@ -170,7 +194,8 @@ def generate_containers_binary(container_map, preceding_symbols=0):
             if has_symbols and preceding_symbols:
                 for expected in expecteds:
                     field_sid = expected[-2] & (~VARUINT_END_BYTE)
-                    expected[-2] = VARUINT_END_BYTE | (preceding_symbols + field_sid)
+                    expected[-2] = VARUINT_END_BYTE | (
+                        preceding_symbols + field_sid)
             expected = bytearray()
             for e in expecteds:
                 expected.extend(e)
@@ -178,8 +203,9 @@ def generate_containers_binary(container_map, preceding_symbols=0):
 
 
 def generate_annotated_values_binary(scalars_map, container_map):
-    for value_p in chain(generate_scalars_binary(scalars_map, preceding_symbols=2),
-                         generate_containers_binary(container_map, preceding_symbols=2)):
+    for value_p in chain(
+            generate_scalars_binary(scalars_map, preceding_symbols=2),
+            generate_containers_binary(container_map, preceding_symbols=2)):
         obj = value_p.obj
         if not isinstance(obj, _IonNature):
             continue
@@ -205,12 +231,12 @@ def generate_annotated_values_binary(scalars_map, container_map):
 
 
 @parametrize(
-    *tuple(chain(
-        generate_scalars_binary(SIMPLE_SCALARS_MAP_BINARY),
-        generate_containers_binary(_SIMPLE_CONTAINER_MAP),
-        generate_annotated_values_binary(SIMPLE_SCALARS_MAP_BINARY, _SIMPLE_CONTAINER_MAP),
-    ))
-)
+    *tuple(
+        chain(
+            generate_scalars_binary(SIMPLE_SCALARS_MAP_BINARY),
+            generate_containers_binary(_SIMPLE_CONTAINER_MAP),
+            generate_annotated_values_binary(
+                SIMPLE_SCALARS_MAP_BINARY, _SIMPLE_CONTAINER_MAP))))
 def test_dump_load_binary(p):
     # test dump
     out = BytesIO()
@@ -219,7 +245,8 @@ def test_dump_load_binary(p):
     if not p.has_symbols:
         assert (_IVM + p.expected) == res
     else:
-        # The payload contains a LST. The value comes last, so compare the end bytes.
+        # The payload contains a LST. The value comes last, so compare the end
+        # bytes.
         assert p.expected == res[len(res) - len(p.expected):]
     # test load
     out.seek(0)
@@ -235,13 +262,16 @@ def generate_scalars_text(scalars_map):
             if native is None:
                 native_expected = b'null'
             elif ion_type is IonType.CLOB:
-                # All six.binary_type are treated as BLOBs unless wrapped by an _IonNature
+                # All six.binary_type are treated as BLOBs unless wrapped by
+                # an _IonNature
                 native = _FROM_ION_TYPE[ion_type].from_value(ion_type, native)
             elif ion_type is IonType.SYMBOL and native is not None:
                 has_symbols = True
                 if not isinstance(native, SymbolToken):
                     native = _st(native)
-            yield _Parameter('%s %s' % (ion_type.name, native), native, native_expected, has_symbols)
+            yield _Parameter(
+                '%s %s' % (ion_type.name, native), native, native_expected,
+                has_symbols)
             if not (ion_type is IonType.CLOB):
                 # Clobs were already wrapped.
                 wrapper = _FROM_ION_TYPE[ion_type].from_value(ion_type, native)
@@ -270,19 +300,22 @@ def generate_annotated_values_text(scalars_map, container_map):
         yield _Parameter(
             desc='ANNOTATED %s' % value_p.desc,
             obj=obj,
-            expected=b"'annot1'::'annot2'::" + value_p.expected,  # TODO text writer should emit unquoted symbol tokens.
+
+            # TODO text writer should emit unquoted symbol tokens.
+            expected=b"'annot1'::'annot2'::" + value_p.expected,
+
             has_symbols=True,
             stream=value_p.stream
         )
 
 
 @parametrize(
-    *tuple(chain(
-        generate_scalars_text(SIMPLE_SCALARS_MAP_TEXT),
-        generate_containers_text(_SIMPLE_CONTAINER_MAP),
-        generate_annotated_values_text(SIMPLE_SCALARS_MAP_TEXT, _SIMPLE_CONTAINER_MAP),
-    ))
-)
+    *tuple(
+        chain(
+            generate_scalars_text(SIMPLE_SCALARS_MAP_TEXT),
+            generate_containers_text(_SIMPLE_CONTAINER_MAP),
+            generate_annotated_values_text(
+                SIMPLE_SCALARS_MAP_TEXT, _SIMPLE_CONTAINER_MAP))))
 def test_dump_load_text(p):
     # test dump
     out = BytesIO()
@@ -291,7 +324,8 @@ def test_dump_load_text(p):
     if not p.has_symbols:
         assert (b'$ion_1_0 ' + p.expected) == res
     else:
-        # The payload contains a LST. The value comes last, so compare the end bytes.
+        # The payload contains a LST. The value comes last, so compare the end
+        # bytes.
         assert p.expected == res[len(res) - len(p.expected):]
     # test load
     out.seek(0)
@@ -306,7 +340,10 @@ def test_dump_load_text(p):
                 assert p.obj.sid is not None
                 # System symbol IDs are mapped correctly in the text format.
                 token = SYSTEM_SYMBOL_TABLE.get(p.obj.sid)
-                assert token is not None  # User symbols with unknown text won't be successfully read.
+
+                # User symbols with unknown text won't be successfully read.
+                assert token is not None
+
                 expected_token = token
             return expected_token == res
         else:
@@ -315,7 +352,8 @@ def test_dump_load_text(p):
             except TypeError:
                 return False
     if not equals():
-        assert ion_equals(p.obj, res)  # Redundant, but provides better error message.
+        # Redundant, but provides better error message.
+        assert ion_equals(p.obj, res)
 
 
 _ROUNDTRIPS = [
@@ -345,7 +383,8 @@ _ROUNDTRIPS = [
     -1.23e-4,
     Decimal(0),
     Decimal('-1.23'),
-    datetime(year=1, month=1, day=1, tzinfo=OffsetTZInfo(timedelta(minutes=-1))),
+    datetime(
+        year=1, month=1, day=1, tzinfo=OffsetTZInfo(timedelta(minutes=-1))),
     u'',
     u'abc',
     u'abcdefghijklmno',
@@ -366,17 +405,17 @@ _ROUNDTRIPS = [
     [{u'foo': [{u'foo': []}]}],
     {u'foo': [{u'foo': []}]},
     {
-         u'foo': IonPyText.from_value(IonType.STRING, u'bar', annotations=(u'str',)),
-         u'baz': 123,
-         u'lst': IonPyList.from_value(IonType.LIST, [
-             True, None, 1.23e4, IonPyText.from_value(IonType.SYMBOL, u'sym')
-         ]),
-         u'sxp': IonPyList.from_value(IonType.SEXP, [
-             False, IonPyNull.from_value(IonType.STRUCT, None, (u'class',)), Decimal('5.678')
-         ])
-    },
-
-]
+        u'foo': IonPyText.from_value(
+            IonType.STRING, u'bar', annotations=(u'str',)),
+        u'baz': 123,
+        u'lst': IonPyList.from_value(
+            IonType.LIST, [
+             True, None, 1.23e4, IonPyText.from_value(
+                 IonType.SYMBOL, u'sym')]),
+        u'sxp': IonPyList.from_value(
+            IonType.SEXP, [
+             False, IonPyNull.from_value(
+                 IonType.STRUCT, None, (u'class',)), Decimal('5.678')])}]
 
 
 def _generate_roundtrips(roundtrips):
@@ -391,7 +430,8 @@ def _generate_roundtrips(roundtrips):
             if to_type is None:
                 to_type = ion_type
             obj_out = _adjust_sids(annotations)
-            return _FROM_ION_TYPE[ion_type].from_value(to_type, obj_out, annotations=annotations), is_binary
+            return _FROM_ION_TYPE[ion_type].from_value(
+                    to_type, obj_out, annotations=annotations), is_binary
 
         for obj in roundtrips:
             obj = _adjust_sids()
@@ -410,8 +450,9 @@ def _generate_roundtrips(roundtrips):
 
 
 def _assert_roundtrip(before, after):
-    # All loaded Ion values extend _IonNature, even if they were dumped from primitives. This recursively
-    # wraps each input value in _IonNature for comparison against the output.
+    # All loaded Ion values extend _IonNature, even if they were dumped from
+    # primitives. This recursively wraps each input value in _IonNature for
+    # comparison against the output.
     def _to_ion_nature(obj):
         out = obj
         if not isinstance(out, _IonNature):
@@ -421,13 +462,15 @@ def _assert_roundtrip(before, after):
             update = {}
             for field, value in six.iteritems(out):
                 update[field] = _to_ion_nature(value)
-            update = IonPyDict.from_value(out.ion_type, update, out.ion_annotations)
+            update = IonPyDict.from_value(
+                out.ion_type, update, out.ion_annotations)
             out = update
         elif isinstance(out, list):
             update = []
             for value in out:
                 update.append(_to_ion_nature(value))
-            update = IonPyList.from_value(out.ion_type, update, out.ion_annotations)
+            update = IonPyList.from_value(
+                out.ion_type, update, out.ion_annotations)
             out = update
         return out
     assert ion_equals(_to_ion_nature(before), after)

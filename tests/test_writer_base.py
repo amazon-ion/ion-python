@@ -26,7 +26,8 @@ from tests.trampoline_util import trampoline_scaffold, TrampolineParameters
 
 from amazon.ion.core import DataEvent, Transition
 from amazon.ion.core import ION_VERSION_MARKER_EVENT
-from amazon.ion.writer import writer_trampoline, blocking_writer, partial_transition
+from amazon.ion.writer import writer_trampoline, blocking_writer, \
+        partial_transition
 from amazon.ion.writer import WriteEventType
 
 
@@ -41,6 +42,7 @@ def _trivial_event(write_event_type):
         _TRIVIAL_DATA
     )
 
+
 _PARTIAL_EVENT = _trivial_event(WriteEventType.HAS_PENDING)
 _COMPLETE_EVENT = _trivial_event(WriteEventType.COMPLETE)
 _NEEDS_INPUT_EVENT = _trivial_event(WriteEventType.NEEDS_INPUT)
@@ -51,8 +53,10 @@ def _trivial_transition(event_type, data, delegate):
 
 
 _partial_result = partial(partial_transition, _TRIVIAL_DATA)
-_complete_result = partial(_trivial_transition, WriteEventType.COMPLETE, _TRIVIAL_DATA)
-_needs_input_result = partial(_trivial_transition, WriteEventType.NEEDS_INPUT, _TRIVIAL_DATA)
+_complete_result = partial(
+    _trivial_transition, WriteEventType.COMPLETE, _TRIVIAL_DATA)
+_needs_input_result = partial(
+    _trivial_transition, WriteEventType.NEEDS_INPUT, _TRIVIAL_DATA)
 
 
 _P = TrampolineParameters
@@ -137,5 +141,6 @@ def test_blocking_writer(p):
     writer = blocking_writer(p.coroutine, buf)
     for i in range(p.input):
         result_type = writer.send(None)
-        assert isinstance(result_type, WriteEventType) and result_type is not WriteEventType.HAS_PENDING
+        assert isinstance(result_type, WriteEventType) and \
+            result_type is not WriteEventType.HAS_PENDING
     assert p.expected == buf.getvalue()

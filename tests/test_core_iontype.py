@@ -26,7 +26,8 @@ from amazon.ion.util import record
 
 class _P(record('type', 'expected')):
     def __str__(self):
-        return '{name} - {expected}'.format(name=self.type.name, expected=str(self.expected).upper())
+        return '{name} - {expected}'.format(
+            name=self.type.name, expected=str(self.expected).upper())
 
 
 def in_and_out_params(in_types, out_types):
@@ -34,6 +35,7 @@ def in_and_out_params(in_types, out_types):
         (_P(t, False) for t in out_types),
         (_P(t, True) for t in in_types)
     ))
+
 
 _IN_TYPES = set([IonType.SYMBOL, IonType.STRING])
 _OUT_TYPES = set(IonType._enum_members.values()) - _IN_TYPES

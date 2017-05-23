@@ -20,8 +20,8 @@ from __future__ import print_function
 from functools import partial
 
 from amazon.ion.core import IonEvent, IonEventType, IonType, \
-                            ION_STREAM_INCOMPLETE_EVENT, ION_STREAM_END_EVENT, \
-                            ION_VERSION_MARKER_EVENT
+    ION_STREAM_INCOMPLETE_EVENT, ION_STREAM_END_EVENT, \
+    ION_VERSION_MARKER_EVENT
 from amazon.ion.reader import NEXT_EVENT, SKIP_EVENT, read_data_event
 
 

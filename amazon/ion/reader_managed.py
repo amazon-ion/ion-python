@@ -19,18 +19,18 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from .core import IonEventType, IonType, IonThunkEvent, MemoizingThunk, Transition, \
-                  ION_VERSION_MARKER_EVENT
+from .core import IonEventType, IonType, IonThunkEvent, MemoizingThunk, \
+    Transition, ION_VERSION_MARKER_EVENT
 from .exceptions import IonException
 from .reader import NEXT_EVENT, SKIP_EVENT
-from .symbols import SymbolTable, SymbolTableCatalog, \
-                     LOCAL_TABLE_TYPE, SYSTEM_SYMBOL_TABLE, \
-                     TEXT_ION, TEXT_ION_1_0, TEXT_ION_SYMBOL_TABLE, TEXT_SYMBOLS, TEXT_IMPORTS, \
-                     TEXT_NAME, TEXT_VERSION, TEXT_MAX_ID
-from .util import coroutine, record, Enum
+from .symbols import SymbolTable, SymbolTableCatalog, LOCAL_TABLE_TYPE, \
+    SYSTEM_SYMBOL_TABLE, TEXT_ION, TEXT_ION_1_0, TEXT_ION_SYMBOL_TABLE, \
+    TEXT_SYMBOLS, TEXT_IMPORTS, TEXT_NAME, TEXT_VERSION, TEXT_MAX_ID
+from .util import coroutine, record
 
 
-class _ManagedContext(record('catalog', ('symbol_table', SYSTEM_SYMBOL_TABLE))):
+class _ManagedContext(
+        record('catalog', ('symbol_table', SYSTEM_SYMBOL_TABLE))):
     """Context for the managed reader.
 
     Args:
@@ -38,7 +38,8 @@ class _ManagedContext(record('catalog', ('symbol_table', SYSTEM_SYMBOL_TABLE))):
         symbol_table (SymbolTable): The symbol table.
     """
     def resolve(self, token):
-        """Attempts to resolve the :class:`SymbolToken` against the current table.
+        """
+        Attempts to resolve the :class:`SymbolToken` against the current table.
 
         If the ``text`` is not None, the token is returned, otherwise, a token
         in the table is attempted to be retrieved.  If not token is found, then
@@ -61,12 +62,12 @@ class _ManagedContext(record('catalog', ('symbol_table', SYSTEM_SYMBOL_TABLE))):
 
 class _IonManagedThunkEvent(IonThunkEvent):
     """An :class:`IonEvent` whose ``value`` field is a thunk."""
-    def __new__(cls, event_type, ion_type, value, field_name, annotations, depth):
-        return super(_IonManagedThunkEvent, cls).__new__(
-            cls, event_type, ion_type,
-            value, MemoizingThunk(field_name), MemoizingThunk(annotations),
-            depth
-        )
+    def __new__(
+            cls, event_type, ion_type, value, field_name, annotations, depth):
+        return super(
+            _IonManagedThunkEvent, cls).__new__(
+                cls, event_type, ion_type, value, MemoizingThunk(field_name),
+                MemoizingThunk(annotations), depth)
 
     @property
     def field_name(self):
@@ -106,7 +107,8 @@ def _managed_thunk_event(ctx, ion_event):
         return field_name
 
     def annotations_thunk():
-        return tuple(ctx.resolve(annotation) for annotation in ion_event.annotations)
+        return tuple(
+            ctx.resolve(annotation) for annotation in ion_event.annotations)
 
     def value_thunk():
         value = ion_event.value
@@ -135,7 +137,8 @@ def _symbols_handler(symbols, whence):
             yield Transition(NEXT_EVENT, whence)
 
         if event_type is IonEventType.CONTAINER_START:
-            # We need to skip past this container (ignoring the end container event).
+            # We need to skip past this container (ignoring the end container
+            # event).
             ion_event, _ = yield Transition(SKIP_EVENT, self)
 
         if ion_type is IonType.STRING:
@@ -154,7 +157,8 @@ class _ImportDesc(object):
         self.max_id = max_id
 
     def __str__(self):
-        return '_ImportDesc(%s, %s, %s)' % (self.name, self.version, self.max_id)
+        return '_ImportDesc(%s, %s, %s)' % (
+            self.name, self.version, self.max_id)
 
 
 @coroutine
@@ -168,13 +172,15 @@ def _import_desc_handler(ctx, imports, whence):
 
         if event_type is IonEventType.CONTAINER_END:
             if desc.name is not None or desc.name == TEXT_ION:
-                table = ctx.catalog.resolve(desc.name, desc.version, desc.max_id)
+                table = ctx.catalog.resolve(
+                    desc.name, desc.version, desc.max_id)
                 imports.append(table)
 
             yield Transition(NEXT_EVENT, whence)
 
         if event_type is IonEventType.CONTAINER_START:
-            # We need to skip past this container (ignoring the end container event).
+            # We need to skip past this container (ignoring the end container
+            # event).
             ion_event, _ = yield Transition(SKIP_EVENT, self)
         else:
             field_name = ctx.resolve(ion_event.field_name).text
@@ -201,9 +207,11 @@ def _imports_handler(ctx, imports, whence):
         trans = Transition(NEXT_EVENT, self)
         if event_type is IonEventType.CONTAINER_START:
             if ion_type is IonType.STRUCT:
-                trans = Transition(NEXT_EVENT, _import_desc_handler(ctx, imports, self))
+                trans = Transition(
+                    NEXT_EVENT, _import_desc_handler(ctx, imports, self))
             else:
-                # We need to skip past this container (ignoring the end container event).
+                # We need to skip past this container (ignoring the end
+                # container event).
                 ion_event, _ = yield Transition(SKIP_EVENT, self)
 
         ion_event, _ = yield trans
@@ -235,16 +243,19 @@ def _local_symbol_table_handler(ctx):
             elif field_name == TEXT_IMPORTS and ion_type is IonType.LIST:
                 # Yield to handling imports.
                 imports = []
-                trans = Transition(NEXT_EVENT, _imports_handler(ctx, imports, self))
+                trans = Transition(
+                    NEXT_EVENT, _imports_handler(ctx, imports, self))
 
             else:
-                # We need to skip past this container (ignoring the end container event).
+                # We need to skip past this container (ignoring the end
+                # container event).
                 ion_event, _ = yield Transition(SKIP_EVENT, self)
         elif ion_type == IonType.SYMBOL \
                 and field_name == TEXT_IMPORTS \
                 and ctx.resolve(ion_event.value).text == TEXT_ION_SYMBOL_TABLE:
             if ctx.symbol_table.table_type.is_system:
-                # Force the imports to nothing (system tables import implicitly).
+                # Force the imports to nothing (system tables import
+                # implicitly).
                 imports = None
             else:
                 # Set the imports to the previous local symbol table.
@@ -263,11 +274,13 @@ def managed_reader(reader, catalog=None):
 
     Args:
         reader (Coroutine): The underlying non-blocking reader co-routine.
-        catalog (Optional[SymbolTableCatalog]): The catalog to use for resolving imports.
+        catalog (Optional[SymbolTableCatalog]): The catalog to use for
+            resolving imports.
 
     Yields:
-        Events from the underlying reader delegating to symbol table processing as needed.
-        The user will never see things like version markers or local symbol tables.
+        Events from the underlying reader delegating to symbol table processing
+        as needed. The user will never see things like version markers or local
+        symbol tables.
     """
     if catalog is None:
         catalog = SymbolTableCatalog()
@@ -283,8 +296,8 @@ def managed_reader(reader, catalog=None):
             delegate = symbol_trans.delegate
             symbol_trans = delegate.send(Transition(ion_event, delegate))
             if symbol_trans.delegate is None:
-                # When the symbol processor terminates, the event is the context
-                # and there is no delegate.
+                # When the symbol processor terminates, the event is the
+                # context and there is no delegate.
                 ctx = symbol_trans.event
                 data_event = NEXT_EVENT
             else:
@@ -301,7 +314,8 @@ def managed_reader(reader, catalog=None):
                 if depth == 0:
                     if event_type is IonEventType.VERSION_MARKER:
                         if ion_event != ION_VERSION_MARKER_EVENT:
-                            raise IonException('Invalid IVM: %s' % (ion_event,))
+                            raise IonException(
+                                'Invalid IVM: %s' % (ion_event,))
 
                         # Reset and swallow IVM
                         ctx = _ManagedContext(ctx.catalog)
@@ -310,7 +324,8 @@ def managed_reader(reader, catalog=None):
                     elif ion_type is IonType.SYMBOL \
                             and len(ion_event.annotations) == 0 \
                             and ion_event.value is not None \
-                            and ctx.resolve(ion_event.value).text == TEXT_ION_1_0:
+                            and ctx.resolve(ion_event.value).text == \
+                            TEXT_ION_1_0:
                         assert symbol_trans.delegate is None
 
                         # A faux IVM is a NOP
@@ -318,7 +333,8 @@ def managed_reader(reader, catalog=None):
 
                     elif event_type is IonEventType.CONTAINER_START \
                             and ion_type is IonType.STRUCT \
-                            and ctx.has_symbol_table_annotation(ion_event.annotations):
+                            and ctx.has_symbol_table_annotation(
+                                ion_event.annotations):
                         assert symbol_trans.delegate is None
 
                         # Activate a new symbol processor.
@@ -333,5 +349,3 @@ def managed_reader(reader, catalog=None):
                 data_event = yield ion_event
 
         ion_event = reader.send(data_event)
-
-

@@ -26,7 +26,10 @@ from amazon.ion.util import coroutine, record
 
 @coroutine
 def always_self(result_func):
-    """A simple co-routine that yields a result and transitions to itself indefinitely."""
+    """
+    A simple co-routine that yields a result and transitions to itself
+    indefinitely.
+    """
     _, self = (yield)
     while True:
         yield result_func(self)
@@ -34,17 +37,22 @@ def always_self(result_func):
 
 @coroutine
 def moves_to(target, result_func):
-    """A simple co-routine that yields a result and transitions to another co-routine."""
+    """
+    A simple co-routine that yields a result and transitions to another
+    co-routine.
+    """
     yield
     yield result_func(target)
 
 
 @coroutine
 def yields_iter(*seq):
-    """A simple co-routine that yields over an iterable ignoring what is sent to it.
+    """
+    A simple co-routine that yields over an iterable ignoring what is sent to
+    it.
 
-    Note that an iterator doesn't work because of the *priming* ``yield`` and ``listiterator``
-    and the like don't support ``send()``.
+    Note that an iterator doesn't work because of the *priming* ``yield`` and
+    ``listiterator`` and the like don't support ``send()``.
     """
     yield
     for val in seq:

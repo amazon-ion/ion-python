@@ -35,9 +35,10 @@ from amazon.ion.util import Enum
 from tests import parametrize
 
 
-# This file lives in the tests/ directory. Up one level is tests/ and up another level is the package root, which
-# contains the vectors/ directory.
-_VECTORS_ROOT = abspath(join(abspath(__file__), u'..', u'..', u'vectors', u'iontestdata'))
+# This file lives in the tests/ directory. Up one level is tests/ and up
+# another level is the package root, which contains the vectors/ directory.
+_VECTORS_ROOT = abspath(
+    join(abspath(__file__), u'..', u'..', u'vectors', u'iontestdata'))
 _GOOD_SUBDIR = join(_VECTORS_ROOT, u'good')
 _BAD_SUBDIR = join(_VECTORS_ROOT, u'bad')
 _GOOD_TIMESTAMP_SUBDIR = join(_GOOD_SUBDIR, u'timestamp')
@@ -67,8 +68,9 @@ _FILE_ENCODINGS = defaultdict(lambda: _ENCODING_UTF8)
 _FILE_ENCODINGS[_good_file(u'utf16.ion')] = _ENCODING_UTF16_BE
 _FILE_ENCODINGS[_good_file(u'utf32.ion')] = _ENCODING_UTF32_BE
 
-# Set these Decimal limits arbitrarily high because some test vectors require it. If users need decimals this large,
-# they'll have to do this in their code too.
+# Set these Decimal limits arbitrarily high because some test vectors require
+# it. If users need decimals this large, they'll have to do this in their code
+# too.
 getcontext().Emax = 100000000000000000
 getcontext().Emin = -100000000000000000
 getcontext().prec = 100000
@@ -81,11 +83,15 @@ def _open(file):
     else:
         return open(file, mode='r', encoding=_FILE_ENCODINGS[file])
 
+
 _SKIP_LIST = (
     # TEXT:
     _good_file(u'subfieldVarUInt.ion'),  # TODO amzn/ion-python#34
     _good_file(u'subfieldVarUInt32bit.ion'),  # TODO amzn/ion-python#34
-    _equivs_file(u'timestampsLargeFractionalPrecision.ion'),  # TODO amzn/ion-python#35
+
+    # TODO amzn/ion-python#35
+    _equivs_file(u'timestampsLargeFractionalPrecision.ion'),
+
     _equivs_file(u'structsFieldsRepeatedNames.ion'),  # TODO amzn/ion-python#36
     _nonequivs_file(u'structs.ion'),  # TODO amzn/ion-python#36
     _nonequivs_file(u'symbolTablesUnknownText.ion'),  # TODO amzn/ion-python#46
@@ -149,7 +155,8 @@ class _VectorType(Enum):
 class _Parameter:
     def __init__(self, vector_type, file_path, test_thunk, desc=''):
         self.vector_type = vector_type
-        # For more succinct error messages, shorten the absolute file paths so that they start from good/ or bad/.
+        # For more succinct error messages, shorten the absolute file paths so
+        # that they start from good/ or bad/.
         shortened_path = u''
         first = True
         while True:
@@ -165,6 +172,7 @@ class _Parameter:
 
     def __str__(self):
         return self.desc
+
 
 _P = _Parameter
 _T = _VectorType
@@ -205,7 +213,9 @@ def _equivs_thunk(a, b, timestamps_instants_only=False):
         assert ion_equals(a, b, timestamps_instants_only)
     return assert_equal
 
-_equivs_timestamps_instants_thunk = partial(_equivs_thunk, timestamps_instants_only=True)
+
+_equivs_timestamps_instants_thunk = partial(
+    _equivs_thunk, timestamps_instants_only=True)
 
 
 def _nonequivs_thunk(a, b):
@@ -218,7 +228,9 @@ def _roundtrip_pairs(a, b):
     for is_a_binary in (None, True, False):
         for is_b_binary in (None, True, False):
             if is_a_binary is None and is_b_binary is None:
-                continue  # This case is covered during the non-roundtrip comparison tests.
+                # This case is covered during the non-roundtrip comparison
+                # tests.
+                continue
             a_message = b_message = 'not roundtripped'
             a_roundtrippped = a
             b_roundtripped = b
@@ -228,17 +240,21 @@ def _roundtrip_pairs(a, b):
             if is_b_binary is not None:
                 b_message = 'binary' if is_b_binary else 'text'
                 b_roundtripped = _roundtrip(b, is_b_binary)
-            yield a_roundtrippped, b_roundtripped, \
-                '%r (%s), %r (%s)' % (a_roundtrippped, a_message, b_roundtripped, b_message)
+            yield a_roundtrippped, b_roundtripped, '%r (%s), %r (%s)' % (
+                    a_roundtrippped, a_message, b_roundtripped, b_message)
 
 
 def _equivs_roundtrip_thunk(a, b, timestamps_instants_only=False):
     def assert_equals():
         for a_roundtripped, b_roundtripped, message in _roundtrip_pairs(a, b):
-            assert ion_equals(a_roundtripped, b_roundtripped, timestamps_instants_only), message
+            assert ion_equals(
+                a_roundtripped, b_roundtripped,
+                timestamps_instants_only), message
     return assert_equals
 
-_equivs_roundtrip_timestamps_instants_thunk = partial(_equivs_roundtrip_thunk, timestamps_instants_only=True)
+
+_equivs_roundtrip_timestamps_instants_thunk = partial(
+    _equivs_roundtrip_thunk, timestamps_instants_only=True)
 
 
 def _nonequivs_roundtrip_thunk(a, b):
@@ -249,8 +265,9 @@ def _nonequivs_roundtrip_thunk(a, b):
 
 
 def _element_preprocessor(ion_sequence):
-    # Equivs/nonequivs sequences annotated with "embedded_documents" are sequences of strings that contain Ion data.
-    # These strings need to be parsed before comparison.
+    # Equivs/nonequivs sequences annotated with "embedded_documents" are
+    # sequences of strings that contain Ion data. These strings need to be
+    # parsed before comparison.
     def preprocess(element):
         if is_embedded:
             assert isinstance(element, six.text_type)
@@ -266,14 +283,19 @@ def _equivs_params(vector_type, file, ion_sequence):
     previous = preprocess(ion_sequence[0])
     for value in ion_sequence:
         value = preprocess(value)
-        yield _P(vector_type, file, vector_type.thunk_generator(previous, value),
-                 desc='%r == %r' % (previous, value))
+        yield _P(
+            vector_type, file, vector_type.thunk_generator(previous, value),
+            desc='%r == %r' % (previous, value))
         previous = value
 
+
 _good_equivs_params = partial(_equivs_params, _T.GOOD_EQUIVS)
-_good_equivs_timestamps_instants_params = partial(_equivs_params, _T.GOOD_EQUIVS_TIMESTAMP_INSTANTS)
-_good_equivs_roundtrip_params = partial(_equivs_params, _T.GOOD_EQUIVS_ROUNDTRIP)
-_good_equivs_timestamps_instants_roundtrip_params = partial(_equivs_params, _T.GOOD_EQUIVS_TIMESTAMP_INSTANTS_ROUNDTRIP)
+_good_equivs_timestamps_instants_params = partial(
+    _equivs_params, _T.GOOD_EQUIVS_TIMESTAMP_INSTANTS)
+_good_equivs_roundtrip_params = partial(
+    _equivs_params, _T.GOOD_EQUIVS_ROUNDTRIP)
+_good_equivs_timestamps_instants_roundtrip_params = partial(
+    _equivs_params, _T.GOOD_EQUIVS_TIMESTAMP_INSTANTS_ROUNDTRIP)
 
 
 def _nonequivs_params(vector_type, file, ion_sequence):
@@ -287,8 +309,10 @@ def _nonequivs_params(vector_type, file, ion_sequence):
             yield _P(vector_type, file, vector_type.thunk_generator(a, b),
                      desc='%r != %r' % (a, b))
 
+
 _good_nonequivs_params = partial(_nonequivs_params, _T.GOOD_NONEQUIVS)
-_good_nonequivs_roundtrip_params = partial(_nonequivs_params, _T.GOOD_NONEQUIVS_ROUNDTRIP)
+_good_nonequivs_roundtrip_params = partial(
+    _nonequivs_params, _T.GOOD_NONEQUIVS_ROUNDTRIP)
 
 
 def _roundtrip(value, is_binary):
@@ -307,8 +331,10 @@ def _roundtrip_thunk(value, is_binary):
 
 def _roundtrip_params(file, value):
     for is_binary in (True, False):
-        yield _P(_VectorType.GOOD_ROUNDTRIP, file, _roundtrip_thunk(value, is_binary),
-                 desc='(%s) %r' % ('binary' if is_binary else 'text', value))
+        yield _P(
+            _VectorType.GOOD_ROUNDTRIP, file,
+            _roundtrip_thunk(value, is_binary), desc='(%s) %r' % (
+                'binary' if is_binary else 'text', value))
 
 
 def _comparison_params(vector_type, directory_path):
@@ -316,7 +342,8 @@ def _comparison_params(vector_type, directory_path):
         with _open(file) as vector:
             sequences = load(vector, single_value=False)
         for sequence in sequences:
-            for param in vector_type.comparison_param_generator(file, sequence):
+            for param in vector_type.comparison_param_generator(
+                    file, sequence):
                 yield param
 
 
@@ -328,21 +355,26 @@ def _comparison_params(vector_type, directory_path):
     _basic_params(_T.BAD, _BAD_UTF8_SUBDIR),
 ))
 def test_basic(p):
-    """Tests basic (good/bad) reading without roundtrips. Because the data is lazily parsed, all tests are guaranteed
-    to run, even if preceding tests fail, unless there are failures in parameter generation.
+    """
+    Tests basic (good/bad) reading without roundtrips. Because the data is
+    lazily parsed, all tests are guaranteed to run, even if preceding tests
+    fail, unless there are failures in parameter generation.
     """
     p.test_thunk()
 
 
-@parametrize(*chain(
-    _comparison_params(_T.GOOD_EQUIVS_TIMESTAMP_INSTANTS, _EQUIVS_TIMELINE_SUBDIR),
-    _comparison_params(_T.GOOD_EQUIVS, _EQUIVS_SUBDIR),
-    _comparison_params(_T.GOOD_EQUIVS, _EQUIVS_UTF8_SUBDIR),
-    _comparison_params(_T.GOOD_NONEQUIVS, _NONEQUIVS_SUBDIR),
-))
+@parametrize(
+    *chain(
+        _comparison_params(
+            _T.GOOD_EQUIVS_TIMESTAMP_INSTANTS, _EQUIVS_TIMELINE_SUBDIR),
+        _comparison_params(_T.GOOD_EQUIVS, _EQUIVS_SUBDIR),
+        _comparison_params(_T.GOOD_EQUIVS, _EQUIVS_UTF8_SUBDIR),
+        _comparison_params(_T.GOOD_NONEQUIVS, _NONEQUIVS_SUBDIR),))
 def test_comparisons(p):
-    """Tests comparisons (equivs/nonequivs). Pre-parsing the streams is necessary to generate the comparison pairs, so
-    there will necessarily be failures in parameter generation for this test if any good files fail to parse.
+    """
+    Tests comparisons (equivs/nonequivs). Pre-parsing the streams is necessary
+    to generate the comparison pairs, so there will necessarily be failures in
+    parameter generation for this test if any good files fail to parse.
     """
     p.test_thunk()
 
@@ -350,14 +382,17 @@ def test_comparisons(p):
 @parametrize(*chain(
     _comparison_params(_T.GOOD_ROUNDTRIP, _GOOD_SUBDIR),
     _comparison_params(_T.GOOD_ROUNDTRIP, _GOOD_TIMESTAMP_SUBDIR),
-    _comparison_params(_T.GOOD_EQUIVS_TIMESTAMP_INSTANTS_ROUNDTRIP, _EQUIVS_TIMELINE_SUBDIR),
+    _comparison_params(
+        _T.GOOD_EQUIVS_TIMESTAMP_INSTANTS_ROUNDTRIP, _EQUIVS_TIMELINE_SUBDIR),
     _comparison_params(_T.GOOD_EQUIVS_ROUNDTRIP, _EQUIVS_SUBDIR),
     _comparison_params(_T.GOOD_EQUIVS_ROUNDTRIP, _EQUIVS_UTF8_SUBDIR),
     _comparison_params(_T.GOOD_NONEQUIVS_ROUNDTRIP, _NONEQUIVS_SUBDIR),
 ))
 def test_roundtrips(p):
-    """Tests roundtrips of good files for equality. Pre-parsing the streams is necessary to generate the comparison
-    pairs, so there will necessarily be failures in parameter generation for this test if any good files fail to parse.
+    """
+    Tests roundtrips of good files for equality. Pre-parsing the streams is
+    necessary to generate the comparison pairs, so there will necessarily be
+    failures in parameter generation for this test if any good files fail to
+    parse.
     """
     p.test_thunk()
-

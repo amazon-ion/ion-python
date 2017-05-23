@@ -53,7 +53,10 @@ def assert_ivm(buf, count=1):
 
 def test_implicit_ivm():
     out, writer = new_writer()
-    writer.send(IonEvent(IonEventType.SCALAR, IonType.NULL))  # This implicitly writes the IVM.
+
+    # This implicitly writes the IVM.
+    writer.send(IonEvent(IonEventType.SCALAR, IonType.NULL))
+
     finish(writer)
     buf = out.getvalue()
     assert_ivm(buf)

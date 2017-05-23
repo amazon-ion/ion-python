@@ -29,13 +29,15 @@ import struct
 
 from amazon.ion.equivalence import _is_float_negative_zero
 from amazon.ion.symbols import SymbolToken
-from .core import IonEventType, IonType, DataEvent, Transition, TimestampPrecision, TIMESTAMP_FRACTION_PRECISION_FIELD, \
+from .core import IonEventType, IonType, DataEvent, Transition, \
+    TimestampPrecision, TIMESTAMP_FRACTION_PRECISION_FIELD, \
     MICROSECOND_PRECISION, TIMESTAMP_PRECISION_FIELD
 from .util import coroutine, total_seconds, Enum
 from .writer import NOOP_WRITER_EVENT, WriteEventType, \
                     writer_trampoline, partial_transition, serialize_scalar, \
                     validate_scalar_value, illegal_state_null
-from .writer_binary_raw_fields import _write_varuint, _write_uint, _write_varint, _write_int
+from .writer_binary_raw_fields import _write_varuint, _write_uint, \
+    _write_varint, _write_int
 
 
 class _TypeIds(Enum):
@@ -58,21 +60,30 @@ class _TypeIds(Enum):
 
 
 class _Zeros(Enum):
-    """Single-octet encodings, represented by the type ID and a length nibble of zero.
+    """
+    Single-octet encodings, represented by the type ID and a length nibble of
+    zero.
 
     Notes:
-        Blob, clob, list, and sexp also have single-octet encodings, but the current
-        implementation handles these implicitly.
+        Blob, clob, list, and sexp also have single-octet encodings, but the
+        current implementation handles these implicitly.
     """
-    INT = _TypeIds.POS_INT  # Int zero is always encoded using the positive type ID.
+    # Int zero is always encoded using the positive type ID.
+    INT = _TypeIds.POS_INT
+
     FLOAT = _TypeIds.FLOAT  # Represents zero.
     DECIMAL = _TypeIds.DECIMAL  # Represents 0d0.
     STRING = _TypeIds.STRING  # Represents the zero-length (empty) string.
     SYMBOL = _TypeIds.SYMBOL  # Represents symbol zero.
     STRUCT = _TypeIds.STRUCT  # Represents a struct with zero fields.
 
-_VARINT_NEG_ZERO = 0xC0  # This refers to the variable-length signed integer subfield.
-_INT_NEG_ZERO = 0x80  # This refers to the fixed-length signed integer subfield.
+
+# This refers to the variable-length signed integer subfield.
+_VARINT_NEG_ZERO = 0xC0
+
+
+# This refers to the fixed-length signed integer subfield.
+_INT_NEG_ZERO = 0x80
 
 _LENGTH_FLOAT_64 = 0x08
 _LENGTH_FIELD_THRESHOLD = 14
@@ -146,8 +157,10 @@ def _serialize_float(ion_event):
     buf = bytearray()
     float_value = ion_event.value
     validate_scalar_value(float_value, float)
-    # TODO Assess whether abbreviated encoding of zero is beneficial; it's allowed by spec.
-    if float_value.is_integer() and float_value == 0.0 and not _is_float_negative_zero(float_value):
+    # TODO Assess whether abbreviated encoding of zero is beneficial; it's
+    # allowed by spec.
+    if float_value.is_integer() and float_value == 0.0 and \
+            not _is_float_negative_zero(float_value):
         buf.append(_Zeros.FLOAT)
     else:
         # TODO Add an option for 32-bit representation (length=4) per the spec.
@@ -240,13 +253,17 @@ _TEN_EXP_MINUS_ONE = [
 def _serialize_timestamp(ion_event):
     buf = bytearray()
     dt = ion_event.value
-    precision = getattr(dt, TIMESTAMP_PRECISION_FIELD, TimestampPrecision.SECOND)
-    if precision is None:  # TODO should this defaulting be pushed into Timestamp itself?
+    precision = getattr(
+        dt, TIMESTAMP_PRECISION_FIELD, TimestampPrecision.SECOND)
+
+    # TODO should this defaulting be pushed into Timestamp itself?
+    if precision is None:
         precision = TimestampPrecision.SECOND
     validate_scalar_value(dt, datetime)
     value_buf = bytearray()
     if dt.tzinfo is None:
-        value_buf.append(_VARINT_NEG_ZERO)  # This signifies an unknown local offset.
+        # This signifies an unknown local offset.
+        value_buf.append(_VARINT_NEG_ZERO)
         length = 1
     else:
         # Normalize to UTC and write the offset field.
@@ -264,24 +281,31 @@ def _serialize_timestamp(ion_event):
     if precision.includes_second:
         length += _write_varuint(value_buf, dt.second)
         coefficient = dt.microsecond
-        fractional_precision = getattr(ion_event.value, TIMESTAMP_FRACTION_PRECISION_FIELD, MICROSECOND_PRECISION)
+        fractional_precision = getattr(
+            ion_event.value, TIMESTAMP_FRACTION_PRECISION_FIELD,
+            MICROSECOND_PRECISION)
         if coefficient is not None and fractional_precision is not None:
             if coefficient == 0:
                 adjusted_fractional_precision = fractional_precision
             else:
                 adjusted_fractional_precision = MICROSECOND_PRECISION
-                # This optimizes the size of the fractional encoding when the extra precision is not needed.
-                while adjusted_fractional_precision > fractional_precision and coefficient % 10 == 0:
+                # This optimizes the size of the fractional encoding when the
+                # extra precision is not needed.
+                while adjusted_fractional_precision > \
+                        fractional_precision and coefficient % 10 == 0:
                     coefficient //= 10
                     adjusted_fractional_precision -= 1
             if adjusted_fractional_precision > fractional_precision or \
                     coefficient > _TEN_EXP_MINUS_ONE[fractional_precision]:
-                raise ValueError('Error writing event %s. Found timestamp fractional precision of %d digits, '
-                                 'which is less than needed to serialize %d microseconds.'
-                                 % (ion_event, fractional_precision, dt.microsecond))
+                raise ValueError(
+                    'Error writing event %s. Found timestamp fractional '
+                    'precision of %d digits, which is less than needed to '
+                    'serialize %d microseconds.' % (
+                        ion_event, fractional_precision, dt.microsecond))
             exponent = -adjusted_fractional_precision
             if not (coefficient == 0 and exponent >= 0):
-                length += _write_decimal_value(value_buf, exponent, coefficient)
+                length += _write_decimal_value(
+                    value_buf, exponent, coefficient)
     _write_length(buf, length, _TypeIds.TIMESTAMP)
     buf.extend(value_buf)
     return buf
@@ -302,8 +326,8 @@ _SERIALIZE_SCALAR_JUMP_TABLE = {
 
 
 _serialize_scalar = partial(
-    serialize_scalar, jump_table=_SERIALIZE_SCALAR_JUMP_TABLE, null_table=_NULLS
-)
+    serialize_scalar,
+    jump_table=_SERIALIZE_SCALAR_JUMP_TABLE, null_table=_NULLS)
 
 
 def _serialize_annotation_wrapper(output_buf, annotations):
@@ -314,7 +338,8 @@ def _serialize_annotation_wrapper(output_buf, annotations):
         annot_length += _write_varuint(annot_length_buf, annotation.sid)
     header = bytearray()
     length_buf = bytearray()
-    length = _write_varuint(length_buf, annot_length) + annot_length + value_length
+    length = _write_varuint(length_buf, annot_length) + annot_length + \
+        value_length
     _write_length(header, length, _TypeIds.ANNOTATION_WRAPPER)
     header.extend(length_buf)
     header.extend(annot_length_buf)
@@ -360,7 +385,8 @@ def _raw_writer_coroutine(writer_buffer, depth=0, container_event=None,
                 and ion_event.event_type.begins_value:
             # A field name symbol ID is required at this position.
             sid_buffer = bytearray()
-            _write_varuint(sid_buffer, ion_event.field_name.sid)  # Write the field name's symbol ID.
+            # Write the field name's symbol ID.
+            _write_varuint(sid_buffer, ion_event.field_name.sid)
             writer_buffer.add_scalar_value(sid_buffer)
         if ion_event.event_type.begins_value and curr_annotations:
             writer_buffer.start_container()
@@ -386,7 +412,8 @@ def _raw_writer_coroutine(writer_buffer, depth=0, container_event=None,
                 fail()
             _serialize_container(writer_buffer, container_event)
             if pending_annotations:
-                _serialize_annotation_wrapper(writer_buffer, pending_annotations)
+                _serialize_annotation_wrapper(
+                    writer_buffer, pending_annotations)
             pending_annotations = None
             delegate = whence
         else:

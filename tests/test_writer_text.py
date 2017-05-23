@@ -19,25 +19,21 @@ from __future__ import print_function
 
 from functools import partial
 
-import six
-import sys
-
-from base64 import b64encode
-from datetime import timedelta, datetime
+from datetime import datetime
 from io import BytesIO
 from itertools import chain
 
 from decimal import Decimal
 
-from amazon.ion.core import OffsetTZInfo, IonEvent, IonType, IonEventType
+from amazon.ion.core import IonEvent, IonType, IonEventType
 
 from tests import parametrize
 
 from amazon.ion.symbols import SymbolToken
 from amazon.ion.writer import blocking_writer
 from amazon.ion.writer_text import raw_writer
-from tests.writer_util import assert_writer_events, WriterParameter, generate_scalars, generate_containers, \
-    SIMPLE_SCALARS_MAP_TEXT
+from tests.writer_util import assert_writer_events, WriterParameter, \
+    generate_scalars, generate_containers, SIMPLE_SCALARS_MAP_TEXT
 
 _D = Decimal
 _DT = datetime
@@ -72,17 +68,20 @@ _generate_simple_scalars = partial(generate_scalars, SIMPLE_SCALARS_MAP_TEXT)
 _generate_empty_containers = partial(generate_containers, _EMPTY_CONTAINER_MAP)
 
 _SIMPLE_ANNOTATIONS = (
-    SymbolToken(None, 4), # System symbol 'name'.
+    SymbolToken(None, 4),  # System symbol 'name'.
     u'\x00',
-    u'\uff4e', # An full-width latin 'n' code point.
-    u'\U0001f4a9', # A 'pile of poo' emoji code point.
+    u'\uff4e',  # An full-width latin 'n' code point.
+    u'\U0001f4a9',  # A 'pile of poo' emoji code point.
 )
 _SIMPLE_ANNOTATIONS_ENCODED = br"$4::'\x00'::'\uff4e'::'\U0001f4a9'::"
 
 
 def _generate_annotated_values():
-    for value_p in chain(_generate_simple_scalars(), _generate_empty_containers()):
-        events = (value_p.events[0].derive_annotations(_SIMPLE_ANNOTATIONS),) + value_p.events[1:]
+    for value_p in chain(
+            _generate_simple_scalars(), _generate_empty_containers()):
+        events = (
+            value_p.events[0].derive_annotations(_SIMPLE_ANNOTATIONS),) + \
+            value_p.events[1:]
         yield _P(
             desc='ANN %s' % value_p.desc,
             events=events,
@@ -91,7 +90,7 @@ def _generate_annotated_values():
 
 
 _SIMPLE_FIELD_NAME = u'field'
-_TOKEN_FIELD_NAME = SymbolToken(None, 4) # System symbol 'name'.
+_TOKEN_FIELD_NAME = SymbolToken(None, 4)  # System symbol 'name'.
 
 
 def _generate_simple_containers(*generators, **opts):
@@ -116,19 +115,23 @@ def _generate_simple_containers(*generators, **opts):
                 if field_name is not None:
                     value_event = value_event.derive_field_name(field_name)
                     if isinstance(field_name, SymbolToken):
-                        value_expected = \
-                            (u'$%d:'% field_name.sid).encode() + value_expected
+                        value_expected = (
+                            u'$%d:' % field_name.sid).encode() + value_expected
                     else:
                         value_expected = \
                             b"'" + field_name.encode() + b"':" + value_expected
-                # Make sure to compose the rest of the value (if not scalar, i.e. empty containers).
+                # Make sure to compose the rest of the value (if not scalar,
+                # i.e. empty containers).
                 value_events = (value_event,) + value_p.events[1:]
-                events = (start_event,) + (value_events * repeat) + (end_event,)
+                events = (start_event,) + (value_events * repeat) + \
+                    (end_event,)
 
-                expected = b_start + delim.join([value_expected] * repeat) + b_end
+                expected = b_start + delim.join([value_expected] * repeat) + \
+                    b_end
 
                 yield _P(
-                    desc='SINGLETON %s %r' % (start_event.ion_type.name, expected),
+                    desc='SINGLETON %s %r' % (
+                        start_event.ion_type.name, expected),
                     events=events,
                     expected=expected
                 )

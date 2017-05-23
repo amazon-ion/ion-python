@@ -22,7 +22,7 @@ import traceback
 
 _IMPORT_ALL = None
 try:
-    from amazon.ion import *
+    from amazon.ion import *  # noqa F401
 except:
     traceback.print_exc()
     _IMPORT_ALL = sys.exc_info()

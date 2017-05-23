@@ -21,7 +21,7 @@ from pytest import raises
 
 from tests import parametrize
 
-from amazon.ion.reader import BufferQueue, CodePointArray
+from amazon.ion.reader import BufferQueue
 from amazon.ion.util import record
 
 

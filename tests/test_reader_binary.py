@@ -17,20 +17,25 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from datetime import timedelta
 from decimal import Decimal
 from itertools import chain
 from random import Random
 from six import int2byte
 
 from tests import parametrize, listify
-from tests.reader_util import reader_scaffold, ReaderParameter, all_top_level_as_one_stream_params, value_iter
-from tests.event_aliases import *
+from tests.reader_util import reader_scaffold, ReaderParameter, \
+    all_top_level_as_one_stream_params, value_iter
+from tests.event_aliases import e_int, NEXT, END, e_read, IVM, INC, e_null, \
+    e_bool, e_float, e_decimal, e_timestamp, e_symbol, e_string, e_clob, \
+    e_blob, e_null_list, e_start_list, e_null_sexp, e_end_list, e_end_sexp, \
+    e_start_sexp, e_null_struct, e_start_struct, e_end_struct, partial, \
+    e_start, e_end, SKIP
 
-from amazon.ion.core import IonType, timestamp, TimestampPrecision, OffsetTZInfo
+from amazon.ion.core import IonType, timestamp, TimestampPrecision
 from amazon.ion.exceptions import IonException
 from amazon.ion.reader import read_data_event, ReadEventType
-from amazon.ion.reader_binary import raw_reader, _TypeID, _CONTAINER_TIDS, _TID_VALUE_TYPE_TABLE
+from amazon.ion.reader_binary import raw_reader, _TypeID, _CONTAINER_TIDS, \
+    _TID_VALUE_TYPE_TABLE
 from amazon.ion.symbols import SYMBOL_ZERO_TOKEN, SymbolToken
 
 _PREC_YEAR = TimestampPrecision.YEAR
@@ -43,7 +48,7 @@ _ts = timestamp
 
 _P = ReaderParameter
 
-_IVM_PAIRS =[
+_IVM_PAIRS = [
     (NEXT, END),
     (e_read(b'\xE0\x01\x00\xEA'), IVM)
 ]
@@ -57,6 +62,7 @@ def _prepend_ivm(params):
             event_pairs=_IVM_PAIRS + p.event_pairs
         )
         yield new_p
+
 
 _BASIC_PARAMS = (
     _P(
@@ -97,16 +103,23 @@ _BASIC_PARAMS = (
 
 _BAD_VALUES = (
     # Only up to microsecond precision is supported (6 digits).
-    (b'\x69\xC0\x81\x81\x81\x80\x80\x80\xC7\x01', 'OVERFLOWING TIMESTAMP PRECISION'),
-    # The annotation wrapper declares 6 octets, but the wrapped value (a symbol value) ends after only 4.
-    (b'\xe6\x81\x84\x71\x04\x71\x04', 'ANNOT LENGTH TOO LONG - SCALAR'),
-    # The annotation wrapper declares 6 octets, but the wrapped value (a list) ends after only 4.
+    (
+        b'\x69\xC0\x81\x81\x81\x80\x80\x80\xC7\x01',
+        'OVERFLOWING TIMESTAMP PRECISION'),
+    # The annotation wrapper declares 6 octets, but the wrapped value (a symbol
+    # value) ends after only 4.
+    (
+        b'\xe6\x81\x84\x71\x04\x71\x04', 'ANNOT LENGTH TOO LONG - SCALAR'),
+    # The annotation wrapper declares 6 octets, but the wrapped value (a list)
+    # ends after only 4.
     (b'\xe6\x81\x84\xb1\x20\x71\x04', 'ANNOT LENGTH TOO LONG - CONTAINER'),
     # The annotation wrapper declares 4 octets, and the SIDs take up all four.
     (b'\xe4\x83\x84\x85\x86', 'ANNOT LENGTH TOO SHORT - NO VALUE'),
-    # The annotation wrapper declares 4 octets, but the subfields (including a list) take up five.
+    # The annotation wrapper declares 4 octets, but the subfields (including a
+    # list) take up five.
     (b'\xe4\x81\x84\xb2\x21\x01', 'ANNOT LENGTH TOO SHORT - CONTAINER'),
-    # The annotation wrapper declares 3 octets, but the subfields (including an int) take up four.
+    # The annotation wrapper declares 3 octets, but the subfields (including an
+    # int) take up four.
     (b'\xe3\x81\x84\x21\x01', 'ANNOT LENGTH TOO SHORT - SCALAR'),
 )
 
@@ -121,7 +134,9 @@ def _bad_params():
             ]
         )
 
-# This is an encoding of a single top-level value and the expected events with ``NEXT``.
+
+# This is an encoding of a single top-level value and the expected events with
+# ``NEXT``.
 _TOP_LEVEL_VALUES = (
     (b'\x0F', e_null()),
 
@@ -135,14 +150,18 @@ _TOP_LEVEL_VALUES = (
     (b'\x22\x00\x01', e_int(1)),
     (b'\x24\x01\x2F\xEF\xCC', e_int(0x12FEFCC)),
     (b'\x29\x12\x34\x56\x78\x90\x12\x34\x56\x78', e_int(0x123456789012345678)),
-    (b'\x2E\x81\x05', e_int(5)), # Over padded length.
+    (b'\x2E\x81\x05', e_int(5)),  # Over padded length.
 
     (b'\x3F', e_int()),  # null.int has two equivalent representations.
     (b'\x31\x01', e_int(-1)),
     (b'\x32\xC1\xC2', e_int(-0xC1C2)),
     (b'\x36\xC1\xC2\x00\x00\x10\xFF', e_int(-0xC1C2000010FF)),
-    (b'\x39\x12\x34\x56\x78\x90\x12\x34\x56\x78', e_int(-0x123456789012345678)),
-    (b'\x3E\x82\x00\xA0', e_int(-160)), # Over padded length + overpadded integer.
+    (
+        b'\x39\x12\x34\x56\x78\x90\x12\x34\x56\x78',
+        e_int(-0x123456789012345678)),
+
+    # Over padded length + overpadded integer.
+    (b'\x3E\x82\x00\xA0', e_int(-160)),
 
     (b'\x4F', e_float()),
     (b'\x40', e_float(0.0)),
@@ -169,11 +188,17 @@ _TOP_LEVEL_VALUES = (
     (b'\x52\x81\x80', e_decimal(Decimal('-0e1'))),
 
     (b'\x6F', e_timestamp()),
-    (b'\x63\xC0\x0F\xE0', e_timestamp(_ts(2016, precision=_PREC_YEAR))), # -00:00
-    (b'\x63\x80\x0F\xE0', e_timestamp(_ts(2016, off_hours=0, precision=_PREC_YEAR))),
+
+    # -00:00
+    (b'\x63\xC0\x0F\xE0', e_timestamp(_ts(2016, precision=_PREC_YEAR))),
+
+    (
+            b'\x63\x80\x0F\xE0',
+            e_timestamp(_ts(2016, off_hours=0, precision=_PREC_YEAR))),
     (
         b'\x64\x81\x0F\xE0\x82',
-        e_timestamp(_ts(2016, 2, 1, 0, 1, off_minutes=1, precision=_PREC_MONTH))
+        e_timestamp(
+            _ts(2016, 2, 1, 0, 1, off_minutes=1, precision=_PREC_MONTH))
     ),
     (
         b'\x65\xFC\x0F\xE0\x82\x82',
@@ -181,17 +206,20 @@ _TOP_LEVEL_VALUES = (
     ),
     (
         b'\x68\x43\xA4\x0F\xE0\x82\x82\x87\x80',
-        e_timestamp(_ts(2016, 2, 2, 0, 0, off_hours=-7, precision=_PREC_MINUTE))
+        e_timestamp(
+            _ts(2016, 2, 2, 0, 0, off_hours=-7, precision=_PREC_MINUTE))
     ),
     (
         b'\x69\x43\xA4\x0F\xE0\x82\x82\x87\x80\x9E',
-        e_timestamp(_ts(2016, 2, 2, 0, 0, 30, off_hours=-7, precision=_PREC_SECOND))
+        e_timestamp(
+            _ts(2016, 2, 2, 0, 0, 30, off_hours=-7, precision=_PREC_SECOND))
     ),
     (
         b'\x6B\x43\xA4\x0F\xE0\x82\x82\x87\x80\x9E\xC3\x01',
-        e_timestamp(_ts(
-            2016, 2, 2, 0, 0, 30, 1000, off_hours=-7, precision=_PREC_SECOND, fractional_precision=3
-        ))
+        e_timestamp(
+            _ts(
+                2016, 2, 2, 0, 0, 30, 1000, off_hours=-7,
+                precision=_PREC_SECOND, fractional_precision=3))
     ),
     (
         b'\x67\xC0\x81\x81\x81\x80\x80\x80',
@@ -199,12 +227,17 @@ _TOP_LEVEL_VALUES = (
     ),
     (
         b'\x67\xC1\x81\x81\x81\x80\x81\x80',
-        e_timestamp(_ts(year=1, month=1, day=1, off_minutes=-1, precision=_PREC_SECOND))
-    ),
+        e_timestamp(
+            _ts(
+                year=1, month=1, day=1, off_minutes=-1,
+                precision=_PREC_SECOND))),
     (
-        b'\x69\xC1\x81\x81\x81\x80\x81\x80\x80\x00',  # Fractions with coefficients of 0 and exponents > -1 are ignored.
-        e_timestamp(_ts(year=1, month=1, day=1, off_minutes=-1, precision=_PREC_SECOND))
-    ),
+        # Fractions with coefficients of 0 and exponents > -1 are ignored.
+        b'\x69\xC1\x81\x81\x81\x80\x81\x80\x80\x00',
+        e_timestamp(
+            _ts(
+                year=1, month=1, day=1, off_minutes=-1,
+                precision=_PREC_SECOND))),
     (
         b'\x69\xC0\x81\x81\x81\x80\x80\x80\xC6\x01',
         e_timestamp(_ts(
@@ -213,22 +246,30 @@ _TOP_LEVEL_VALUES = (
         ))
     ),
     (
-        b'\x6C\x43\xA4\x0F\xE0\x82\x82\x87\x80\x9E\xC6\x03\xE8',  # The last three octets represent 1000d-6
-        e_timestamp(_ts(
-            2016, 2, 2, 0, 0, 30, 1000, off_hours=-7, precision=TimestampPrecision.SECOND
-        )),
+        # The last three octets represent 1000d-6
+        b'\x6C\x43\xA4\x0F\xE0\x82\x82\x87\x80\x9E\xC6\x03\xE8',
+
+        e_timestamp(
+            _ts(
+                2016, 2, 2, 0, 0, 30, 1000, off_hours=-7,
+                precision=TimestampPrecision.SECOND)),
     ),
     (
-        b'\x6C\x43\xA4\x0F\xE0\x82\x82\x87\x80\x9E\xC6\x03\xE8',  # The last three octets represent 1000d-6
-        e_timestamp(_ts(
-            2016, 2, 2, 0, 0, 30, 1000, off_hours=-7, precision=TimestampPrecision.SECOND, fractional_precision=6
-        )),
+        # The last three octets represent 1000d-6
+        b'\x6C\x43\xA4\x0F\xE0\x82\x82\x87\x80\x9E\xC6\x03\xE8',
+
+        e_timestamp(
+            _ts(
+                2016, 2, 2, 0, 0, 30, 1000, off_hours=-7,
+                precision=TimestampPrecision.SECOND, fractional_precision=6)),
     ),
 
     (b'\x7F', e_symbol()),
     (b'\x70', e_symbol(SYMBOL_ZERO_TOKEN)),
     (b'\x71\x02', e_symbol(SymbolToken(None, 2))),
-    (b'\x7A' + b'\xFF' * 10, e_symbol(SymbolToken(None, 0xFFFFFFFFFFFFFFFFFFFF))),
+    (
+            b'\x7A' + b'\xFF' * 10,
+            e_symbol(SymbolToken(None, 0xFFFFFFFFFFFFFFFFFFFF))),
 
     (b'\x8F', e_string()),
     (b'\x80', e_string(u'')),
@@ -245,13 +286,15 @@ _TOP_LEVEL_VALUES = (
 
     (b'\xBF', e_null_list()),
     (b'\xB0', e_start_list(), e_end_list()),
-    
+
     (b'\xCF', e_null_sexp()),
     (b'\xC0', e_start_sexp(), e_end_sexp()),
-    
+
     (b'\xDF', e_null_struct()),
     (b'\xD0', e_start_struct(), e_end_struct()),
-    (b'\xD1\x82\x84\x20', e_start_struct(), e_int(0, field_name=SymbolToken(None, 4)), e_end_struct())
+    (
+        b'\xD1\x82\x84\x20', e_start_struct(),
+        e_int(0, field_name=SymbolToken(None, 4)), e_end_struct())
 )
 
 
@@ -264,7 +307,9 @@ def _top_level_event_pairs(data, events):
             first = False
         yield input_event, event
 
-_top_level_iter = partial(value_iter, _top_level_event_pairs, _TOP_LEVEL_VALUES)
+
+_top_level_iter = partial(
+    value_iter, _top_level_event_pairs, _TOP_LEVEL_VALUES)
 
 
 def _gen_type_len(tid, length):
@@ -279,20 +324,23 @@ def _gen_type_len(tid, length):
 
     raise ValueError('No support for long lengths in reader test')
 
+
 _TEST_ANNOTATION_DATA = b'\x82\x84\x87'
 _TEST_ANNOTATION_LEN = len(_TEST_ANNOTATION_DATA)
 _TEST_ANNOTATION_SIDS = (SymbolToken(None, 4), SymbolToken(None, 7))
 
 
 def _top_level_value_params():
-    """Converts the top-level tuple list into parameters with appropriate ``NEXT`` inputs.
+    """
+    Converts the top-level tuple list into parameters with appropriate ``NEXT``
+    inputs.
 
     The expectation is starting from an end of stream top-level context.
     """
     for data, event_pairs in _top_level_iter():
         _, first = event_pairs[0]
         yield _P(
-            desc='TL %s - %s - %r' % \
+            desc='TL %s - %s - %r' %
                  (first.event_type.name, first.ion_type.name, first.value),
             event_pairs=[(NEXT, END)] + event_pairs + [(NEXT, END)],
         )
@@ -301,7 +349,8 @@ def _top_level_value_params():
 def _annotate_params(params):
     """Adds annotation wrappers for a given iterator of parameters,
 
-    The requirement is that the given parameters completely encapsulate a single value.
+    The requirement is that the given parameters completely encapsulate a
+    single value.
     """
     for param in params:
         @listify
@@ -309,11 +358,11 @@ def _annotate_params(params):
             for input_event, output_event in param.event_pairs:
                 if input_event.type is ReadEventType.DATA:
                     data_len = _TEST_ANNOTATION_LEN + len(input_event.data)
-                    data = _gen_type_len(_TypeID.ANNOTATION, data_len) \
-                           + _TEST_ANNOTATION_DATA \
-                           + input_event.data
+                    data = _gen_type_len(_TypeID.ANNOTATION, data_len) + \
+                        _TEST_ANNOTATION_DATA + input_event.data
                     input_event = read_data_event(data)
-                    output_event = output_event.derive_annotations(_TEST_ANNOTATION_SIDS)
+                    output_event = output_event.derive_annotations(
+                        _TEST_ANNOTATION_SIDS)
                 yield input_event, output_event
 
         yield _P(
@@ -361,7 +410,8 @@ def _containerize_params(params, with_skip=True):
                         first = False
                     yield read_event, ion_event
 
-            type_header = _gen_type_len(tid, data_len + len(field_data)) + field_data
+            type_header = _gen_type_len(tid, data_len + len(field_data)) + \
+                field_data
 
             start = [
                 (NEXT, END),
@@ -371,7 +421,8 @@ def _containerize_params(params, with_skip=True):
             mid = add_field_names(param.event_pairs[1:-1])
             end = [(NEXT, e_end(ion_type)), (NEXT, END)]
 
-            desc = 'SINGLETON %s%s - %s' % (ion_type.name, field_desc, param.desc)
+            desc = 'SINGLETON %s%s - %s' % (
+                ion_type.name, field_desc, param.desc)
             yield _P(
                 desc=desc,
                 event_pairs=start + mid + end,
@@ -388,7 +439,7 @@ def _containerize_params(params, with_skip=True):
                 start = start[:-1] + [(SKIP, INC)]
                 end = only_data_inc(param.event_pairs)
                 end = end[:-1] + [(end[-1][0], e_end(ion_type)), (NEXT, END)]
-                
+
                 yield _P(
                     desc='SKIP %s' % desc,
                     event_pairs=start + end,

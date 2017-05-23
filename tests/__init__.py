@@ -25,7 +25,10 @@ from contextlib import contextmanager
 
 
 def listify(iter_func):
-    """Takes an iterator function and returns a function that materializes it into a list."""
+    """
+    Takes an iterator function and returns a function that materializes it into
+    a list.
+    """
     def delegate(*args, **kwargs):
         return list(iter_func(*args, **kwargs))
     delegate.__name__ = iter_func.__name__
@@ -77,13 +80,14 @@ def parametrize(*values):
                     return '{p.a} - {p.b} - {p.c}'.format(p=self)
 
     Args:
-        values (Sequence[Any]): A sequence of values to pass to a single argument
-            function.
+        values (Sequence[Any]): A sequence of values to pass to a single
+            argument function.
 
     Returns:
         pytest.mark.parametrize: The decorator.
     """
     values = tuple((value,) for value in values)
+
     def decorator(func):
         if func.__code__.co_argcount != 1:
             raise ValueError('Expected a function with a single parameter.')

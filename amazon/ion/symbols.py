@@ -52,13 +52,15 @@ SID_ION_SHARED_SYMBOL_TABLE = 9
 class ImportLocation(record('name', 'position')):
     """Represents the import location of a symbol token.
 
-    An import location can be thought of as a position independent address of an imported symbol.
-    This metadata, if defined, can indicate identity of a symbol that came from a shared symbol
-    token that the application does not have access to.
+    An import location can be thought of as a position independent address of
+    an imported symbol.
+    This metadata, if defined, can indicate identity of a symbol that came from
+    a shared symbol token that the application does not have access to.
 
     Note:
-        Version is nor part of an import location because a position in a shared table by name
-        uniquely identifies that slot irrespective of version.
+        Version is nor part of an import location because a position in a
+        shared table by name uniquely identifies that slot irrespective of
+        version.
 
     Args:
         name (unicode): The name of the shared symbol table.
@@ -78,14 +80,16 @@ class SymbolToken(record('text', 'sid', 'location')):
     Args:
         text (Optional[unicode]): The text image of the token.
         sid  (Optional[int]): The local symbol ID of the token.
-        location (Optional[ImportTableLocation]): The import source of the token.
+        location (Optional[ImportTableLocation]): The import source of the
+            token.
 
     Note:
         At least one of ``text`` or ``sid`` should be non-``None``
     """
     def __new__(cls, text, sid, location=None):
         if text is None and sid is None:
-            raise ValueError('SymbolToken must specify at least one of text or sid')
+            raise ValueError(
+                'SymbolToken must specify at least one of text or sid')
         return super(SymbolToken, cls).__new__(cls, text, sid, location)
 
 
@@ -105,7 +109,8 @@ _SYSTEM_SYMBOL_TOKENS = (
     _system_symbol_token(TEXT_IMPORTS, SID_IMPORTS),
     _system_symbol_token(TEXT_SYMBOLS, SID_SYMBOLS),
     _system_symbol_token(TEXT_MAX_ID, SID_MAX_ID),
-    _system_symbol_token(TEXT_ION_SHARED_SYMBOL_TABLE, SID_ION_SHARED_SYMBOL_TABLE),
+    _system_symbol_token(
+        TEXT_ION_SHARED_SYMBOL_TABLE, SID_ION_SHARED_SYMBOL_TABLE),
 )
 
 
@@ -118,9 +123,13 @@ class _SymbolTableType(record('is_system', 'is_shared', 'is_local')):
         is_local (bool): Whether or not the symbol table is is_local.
     """
 
-SYSTEM_TABLE_TYPE = _SymbolTableType(is_system=True, is_shared=True, is_local=False)
-SHARED_TABLE_TYPE = _SymbolTableType(is_system=False, is_shared=True, is_local=False)
-LOCAL_TABLE_TYPE = _SymbolTableType(is_system=False, is_shared=False, is_local=True)
+
+SYSTEM_TABLE_TYPE = _SymbolTableType(
+    is_system=True, is_shared=True, is_local=False)
+SHARED_TABLE_TYPE = _SymbolTableType(
+    is_system=False, is_shared=True, is_local=False)
+LOCAL_TABLE_TYPE = _SymbolTableType(
+    is_system=False, is_shared=False, is_local=True)
 
 
 class SymbolTable(object):
@@ -130,39 +139,54 @@ class SymbolTable(object):
 
     A few things to consider about symbol tables:
 
-    * System symbol tables never have imports and are shared symbol tables themselves.
+    * System symbol tables never have imports and are shared symbol tables
+      themselves.
     * Shared symbol tables never import the system symbol table.
     * Local symbol tables implicitly import the system symbol table.
 
-    Shared symbol tables have tokens that always have a ``location`` attribute referring to themselves.
-    Local symbol tables have tokens whose ``location`` attribute refers to **either** the shared symbol
-    that it was imported from or ``None`` if the symbol was defined locally.
+    Shared symbol tables have tokens that always have a ``location`` attribute
+    referring to themselves.
+    Local symbol tables have tokens whose ``location`` attribute refers to
+    **either** the shared symbol that it was imported from or ``None`` if the
+    symbol was defined locally.
 
     Note:
-        Shared symbol tables (which include system symbol tables) are immutable.
-        Local symbol tables support interning as a mutable operation.
-        The implementation doesn't enforce making properties read-only to enforce this invariant.
+        Shared symbol tables (which include system symbol tables) are
+        immutable. Local symbol tables support interning as a mutable
+        operation. The implementation doesn't enforce making properties
+        read-only to enforce this invariant.
 
     Args:
         table_type (_SymbolTableType): The type of symbol table.
-        symbols (Iterable[unicode]): The symbols text associated *locally* to this table.
+        symbols (Iterable[unicode]): The symbols text associated *locally* to
+            this table.
         imports (Optional[Iterable[SymbolTable]]): The imports of the table.
-        name (Optional[unicode]): The name of this table.  Required for shared symbol tables.
-        version (Optional[int]): The version of this table.  Required for shared symbol tables.
-        is_substitute (Optional[bool]): Whether or not this table is substituted.  A substituted symbol
-                table is one that is not resolvable and has placeholder entries.
+        name (Optional[unicode]): The name of this table.  Required for shared
+            symbol tables.
+        version (Optional[int]): The version of this table.  Required for
+            shared symbol tables.
+        is_substitute (Optional[bool]): Whether or not this table is
+            substituted.  A substituted symbol table is one that is not
+            resolvable and has placeholder entries.
     """
-    def __init__(self, table_type, symbols, name=None, version=None, imports=None, is_substitute=False):
+    def __init__(
+            self, table_type, symbols, name=None, version=None, imports=None,
+            is_substitute=False):
         if table_type.is_system and imports is not None:
             raise ValueError('System tables cannot have imports')
-        if table_type.is_shared and (name is None or version is None or version <= 0):
-            raise ValueError('Shared symbol tables must have a name and >= 1 version')
+        if table_type.is_shared and (
+                name is None or version is None or version <= 0):
+            raise ValueError(
+                'Shared symbol tables must have a name and >= 1 version')
         if table_type.is_local and (name is not None or version is not None):
-            raise ValueError('Local symbol tables cannot have a name or version')
+            raise ValueError(
+                'Local symbol tables cannot have a name or version')
         if table_type.is_system and (name != TEXT_ION):
-            raise ValueError('System symbol tables must be named "%s"' % TEXT_ION)
+            raise ValueError(
+                'System symbol tables must be named "%s"' % TEXT_ION)
         if name is not None and not isinstance(name, six.text_type):
-            raise TypeError('Shared symbol tables must have a unicode name: %r' % name)
+            raise TypeError(
+                'Shared symbol tables must have a unicode name: %r' % name)
 
         self.table_type = table_type
         self.name = name
@@ -187,9 +211,10 @@ class SymbolTable(object):
                         if not table.table_type.is_local \
                                 or token.location is None \
                                 or token.location.name != TEXT_ION:
-                            # TODO Determine if this code should handle LST as import.
-                            # If the import is a local symbol table, we need to ignore system
-                            # imports.  This supports LST append.
+                            # TODO Determine if this code should handle LST as
+                            # import. If the import is a local symbol table,
+                            # we need to ignore system imports.  This supports
+                            # LST append.
                             self.__add_import(token)
 
         # System symbols are bootstrapped
@@ -218,9 +243,12 @@ class SymbolTable(object):
             self.__mapping[text] = token
 
     def __add_shared(self, original_token):
-        """Adds a token, normalizing the SID and import reference to this table."""
+        """
+        Adds a token, normalizing the SID and import reference to this table.
+        """
         sid = self.__new_sid()
-        token = SymbolToken(original_token.text, sid, self.__import_location(sid))
+        token = SymbolToken(
+            original_token.text, sid, self.__import_location(sid))
         self.__add(token)
         return token
 
@@ -234,7 +262,9 @@ class SymbolTable(object):
     def __add_text(self, text):
         """Adds the given Unicode text as a locally defined symbol."""
         if text is not None and not isinstance(text, six.text_type):
-            raise TypeError('Local symbol definition must be a Unicode sequence or None: %r' % text)
+            raise TypeError(
+                'Local symbol definition must be a Unicode sequence or '
+                'None: %r' % text)
         sid = self.__new_sid()
         location = None
         if self.table_type.is_shared:
@@ -253,12 +283,15 @@ class SymbolTable(object):
             text (unicode): The target to intern.
 
         Returns:
-            SymbolToken: The mapped symbol token which may already exist in the table.
+            SymbolToken: The mapped symbol token which may already exist in the
+            table.
         """
         if self.table_type.is_shared:
             raise TypeError('Cannot intern on shared symbol table')
         if not isinstance(text, six.text_type):
-            raise TypeError('Cannot intern non-Unicode sequence into symbol table: %r' % text)
+            raise TypeError(
+                'Cannot intern non-Unicode sequence into symbol table: %r' %
+                text)
 
         token = self.get(text)
         if token is None:
@@ -268,18 +301,21 @@ class SymbolTable(object):
     def get(self, key, default=None):
         """Returns a token by text or local ID, with a default.
 
-        A given text image may be associated with more than one symbol ID.  This will return the first definition.
+        A given text image may be associated with more than one symbol ID. This
+        will return the first definition.
 
         Note:
-            User defined symbol IDs are always one-based.  Symbol zero is a special symbol that
-            always has no text.
+            User defined symbol IDs are always one-based. Symbol zero is a
+            special symbol that always has no text.
 
         Args:
             key (unicode | int):  The key to lookup.
-            default(Optional[SymbolToken]): The default to return if the key is not found
+            default(Optional[SymbolToken]): The default to return if the key is
+            not found
 
         Returns:
-            SymbolToken: The token associated with the key or the default if it doesn't exist.
+            SymbolToken: The token associated with the key or the default if it
+            doesn't exist.
         """
         if isinstance(key, six.text_type):
             return self.__mapping.get(key, None)
@@ -331,17 +367,21 @@ class SymbolTable(object):
     def __eq__(self, other):
         """Compares two symbol tables together.
 
-        Two symbol tables are considered equal if the underlying tokens are the same and the
-        ``table_type``, ``name``, ``version``, and ``is_substitute`` attributes are defined and are equal.
+        Two symbol tables are considered equal if the underlying tokens are the
+        same and the ``table_type``, ``name``, ``version``, and
+        ``is_substitute`` attributes are defined and are equal.
 
         Note:
-            This is implemented using ``getattr`` to allow duck-typed table implementations to compare.
-            Any custom symbol table-like implementation should implement this method accordingly.
+            This is implemented using ``getattr`` to allow duck-typed table
+            implementations to compare. Any custom symbol table-like
+            implementation should implement this method accordingly.
 
             Things that are not compared:
 
-             * ``imports`` are never compared as they are denormalized into the tokens of the table.
-             * ``max_id`` is never compared as its an invariant that it matches the iteration.
+             * ``imports`` are never compared as they are denormalized into the
+               tokens of the table.
+             * ``max_id`` is never compared as its an invariant that it matches
+               the iteration.
         """
         if self is other:
             return True
@@ -369,12 +409,12 @@ class SymbolTable(object):
     def __ne__(self, other):
         return not self == other
 
+
 SYSTEM_SYMBOL_TABLE = SymbolTable(
     table_type=SYSTEM_TABLE_TYPE,
     symbols=_SYSTEM_SYMBOL_TOKENS,
     name=TEXT_ION,
-    version=1
-)
+    version=1)
 
 
 def local_symbol_table(imports=None, symbols=()):
@@ -385,7 +425,8 @@ def local_symbol_table(imports=None, symbols=()):
         symbols (Optional[Iterable[Unicode]]): Initial local symbols to add.
 
     Returns:
-        SymbolTable: A mutable local symbol table with the seeded local symbols.
+        SymbolTable: A mutable local symbol table with the seeded local
+        symbols.
     """
     return SymbolTable(
         table_type=LOCAL_TABLE_TYPE,
@@ -401,7 +442,8 @@ def shared_symbol_table(name, version, symbols, imports=None):
         name (unicode): The name of the shared symbol table.
         version (int): The version of the shared symbol table.
         symbols (Iterable[unicode]): The symbols to associate with the table.
-        imports (Optional[Iterable[SymbolTable]): The shared symbol tables to inject into this one.
+        imports (Optional[Iterable[SymbolTable]): The shared symbol tables to
+        inject into this one.
 
     Returns:
         SymbolTable: The constructed table.
@@ -416,21 +458,25 @@ def shared_symbol_table(name, version, symbols, imports=None):
 
 
 def placeholder_symbol_table(name, version, max_id):
-    """Constructs a shared symbol table that consists symbols that all have no known text.
+    """
+    Constructs a shared symbol table that consists symbols that all have no
+    known text.
 
-    This is generally used for cases where a shared symbol table is not available by the
-    application.
+    This is generally used for cases where a shared symbol table is not
+    available by the application.
 
     Args:
         name (unicode): The name of the shared symbol table.
         version (int): The version of the shared symbol table.
-        max_id (int): The maximum ID allocated by this symbol table, must be ``>= 0``
+        max_id (int): The maximum ID allocated by this symbol table, must be
+        ``>= 0``
 
     Returns:
         SymbolTable: The synthesized table.
     """
     if version <= 0:
-        raise ValueError('Version must be grater than or equal to 1: %s' % version)
+        raise ValueError(
+            'Version must be grater than or equal to 1: %s' % version)
     if max_id < 0:
         raise ValueError('Max ID must be zero or positive: %s' % max_id)
 
@@ -446,23 +492,27 @@ def placeholder_symbol_table(name, version, max_id):
 def substitute_symbol_table(table, version, max_id):
     """Substitutes a given shared symbol table for another version.
 
-    * If the given table has **more** symbols than the requested substitute, then the generated
-      symbol table will be a subset of the given table.
-    * If the given table has **less** symbols than the requested substitute, then the generated
-      symbol table will have symbols with unknown text generated for the difference.
+    * If the given table has **more** symbols than the requested substitute,
+      then the generated symbol table will be a subset of the given table.
+    * If the given table has **less** symbols than the requested substitute,
+      then the generated symbol table will have symbols with unknown text
+      generated for the difference.
 
     Args:
         table (SymbolTable): The shared table to derive from.
         version (int): The version to target.
-        max_id (int): The maximum ID allocated by the substitute, must be ``>= 0``.
+        max_id (int): The maximum ID allocated by the substitute, must be
+        ``>= 0``.
 
     Returns:
         SymbolTable: The synthesized table.
     """
     if not table.table_type.is_shared:
-        raise ValueError('Symbol table to substitute from must be a shared table')
+        raise ValueError(
+            'Symbol table to substitute from must be a shared table')
     if version <= 0:
-        raise ValueError('Version must be grater than or equal to 1: %s' % version)
+        raise ValueError(
+            'Version must be grater than or equal to 1: %s' % version)
     if max_id < 0:
         raise ValueError('Max ID must be zero or positive: %s' % max_id)
 
@@ -472,8 +522,7 @@ def substitute_symbol_table(table, version, max_id):
     else:
         symbols = chain(
             (token.text for token in table),
-            repeat(None, max_id - table.max_id)
-        )
+            repeat(None, max_id - table.max_id))
 
     return SymbolTable(
         table_type=SHARED_TABLE_TYPE,
@@ -488,10 +537,11 @@ class SymbolTableCatalog(object):
     """A collection of symbol tables that can be used to resolve imports.
 
     Note:
-        The catalog will return a placeholder symbol table when resolving a table
-        that doesn't exist. For tables that don't exist with any version, this placeholder
-        will be completely devoid of text mappings.  For tables that exist with a non-exact version,
-        a derived substitute will be generated.
+        The catalog will return a placeholder symbol table when resolving a
+        table that doesn't exist. For tables that don't exist with any version,
+        this placeholder will be completely devoid of text mappings. For tables
+        that exist with a non-exact version, a derived substitute will be
+        generated.
     """
     def __init__(self):
         self.__tables = {}
@@ -522,12 +572,13 @@ class SymbolTableCatalog(object):
             name (unicode): The name of the table to resolve.
             version (int): The version of the table to resolve.
             max_id (Optional[int]): The maximum ID of the table requested.
-                May be ``None`` in which case an exact match on ``name`` and ``version``
-                is required.
+                May be ``None`` in which case an exact match on ``name`` and
+                ``version`` is required.
 
         Returns:
-            SymbolTable: The *closest* matching symbol table.  This is either an exact match,
-            a placeholder, or a derived substitute depending on what tables are registered.
+            SymbolTable: The *closest* matching symbol table.  This is either
+            an exact match, a placeholder, or a derived substitute depending on
+            what tables are registered.
         """
         if not isinstance(name, six.text_type):
             raise TypeError('Name must be a Unicode sequence: %r' % name)
@@ -553,12 +604,13 @@ class SymbolTableCatalog(object):
             keys.sort()
             table = versions[keys[-1]]
 
-        if table.version == version and (max_id is None or table.max_id == max_id):
+        if table.version == version and (
+                max_id is None or table.max_id == max_id):
             return table
 
         if max_id is None:
             raise CannotSubstituteTable(
-                'Found match for %s, but not version %d, and no max_id' % (name, version)
-            )
+                'Found match for %s, but not version %d, and no max_id' %
+                (name, version))
 
         return substitute_symbol_table(table, version, max_id)

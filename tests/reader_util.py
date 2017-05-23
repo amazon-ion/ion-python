@@ -58,15 +58,18 @@ def reader_scaffold(reader, event_pairs):
     for read_event, expected in zip(input_events, output_events):
         if is_exception(expected):
             with raises(expected):
-                reader.send(read_event).value  # Forces evaluation of all value thunks.
+
+                # Forces evaluation of all value thunks.
+                reader.send(read_event).value
         else:
             actual = reader.send(read_event)
             assert expected == actual
 
 
 def value_iter(event_func, values, *args):
-    """Generates input/output event pairs from a sequence whose first element is the raw data and the following
-    elements are the expected output events.
+    """
+    Generates input/output event pairs from a sequence whose first element is
+    the raw data and the following elements are the expected output events.
     """
     for seq in values:
         data = seq[0]
