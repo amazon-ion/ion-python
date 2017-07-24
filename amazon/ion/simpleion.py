@@ -45,7 +45,8 @@ _IVM = b'\xe0\x01\x00\xea'
 _TEXT_TYPES = (TextIOBase, six.StringIO)
 
 
-def dump(obj, fp, imports=None, binary=True, sequence_as_stream=False, skipkeys=False, ensure_ascii=True, check_circular=True, allow_nan=True, cls=None, indent=None,
+def dump(obj, fp, imports=None, binary=True, sequence_as_stream=False, prefix_version_marker=True,
+         skipkeys=False, ensure_ascii=True, check_circular=True, allow_nan=True, cls=None, indent=None,
          separators=None, encoding='utf-8', default=None, use_decimal=True, namedtuple_as_object=True,
          tuple_as_array=True, bigint_as_string=False, sort_keys=False, item_sort_key=None, for_json=None,
          ignore_nan=False, int_as_string_bitcount=None, iterable_as_array=False, **kw):
@@ -107,6 +108,8 @@ def dump(obj, fp, imports=None, binary=True, sequence_as_stream=False, skipkeys=
         sequence_as_stream (Optional[True|False]): When True, if ``obj`` is a sequence, it will be treated as a stream
             of top-level Ion values (i.e. the resulting Ion data will begin with ``obj``'s first element).
             Default: False.
+        prefix_version_marker (Optional[True|False]): When True prefix Ion Version Marker (IVM)
+            Default: True
         skipkeys: NOT IMPLEMENTED
         ensure_ascii: NOT IMPLEMENTED
         check_circular: NOT IMPLEMENTED
@@ -131,7 +134,8 @@ def dump(obj, fp, imports=None, binary=True, sequence_as_stream=False, skipkeys=
     """
     raw_writer = binary_writer(imports) if binary else text_writer()
     writer = blocking_writer(raw_writer, fp)
-    writer.send(ION_VERSION_MARKER_EVENT)  # The IVM is emitted automatically in binary; it's optional in text.
+    if prefix_version_marker:
+        writer.send(ION_VERSION_MARKER_EVENT)
     if sequence_as_stream and isinstance(obj, (list, tuple)):
         # Treat this top-level sequence as a stream; serialize its elements as top-level values, but don't serialize the
         # sequence itself.
