@@ -207,8 +207,46 @@ def dumps(obj, skipkeys=False, ensure_ascii=True, check_circular=True, allow_nan
           separators=None, encoding='utf-8', default=None, use_decimal=True, namedtuple_as_object=True,
           tuple_as_array=True, bigint_as_string=False, sort_keys=False, item_sort_key=None, for_json=None,
           ignore_nan=False, int_as_string_bitcount=None, iterable_as_array=False, **kw):
-    """Not yet implemented"""
-    raise IonException("Not yet implemented")
+    """Serialize ``obj`` as an Ion string, using the conversion table used by ``dump`` (above).
+
+    Args:
+        obj (Any): A python object to serialize according to the above table. Any Python object which is neither an
+            instance of or inherits from one of the types in the above table will raise TypeError.
+        skipkeys: NOT IMPLEMENTED
+        ensure_ascii: NOT IMPLEMENTED
+        check_circular: NOT IMPLEMENTED
+        allow_nan: NOT IMPLEMENTED
+        cls: NOT IMPLEMENTED
+        indent: NOT IMPLEMENTED
+        separators: NOT IMPLEMENTED
+        encoding: NOT IMPLEMENTED
+        default: NOT IMPLEMENTED
+        use_decimal: NOT IMPLEMENTED
+        namedtuple_as_object: NOT IMPLEMENTED
+        tuple_as_array: NOT IMPLEMENTED
+        bigint_as_string: NOT IMPLEMENTED
+        sort_keys: NOT IMPLEMENTED
+        item_sort_key: NOT IMPLEMENTED
+        for_json: NOT IMPLEMENTED
+        ignore_nan: NOT IMPLEMENTED
+        int_as_string_bitcount: NOT IMPLEMENTED
+        iterable_as_array: NOT IMPLEMENTED
+        **kw: NOT IMPLEMENTED
+
+    Returns:
+        str: Ion clob representation of ``obj``
+    """
+    ion_buffer = six.BytesIO()
+
+    dump(obj, ion_buffer, binary=False, skipkeys=skipkeys, ensure_ascii=ensure_ascii, check_circular=check_circular,
+         allow_nan=allow_nan, cls=cls, indent=indent, separators=separators, encoding=encoding, default=default,
+         use_decimal=use_decimal, namedtuple_as_object=namedtuple_as_object, tuple_as_array=tuple_as_array,
+         bigint_as_string=bigint_as_string, sort_keys=sort_keys, item_sort_key=item_sort_key, for_json=for_json,
+         ignore_nan=ignore_nan, int_as_string_bitcount=int_as_string_bitcount, iterable_as_array=iterable_as_array)
+
+    ion_str = ion_buffer.getvalue().decode('utf-8')
+    ion_buffer.close()
+    return ion_str
 
 
 def load(fp, catalog=None, single_value=True, encoding='utf-8', cls=None, object_hook=None, parse_float=None,
