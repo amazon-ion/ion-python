@@ -29,7 +29,7 @@ from amazon.ion.core import IonType, IonEvent, IonEventType, OffsetTZInfo
 from amazon.ion.simple_types import IonPyDict, IonPyText, IonPyList, IonPyNull, IonPyBool, IonPyInt, IonPyFloat, \
     IonPyDecimal, IonPyTimestamp, IonPyBytes, IonPySymbol, _IonNature
 from amazon.ion.equivalence import ion_equals
-from amazon.ion.simpleion import dump, load, _ion_type, _FROM_ION_TYPE
+from amazon.ion.simpleion import dump, dumps, load, _ion_type, _FROM_ION_TYPE
 from amazon.ion.util import record
 from amazon.ion.writer_binary_raw import _serialize_symbol, _write_length
 from tests.writer_util import VARUINT_END_BYTE, ION_ENCODED_INT_ZERO, SIMPLE_SCALARS_MAP_BINARY, SIMPLE_SCALARS_MAP_TEXT
@@ -316,6 +316,23 @@ def test_dump_load_text(p):
                 return False
     if not equals():
         assert ion_equals(p.obj, res)  # Redundant, but provides better error message.
+
+
+@parametrize(
+    *tuple(chain(
+        generate_scalars_text(SIMPLE_SCALARS_MAP_TEXT),
+        generate_containers_text(_SIMPLE_CONTAINER_MAP),
+        generate_annotated_values_text(SIMPLE_SCALARS_MAP_TEXT, _SIMPLE_CONTAINER_MAP),
+    ))
+)
+def test_dumps(p):
+    # test dumps
+    res = dumps(p.obj, sequence_as_stream=p.stream)
+    if not p.has_symbols:
+        assert (b'$ion_1_0 ' + p.expected) == res
+    else:
+        # The payload contains a LST. The value comes last, so compare the end bytes.
+        assert p.expected == res[len(res) - len(p.expected):]
 
 
 _ROUNDTRIPS = [

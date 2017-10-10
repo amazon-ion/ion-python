@@ -45,10 +45,11 @@ _IVM = b'\xe0\x01\x00\xea'
 _TEXT_TYPES = (TextIOBase, six.StringIO)
 
 
-def dump(obj, fp, imports=None, binary=True, sequence_as_stream=False, skipkeys=False, ensure_ascii=True, check_circular=True, allow_nan=True, cls=None, indent=None,
-         separators=None, encoding='utf-8', default=None, use_decimal=True, namedtuple_as_object=True,
-         tuple_as_array=True, bigint_as_string=False, sort_keys=False, item_sort_key=None, for_json=None,
-         ignore_nan=False, int_as_string_bitcount=None, iterable_as_array=False, **kw):
+def dump(obj, fp, imports=None, binary=True, sequence_as_stream=False, skipkeys=False, ensure_ascii=True,
+         check_circular=True, allow_nan=True, cls=None, indent=None, separators=None, encoding='utf-8', default=None,
+         use_decimal=True, namedtuple_as_object=True, tuple_as_array=True, bigint_as_string=False, sort_keys=False,
+         item_sort_key=None, for_json=None, ignore_nan=False, int_as_string_bitcount=None, iterable_as_array=False,
+         **kw):
     """Serialize ``obj`` as an Ion-formatted stream to ``fp`` (a file-like object), using the following conversion
     table::
         +-------------------+-------------------+
@@ -203,15 +204,19 @@ def _dump(obj, writer, field=None):
     writer.send(event)
 
 
-def dumps(obj, skipkeys=False, ensure_ascii=True, check_circular=True, allow_nan=True, cls=None, indent=None,
-          separators=None, encoding='utf-8', default=None, use_decimal=True, namedtuple_as_object=True,
-          tuple_as_array=True, bigint_as_string=False, sort_keys=False, item_sort_key=None, for_json=None,
-          ignore_nan=False, int_as_string_bitcount=None, iterable_as_array=False, **kw):
+def dumps(obj, imports=None, sequence_as_stream=False, skipkeys=False, ensure_ascii=True, check_circular=True,
+          allow_nan=True, cls=None, indent=None, separators=None, encoding='utf-8', default=None, use_decimal=True,
+          namedtuple_as_object=True, tuple_as_array=True, bigint_as_string=False, sort_keys=False, item_sort_key=None,
+          for_json=None, ignore_nan=False, int_as_string_bitcount=None, iterable_as_array=False, **kw):
     """Serialize ``obj`` as an Ion string, using the conversion table used by ``dump`` (above).
 
     Args:
         obj (Any): A python object to serialize according to the above table. Any Python object which is neither an
             instance of or inherits from one of the types in the above table will raise TypeError.
+        imports (Optional[Sequence[SymbolTable]]): A sequence of shared symbol tables to be used by by the writer.
+        sequence_as_stream (Optional[True|False]): When True, if ``obj`` is a sequence, it will be treated as a stream
+            of top-level Ion values (i.e. the resulting Ion data will begin with ``obj``'s first element).
+            Default: False.
         skipkeys: NOT IMPLEMENTED
         ensure_ascii: NOT IMPLEMENTED
         check_circular: NOT IMPLEMENTED
@@ -238,7 +243,7 @@ def dumps(obj, skipkeys=False, ensure_ascii=True, check_circular=True, allow_nan
     """
     ion_buffer = six.BytesIO()
 
-    dump(obj, ion_buffer, binary=False, skipkeys=skipkeys, ensure_ascii=ensure_ascii, check_circular=check_circular,
+    dump(obj, ion_buffer, sequence_as_stream=sequence_as_stream, binary=False, skipkeys=skipkeys, ensure_ascii=ensure_ascii, check_circular=check_circular,
          allow_nan=allow_nan, cls=cls, indent=indent, separators=separators, encoding=encoding, default=default,
          use_decimal=use_decimal, namedtuple_as_object=namedtuple_as_object, tuple_as_array=tuple_as_array,
          bigint_as_string=bigint_as_string, sort_keys=sort_keys, item_sort_key=item_sort_key, for_json=for_json,
