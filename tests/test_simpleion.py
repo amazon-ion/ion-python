@@ -329,10 +329,10 @@ def test_dumps(p):
     # test dumps
     res = dumps(p.obj, sequence_as_stream=p.stream)
     if not p.has_symbols:
-        assert (b'$ion_1_0 ' + p.expected) == res
+        assert (b'$ion_1_0 ' + p.expected).decode('utf-8') == res
     else:
         # The payload contains a LST. The value comes last, so compare the end bytes.
-        assert p.expected == res[len(res) - len(p.expected):]
+        assert (p.expected).decode('utf-8') == res[len(res) - len(p.expected):]
 
 
 _ROUNDTRIPS = [

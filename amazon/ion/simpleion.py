@@ -101,7 +101,7 @@ def dump(obj, fp, imports=None, binary=True, sequence_as_stream=False, skipkeys=
 
     Args:
         obj (Any): A python object to serialize according to the above table. Any Python object which is neither an
-            instance of or inherits from one of the types in the above table will raise TypeError.
+            instance of nor inherits from one of the types in the above table will raise TypeError.
         fp (BaseIO): A file-like object.
         imports (Optional[Sequence[SymbolTable]]): A sequence of shared symbol tables to be used by by the writer.
         binary (Optional[True|False]): When True, outputs binary Ion. When false, outputs text Ion.
@@ -212,7 +212,7 @@ def dumps(obj, imports=None, sequence_as_stream=False, skipkeys=False, ensure_as
 
     Args:
         obj (Any): A python object to serialize according to the above table. Any Python object which is neither an
-            instance of or inherits from one of the types in the above table will raise TypeError.
+            instance of nor inherits from one of the types in the above table will raise TypeError.
         imports (Optional[Sequence[SymbolTable]]): A sequence of shared symbol tables to be used by by the writer.
         sequence_as_stream (Optional[True|False]): When True, if ``obj`` is a sequence, it will be treated as a stream
             of top-level Ion values (i.e. the resulting Ion data will begin with ``obj``'s first element).
