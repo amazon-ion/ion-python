@@ -21,7 +21,7 @@ from __future__ import print_function
 
 from datetime import datetime
 from decimal import Decimal
-from io import TextIOBase
+from io import BytesIO, TextIOBase
 from itertools import chain
 
 import six
@@ -372,7 +372,35 @@ def _load(out, reader, end_type=IonEventType.STREAM_END, in_struct=False):
         event = reader.send(NEXT_EVENT)
 
 
-def loads(fp, encoding='utf-8', cls=None, object_hook=None, parse_float=None, parse_int=None, parse_constant=None,
-          object_pairs_hook=None, use_decimal=None, **kw):
-    """Not yet implemented"""
-    raise IonException("Not yet implemented")
+def loads(ion_str, catalog=None, single_value=True, encoding='utf-8', cls=None, object_hook=None, parse_float=None,
+          parse_int=None, parse_constant=None, object_pairs_hook=None, use_decimal=None, **kw):
+    """Deserialize ``ion_str``, which is a string representation of an Ion object, to a Python object using the
+    conversion table used by load (above).
+
+    Args:
+        fp (str): A string representation of Ion data.
+        catalog (Optional[SymbolTableCatalog]): The catalog to use for resolving symbol table imports.
+        single_value (Optional[True|False]): When True, the data in ``ion_str`` is interpreted as a single Ion value,
+            and will be returned without an enclosing container. If True and there are multiple top-level values in
+            the Ion stream, IonException will be raised. NOTE: this means that when data is dumped using
+            ``sequence_as_stream=True``, it must be loaded using ``single_value=False``. Default: True.
+        encoding: NOT IMPLEMENTED
+        cls: NOT IMPLEMENTED
+        object_hook: NOT IMPLEMENTED
+        parse_float: NOT IMPLEMENTED
+        parse_int: NOT IMPLEMENTED
+        parse_constant: NOT IMPLEMENTED
+        object_pairs_hook: NOT IMPLEMENTED
+        use_decimal: NOT IMPLEMENTED
+        **kw: NOT IMPLEMENTED
+
+    Returns (Any):
+        if single_value is True:
+            A Python object representing a single Ion value.
+        else:
+            A sequence of Python objects representing a stream of Ion values.
+    """
+    ion_buffer = BytesIO(ion_str.encode())
+    return load(ion_buffer, catalog=catalog, single_value=single_value, encoding=encoding, cls=cls,
+                object_hook=object_hook, parse_float=parse_float, parse_int=parse_int, parse_constant=parse_constant,
+                object_pairs_hook=object_pairs_hook, use_decimal=use_decimal)
