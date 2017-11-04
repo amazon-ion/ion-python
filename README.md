@@ -6,6 +6,25 @@ for Python.
 
 This package is designed to work with **Python 2.6+** and **Python 3.3+**
 
+## Git Setup
+This repository contains a [git submodule](https://git-scm.com/docs/git-submodule)
+called `ion-tests`, which holds test data used by `ion-python`'s unit tests.
+
+The easiest way to clone the `ion-python` repository and initialize its `ion-tests`
+submodule is to run the following command.
+
+```
+$ git clone --recursive https://github.com/amzn/ion-python.git ion-python
+```
+
+Alternatively, the submodule may be initialized independently from the clone
+by running the following commands.
+
+```
+$ git submodule init
+$ git submodule update
+```
+
 ## Development
 It is recommended to use `virtualenv` to create a clean environment to build/test Ion Python.
 
