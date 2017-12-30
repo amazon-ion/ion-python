@@ -12,3 +12,4 @@
 /build
 /dist
 /amazon.ion.egg-info
+coverage.xml
