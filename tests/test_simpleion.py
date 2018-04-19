@@ -29,7 +29,7 @@ from amazon.ion.core import IonType, IonEvent, IonEventType, OffsetTZInfo
 from amazon.ion.simple_types import IonPyDict, IonPyText, IonPyList, IonPyNull, IonPyBool, IonPyInt, IonPyFloat, \
     IonPyDecimal, IonPyTimestamp, IonPyBytes, IonPySymbol, _IonNature
 from amazon.ion.equivalence import ion_equals
-from amazon.ion.simpleion import dump, dumps, load, _ion_type, _FROM_ION_TYPE
+from amazon.ion.simpleion import dump, dumps, load, loads, _ion_type, _FROM_ION_TYPE
 from amazon.ion.util import record
 from amazon.ion.writer_binary_raw import _serialize_symbol, _write_length
 from tests.writer_util import VARUINT_END_BYTE, ION_ENCODED_INT_ZERO, SIMPLE_SCALARS_MAP_BINARY, SIMPLE_SCALARS_MAP_TEXT
@@ -276,6 +276,27 @@ def generate_annotated_values_text(scalars_map, container_map):
         )
 
 
+def _assert_symbol_aware_ion_equals(assertion, output):
+    if ion_equals(assertion, output):
+        return True
+    if isinstance(assertion, SymbolToken):
+        expected_token = assertion
+        if assertion.text is None:
+            assert assertion.sid is not None
+            # System symbol IDs are mapped correctly in the text format.
+            token = SYSTEM_SYMBOL_TABLE.get(assertion.sid)
+            assert token is not None  # User symbols with unknown text won't be successfully read.
+            expected_token = token
+        return expected_token == output
+    else:
+        try:
+            return isnan(assertion) and isnan(output)
+        except TypeError:
+            return False
+    if not equals():
+        assert ion_equals(assertion, output)  # Redundant, but provides better error message.
+
+
 @parametrize(
     *tuple(chain(
         generate_scalars_text(SIMPLE_SCALARS_MAP_TEXT),
@@ -296,26 +317,7 @@ def test_dump_load_text(p):
     # test load
     out.seek(0)
     res = load(out, single_value=(not p.stream))
-
-    def equals():
-        if ion_equals(p.obj, res):
-            return True
-        if isinstance(p.obj, SymbolToken):
-            expected_token = p.obj
-            if p.obj.text is None:
-                assert p.obj.sid is not None
-                # System symbol IDs are mapped correctly in the text format.
-                token = SYSTEM_SYMBOL_TABLE.get(p.obj.sid)
-                assert token is not None  # User symbols with unknown text won't be successfully read.
-                expected_token = token
-            return expected_token == res
-        else:
-            try:
-                return isnan(p.obj) and isnan(res)
-            except TypeError:
-                return False
-    if not equals():
-        assert ion_equals(p.obj, res)  # Redundant, but provides better error message.
+    _assert_symbol_aware_ion_equals(p.obj, res)
 
 
 @parametrize(
@@ -325,14 +327,17 @@ def test_dump_load_text(p):
         generate_annotated_values_text(SIMPLE_SCALARS_MAP_TEXT, _SIMPLE_CONTAINER_MAP),
     ))
 )
-def test_dumps(p):
+def test_dumps_loads_text(p):
     # test dumps
-    res = dumps(p.obj, sequence_as_stream=p.stream)
+    dumps_res = dumps(p.obj, sequence_as_stream=p.stream)
     if not p.has_symbols:
-        assert (b'$ion_1_0 ' + p.expected).decode('utf-8') == res
+        assert (b'$ion_1_0 ' + p.expected).decode('utf-8') == dumps_res
     else:
         # The payload contains a LST. The value comes last, so compare the end bytes.
-        assert (p.expected).decode('utf-8') == res[len(res) - len(p.expected):]
+        assert (p.expected).decode('utf-8') == dumps_res[len(dumps_res) - len(p.expected):]
+    # test loads
+    loads_res = loads(dumps_res, single_value=(not p.stream))
+    _assert_symbol_aware_ion_equals(p.obj, loads_res)
 
 
 _ROUNDTRIPS = [
