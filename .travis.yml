@@ -5,7 +5,11 @@ python:
   - "3.3"
   - "3.4"
   - "3.5"
+  - "3.6"
   - "pypy"
+  # https://github.com/travis-ci/travis-ci/issues/9542
+  # pypy3 < 6.0.0 fails due to discrepancies with decimal...
+  #- "pypy3"
 install:
   - "pip install -r requirements.txt"
   - "pip install ."
