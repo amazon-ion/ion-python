@@ -49,20 +49,20 @@ of [tox](http://tox.readthedocs.io/en/latest/) with [pyenv](https://github.com/y
 Install relevant versions of Python:
 
 ```
-$ for V in 2.6.9 2.7.12 3.3.6 3.4.5 3.5.2 pypy-5.3.1; do pyenv install $V; done
+$ for V in 2.6.9 2.7.15 3.3.7 3.4.8 3.5.5 3.6.5 pypy2.7-6.0.0 pypy3.5-6.0.0; do pyenv install $V; done
 ```
 
 Note that on Mac OS X, you may need to change the `CFLAGS`:
 
 ```
-$ for V in 2.6.9 2.7.12 3.3.6 3.4.5 3.5.2 pypy-5.3.1; do
+$ for V in 2.6.9 2.7.15 3.3.7 3.4.8 3.5.5 3.6.5 pypy2.7-6.0.0 pypy3.5-6.0.0; do
     CFLAGS="-I$(xcrun --show-sdk-path)/usr/include" pyenv install $V; done
 ```
 
 Once you have these installations, add them as a local `pyenv` configuration
 
 ```
-$ pyenv local 2.6.9 2.7.12 3.3.6 3.4.5 3.5.2 pypy-5.3.1
+$ pyenv local 2.6.9 2.7.15 3.3.7 3.4.8 3.5.5 3.6.5 pypy2.7-6.0.0 pypy3.5-6.0.0
 ```
 
 At the time of this writing, on Mac OS X, you may have problems with `pyenv` and `pypy`.
