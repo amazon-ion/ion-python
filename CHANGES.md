@@ -1,5 +1,5 @@
 ### 0.3.0 (2018-05-15)
-* Implements full support for loads()/dumps().
+* Implements support for both binary and text for loads()/dumps().
 
 ### 0.2.0 (2017-05-10)
 * Added support for reading text Ion
