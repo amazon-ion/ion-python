@@ -21,7 +21,7 @@ from __future__ import print_function
 
 from datetime import datetime
 from decimal import Decimal
-from io import TextIOBase
+from io import BytesIO, TextIOBase
 from itertools import chain
 
 import six
@@ -204,16 +204,17 @@ def _dump(obj, writer, field=None):
     writer.send(event)
 
 
-def dumps(obj, imports=None, sequence_as_stream=False, skipkeys=False, ensure_ascii=True, check_circular=True,
+def dumps(obj, imports=None, binary=True, sequence_as_stream=False, skipkeys=False, ensure_ascii=True, check_circular=True,
           allow_nan=True, cls=None, indent=None, separators=None, encoding='utf-8', default=None, use_decimal=True,
           namedtuple_as_object=True, tuple_as_array=True, bigint_as_string=False, sort_keys=False, item_sort_key=None,
           for_json=None, ignore_nan=False, int_as_string_bitcount=None, iterable_as_array=False, **kw):
-    """Serialize ``obj`` as an Ion string, using the conversion table used by ``dump`` (above).
+    """Serialize ``obj`` as Python ``string`` or ``bytes`` object, using the conversion table used by ``dump`` (above).
 
     Args:
         obj (Any): A python object to serialize according to the above table. Any Python object which is neither an
             instance of nor inherits from one of the types in the above table will raise TypeError.
         imports (Optional[Sequence[SymbolTable]]): A sequence of shared symbol tables to be used by by the writer.
+        binary (Optional[True|False]): When True, outputs binary Ion. When false, outputs text Ion.
         sequence_as_stream (Optional[True|False]): When True, if ``obj`` is a sequence, it will be treated as a stream
             of top-level Ion values (i.e. the resulting Ion data will begin with ``obj``'s first element).
             Default: False.
@@ -239,19 +240,22 @@ def dumps(obj, imports=None, sequence_as_stream=False, skipkeys=False, ensure_as
         **kw: NOT IMPLEMENTED
 
     Returns:
-        str: Ion clob representation of ``obj``
+        Union[str|bytes]: The string or binary representation of the data.  if ``binary=True``, this will be a
+            ``bytes`` object, otherwise this will be a ``str`` object (or ``unicode`` in the case of Python 2.x)
     """
     ion_buffer = six.BytesIO()
 
-    dump(obj, ion_buffer, sequence_as_stream=sequence_as_stream, binary=False, skipkeys=skipkeys, ensure_ascii=ensure_ascii, check_circular=check_circular,
+    dump(obj, ion_buffer, sequence_as_stream=sequence_as_stream, binary=binary, skipkeys=skipkeys, ensure_ascii=ensure_ascii, check_circular=check_circular,
          allow_nan=allow_nan, cls=cls, indent=indent, separators=separators, encoding=encoding, default=default,
          use_decimal=use_decimal, namedtuple_as_object=namedtuple_as_object, tuple_as_array=tuple_as_array,
          bigint_as_string=bigint_as_string, sort_keys=sort_keys, item_sort_key=item_sort_key, for_json=for_json,
          ignore_nan=ignore_nan, int_as_string_bitcount=int_as_string_bitcount, iterable_as_array=iterable_as_array)
 
-    ion_str = ion_buffer.getvalue().decode('utf-8')
+    ret_val = ion_buffer.getvalue()
     ion_buffer.close()
-    return ion_str
+    if not binary:
+        ret_val = ret_val.decode('utf-8')
+    return ret_val
 
 
 def load(fp, catalog=None, single_value=True, encoding='utf-8', cls=None, object_hook=None, parse_float=None,
@@ -372,7 +376,42 @@ def _load(out, reader, end_type=IonEventType.STREAM_END, in_struct=False):
         event = reader.send(NEXT_EVENT)
 
 
-def loads(fp, encoding='utf-8', cls=None, object_hook=None, parse_float=None, parse_int=None, parse_constant=None,
-          object_pairs_hook=None, use_decimal=None, **kw):
-    """Not yet implemented"""
-    raise IonException("Not yet implemented")
+def loads(ion_str, catalog=None, single_value=True, encoding='utf-8', cls=None, object_hook=None, parse_float=None,
+          parse_int=None, parse_constant=None, object_pairs_hook=None, use_decimal=None, **kw):
+    """Deserialize ``ion_str``, which is a string representation of an Ion object, to a Python object using the
+    conversion table used by load (above).
+
+    Args:
+        fp (str): A string representation of Ion data.
+        catalog (Optional[SymbolTableCatalog]): The catalog to use for resolving symbol table imports.
+        single_value (Optional[True|False]): When True, the data in ``ion_str`` is interpreted as a single Ion value,
+            and will be returned without an enclosing container. If True and there are multiple top-level values in
+            the Ion stream, IonException will be raised. NOTE: this means that when data is dumped using
+            ``sequence_as_stream=True``, it must be loaded using ``single_value=False``. Default: True.
+        encoding: NOT IMPLEMENTED
+        cls: NOT IMPLEMENTED
+        object_hook: NOT IMPLEMENTED
+        parse_float: NOT IMPLEMENTED
+        parse_int: NOT IMPLEMENTED
+        parse_constant: NOT IMPLEMENTED
+        object_pairs_hook: NOT IMPLEMENTED
+        use_decimal: NOT IMPLEMENTED
+        **kw: NOT IMPLEMENTED
+
+    Returns (Any):
+        if single_value is True:
+            A Python object representing a single Ion value.
+        else:
+            A sequence of Python objects representing a stream of Ion values.
+    """
+
+    if isinstance(ion_str, six.binary_type):
+        ion_buffer = BytesIO(ion_str)
+    elif isinstance(ion_str, six.text_type):
+        ion_buffer = six.StringIO(ion_str)
+    else:
+        raise TypeError('Unsupported text: %r' % ion_str)
+
+    return load(ion_buffer, catalog=catalog, single_value=single_value, encoding=encoding, cls=cls,
+                object_hook=object_hook, parse_float=parse_float, parse_int=parse_int, parse_constant=parse_constant,
+                object_pairs_hook=object_pairs_hook, use_decimal=use_decimal)

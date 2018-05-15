@@ -29,7 +29,7 @@ from amazon.ion.core import IonType, IonEvent, IonEventType, OffsetTZInfo
 from amazon.ion.simple_types import IonPyDict, IonPyText, IonPyList, IonPyNull, IonPyBool, IonPyInt, IonPyFloat, \
     IonPyDecimal, IonPyTimestamp, IonPyBytes, IonPySymbol, _IonNature
 from amazon.ion.equivalence import ion_equals
-from amazon.ion.simpleion import dump, dumps, load, _ion_type, _FROM_ION_TYPE
+from amazon.ion.simpleion import dump, dumps, load, loads, _ion_type, _FROM_ION_TYPE
 from amazon.ion.util import record
 from amazon.ion.writer_binary_raw import _serialize_symbol, _write_length
 from tests.writer_util import VARUINT_END_BYTE, ION_ENCODED_INT_ZERO, SIMPLE_SCALARS_MAP_BINARY, SIMPLE_SCALARS_MAP_TEXT
@@ -44,10 +44,14 @@ class _Parameter(record('desc', 'obj', 'expected', 'has_symbols', ('stream', Fal
         return self.desc
 
 
-class _Expected:
-    def __init__(self, binary, text):
-        self.binary = [binary]
-        self.text = [text]
+class _Expected(record('binary', 'text')):
+    def __new__(cls, binary, text):
+        return super(_Expected, cls).__new__(cls, (binary,), (text,))
+
+
+def bytes_of(*args, **kwargs):
+    return bytes(bytearray(*args, **kwargs))
+
 
 _SIMPLE_CONTAINER_MAP = {
     IonType.LIST: (
@@ -62,7 +66,7 @@ _SIMPLE_CONTAINER_MAP = {
         (
             [[0], ],
             _Expected(
-                bytearray([
+                bytes_of([
                     0xB0 | 0x01,  # Int value 0 fits in 1 byte.
                     ION_ENCODED_INT_ZERO
                 ]),
@@ -72,7 +76,7 @@ _SIMPLE_CONTAINER_MAP = {
         (
             [IonPyList.from_value(IonType.LIST, [0]), ],
             _Expected(
-                bytearray([
+                bytes_of([
                     0xB0 | 0x01,  # Int value 0 fits in 1 byte.
                     ION_ENCODED_INT_ZERO
                 ]),
@@ -88,7 +92,7 @@ _SIMPLE_CONTAINER_MAP = {
         (
             [IonPyList.from_value(IonType.SEXP, [0]), ],
             _Expected(
-                bytearray([
+                bytes_of([
                     0xC0 | 0x01,  # Int value 0 fits in 1 byte.
                     ION_ENCODED_INT_ZERO
                 ]),
@@ -108,7 +112,7 @@ _SIMPLE_CONTAINER_MAP = {
         (
             [{u'foo': 0}, ],
             _Expected(
-                bytearray([
+                bytes_of([
                     0xDE,  # The lower nibble may vary. It does not indicate actual length unless it's 0.
                     VARUINT_END_BYTE | 2,  # Field name 10 and value 0 each fit in 1 byte.
                     VARUINT_END_BYTE | 10,
@@ -120,7 +124,7 @@ _SIMPLE_CONTAINER_MAP = {
         (
             [IonPyDict.from_value(IonType.STRUCT, {u'foo': 0}), ],
             _Expected(
-                bytearray([
+                bytes_of([
                     0xDE,  # The lower nibble may vary. It does not indicate actual length unless it's 0.
                     VARUINT_END_BYTE | 2,  # Field name 10 and value 0 each fit in 1 byte.
                     VARUINT_END_BYTE | 10,
@@ -168,9 +172,13 @@ def generate_containers_binary(container_map, preceding_symbols=0):
                 if isinstance(elem, dict) and len(elem) > 0:
                     has_symbols = True
             if has_symbols and preceding_symbols:
+                # we need to make a distinct copy that will contain an altered encoding
+                expecteds = []
                 for expected in expecteds:
+                    expected = bytearray(expected)
                     field_sid = expected[-2] & (~VARUINT_END_BYTE)
                     expected[-2] = VARUINT_END_BYTE | (preceding_symbols + field_sid)
+                    expecteds.append(expected)
             expected = bytearray()
             for e in expecteds:
                 expected.extend(e)
@@ -204,6 +212,54 @@ def generate_annotated_values_binary(scalars_map, container_map):
         )
 
 
+def _assert_symbol_aware_ion_equals(assertion, output):
+    if ion_equals(assertion, output):
+        return True
+    if isinstance(assertion, SymbolToken):
+        expected_token = assertion
+        if assertion.text is None:
+            assert assertion.sid is not None
+            # System symbol IDs are mapped correctly in the text format.
+            token = SYSTEM_SYMBOL_TABLE.get(assertion.sid)
+            assert token is not None  # User symbols with unknown text won't be successfully read.
+            expected_token = token
+        return expected_token == output
+    else:
+        try:
+            return isnan(assertion) and isnan(output)
+        except TypeError:
+            return False
+
+
+def _dump_load_run(p, dumps_func, loads_func, binary):
+    # test dump
+    res = dumps_func(p.obj, binary=binary, sequence_as_stream=p.stream)
+    if not p.has_symbols:
+        if binary:
+            assert (_IVM + p.expected) == res
+        else:
+            assert (b'$ion_1_0 ' + p.expected) == res
+    else:
+        # The payload contains a LST. The value comes last, so compare the end bytes.
+        assert p.expected == res[len(res) - len(p.expected):]
+    # test load
+    res = loads_func(res, single_value=(not p.stream))
+    _assert_symbol_aware_ion_equals(p.obj, res)
+
+
+def _simple_dumps(obj, *args, **kw):
+    buf = BytesIO()
+    dump(obj, buf, *args, **kw)
+    return buf.getvalue()
+
+
+def _simple_loads(data, *args, **kw):
+    buf = BytesIO()
+    buf.write(data)
+    buf.seek(0)
+    return load(buf, *args, **kw)
+
+
 @parametrize(
     *tuple(chain(
         generate_scalars_binary(SIMPLE_SCALARS_MAP_BINARY),
@@ -212,19 +268,18 @@ def generate_annotated_values_binary(scalars_map, container_map):
     ))
 )
 def test_dump_load_binary(p):
-    # test dump
-    out = BytesIO()
-    dump(p.obj, out, binary=True, sequence_as_stream=p.stream)
-    res = out.getvalue()
-    if not p.has_symbols:
-        assert (_IVM + p.expected) == res
-    else:
-        # The payload contains a LST. The value comes last, so compare the end bytes.
-        assert p.expected == res[len(res) - len(p.expected):]
-    # test load
-    out.seek(0)
-    res = load(out, single_value=(not p.stream))
-    assert ion_equals(p.obj, res)
+    _dump_load_run(p, _simple_dumps, _simple_loads, binary=True)
+
+
+@parametrize(
+    *tuple(chain(
+        generate_scalars_binary(SIMPLE_SCALARS_MAP_BINARY),
+        generate_containers_binary(_SIMPLE_CONTAINER_MAP),
+        generate_annotated_values_binary(SIMPLE_SCALARS_MAP_BINARY, _SIMPLE_CONTAINER_MAP),
+    ))
+)
+def test_dumps_loads_binary(p):
+    _dump_load_run(p, dumps, loads, binary=True)
 
 
 def generate_scalars_text(scalars_map):
@@ -284,38 +339,7 @@ def generate_annotated_values_text(scalars_map, container_map):
     ))
 )
 def test_dump_load_text(p):
-    # test dump
-    out = BytesIO()
-    dump(p.obj, out, binary=False, sequence_as_stream=p.stream)
-    res = out.getvalue()
-    if not p.has_symbols:
-        assert (b'$ion_1_0 ' + p.expected) == res
-    else:
-        # The payload contains a LST. The value comes last, so compare the end bytes.
-        assert p.expected == res[len(res) - len(p.expected):]
-    # test load
-    out.seek(0)
-    res = load(out, single_value=(not p.stream))
-
-    def equals():
-        if ion_equals(p.obj, res):
-            return True
-        if isinstance(p.obj, SymbolToken):
-            expected_token = p.obj
-            if p.obj.text is None:
-                assert p.obj.sid is not None
-                # System symbol IDs are mapped correctly in the text format.
-                token = SYSTEM_SYMBOL_TABLE.get(p.obj.sid)
-                assert token is not None  # User symbols with unknown text won't be successfully read.
-                expected_token = token
-            return expected_token == res
-        else:
-            try:
-                return isnan(p.obj) and isnan(res)
-            except TypeError:
-                return False
-    if not equals():
-        assert ion_equals(p.obj, res)  # Redundant, but provides better error message.
+    _dump_load_run(p, _simple_dumps, _simple_loads, binary=False)
 
 
 @parametrize(
@@ -325,14 +349,13 @@ def test_dump_load_text(p):
         generate_annotated_values_text(SIMPLE_SCALARS_MAP_TEXT, _SIMPLE_CONTAINER_MAP),
     ))
 )
-def test_dumps(p):
-    # test dumps
-    res = dumps(p.obj, sequence_as_stream=p.stream)
-    if not p.has_symbols:
-        assert (b'$ion_1_0 ' + p.expected).decode('utf-8') == res
-    else:
-        # The payload contains a LST. The value comes last, so compare the end bytes.
-        assert (p.expected).decode('utf-8') == res[len(res) - len(p.expected):]
+def test_dumps_loads_text(p):
+    def dump_func(*args, **kw):
+        sval = dumps(*args, **kw)
+        # encode to UTF-8 bytes for comparisons
+        return sval.encode('UTF-8')
+
+    _dump_load_run(p, dump_func, loads, binary=False)
 
 
 _ROUNDTRIPS = [
