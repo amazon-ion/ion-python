@@ -1,4 +1,4 @@
-### 0.3.0 (2018-05-15)
+### 0.3.1 (2018-05-15)
 * Implements support for both binary and text for loads()/dumps().
 
 ### 0.2.0 (2017-05-10)
