@@ -32,7 +32,7 @@ setup(
     packages=find_packages(exclude=['tests*']),
     namespace_packages=['amazon'],
 
-    requires=[
+    install_requires=[
         'six',
     ],
 
