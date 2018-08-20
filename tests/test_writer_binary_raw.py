@@ -173,8 +173,7 @@ _SIMPLE_CONTAINER_MAP = {
         (
             (_E(_ET.SCALAR, _IT.INT, 0, field_name=SymbolToken(None, 10)),),
             bytearray([
-                0xDE,  # The lower nibble may vary by implementation. It does not indicate actual length unless it's 0.
-                VARUINT_END_BYTE | 2,  # Field name 10 and value 0 each fit in 1 byte.
+                0xD2,
                 VARUINT_END_BYTE | 10,
                 ION_ENCODED_INT_ZERO
             ])

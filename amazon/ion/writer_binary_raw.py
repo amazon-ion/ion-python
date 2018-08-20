@@ -236,7 +236,7 @@ def _serialize_timestamp_direct(value):
         precision = TimestampPrecision.SECOND
     validate_scalar_value(dt, datetime)
     value_buf = bytearray()
-    if dt.tzinfo is None:
+    if dt.tzinfo is None or precision < TimestampPrecision.MINUTE:
         value_buf.append(_VARINT_NEG_ZERO)  # This signifies an unknown local offset.
         length = 1
     else:
@@ -347,17 +347,15 @@ def _serialize_annotation_wrapper(output_buf, annotations):
 def _serialize_container(output_buf, ion_type):
     length = output_buf.current_container_length
     header = bytearray()
-    if ion_type is IonType.STRUCT:
-        if length == 0:
-            header.append(_Zeros.STRUCT)
-        else:
-            # TODO Support sorted field name symbols, per the spec.
-            header.append(_TypeIds.STRUCT | _LENGTH_FIELD_INDICATOR)
-            _write_varuint(header, length)
+    if ion_type is IonType.STRUCT and length == 0:
+        # TODO Support sorted field name symbols, per the spec.
+        header.append(_Zeros.STRUCT)
     else:
         tid = _TypeIds.LIST
         if ion_type is IonType.SEXP:
             tid = _TypeIds.SEXP
+        elif ion_type is IonType.STRUCT:
+            tid = _TypeIds.STRUCT
         _write_length(header, length, tid)
     output_buf.end_container(header)
 

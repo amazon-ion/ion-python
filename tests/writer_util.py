@@ -61,35 +61,42 @@ def _scalar_p(ion_type, value, expected, force_stream_end):
 
 
 def _convert_symbol_pairs(symbol_pairs):
-    for value, literal in symbol_pairs:
-        yield (value, literal.replace(b"'", b'"'))
+    for value, literals in symbol_pairs:
+        converted_literals = literals
+        if isinstance(literals, (tuple, list)):
+            converted_literals = ()
+            for literal in literals:
+                converted_literals += (literal.replace(b"'", b'"'), )
+        else:
+            converted_literals = converted_literals.replace(b"'", b'"')
+        yield (value, converted_literals)
 
 
 def _convert_clob_pairs(clob_pairs):
-    for value, literal in clob_pairs:
+    for value, literals in clob_pairs:
         yield (value, b'{{' + b64encode(value) + b'}}')
 
 
 _SIMPLE_SYMBOLS_TEXT=(
     (u'', br"''"),
-    (u'\u0000', br"'\x00'"),
+    (u'\u0000', (br"'\x00'", br"'\0'")),
     (u'4hello', br"'4hello'"),
-    (u'hello', br"'hello'"),
+    (u'hello', (br"'hello'", br'hello')),
     (u'hello world', br"'hello world'"),
     (u'hello\u0009\x0a\x0dworld', br"'hello\t\n\rworld'"),
-    (u'hello\aworld', br"'hello\x07world'"),
+    (u'hello\aworld', (br"'hello\x07world'", br"'hello\aworld'")),
     (u'hello\u3000world', br"'hello\u3000world'"), # A full width space.
     (u'hello\U0001f4a9world', br"'hello\U0001f4a9world'"), # A 'pile of poo' emoji code point.
 )
 _SIMPLE_STRINGS_TEXT=tuple(_convert_symbol_pairs(_SIMPLE_SYMBOLS_TEXT))
 
 _SIMPLE_CLOBS_TEXT=(
-    #(b'', br'{{""}}'), # TODO c fails
-    (b'\x00', br'{{"\x00"}}'),
+    (b'', br'{{""}}'),
+    (b'\x00', (br'{{"\x00"}}', br'{{"\0"}}')),
     (b'hello', br'{{"hello"}}'),
     (b'hello\x09\x0a\x0dworld', br'{{"hello\t\n\rworld"}}'),
     (b'hello\x7Eworld', br'{{"hello~world"}}'),
-    (b'hello\xFFworld', br'{{"hello\xffworld"}}'),
+    (b'hello\xFFworld', (br'{{"hello\xffworld"}}', br'{{"hello\xFFworld"}}')),
 )
 _SIMPLE_BLOBS_TEXT=tuple(_convert_clob_pairs(_SIMPLE_CLOBS_TEXT))
 
@@ -125,10 +132,10 @@ SIMPLE_SCALARS_MAP_TEXT = {
         (float('NaN'), b'nan'),
         (float('+Inf'), b'+inf'),
         (float('-Inf'), b'-inf'),
-        (-0.0, b'-0.0e0'),
-        (0.0, b'0.0e0'),
-        (1.0, b'1.0e0'),
-        (-9007199254740991.0, b'-9007199254740991.0e0'),
+        (-0.0, (b'-0.0e0', b'-0e0')),
+        (0.0, (b'0.0e0', b'0e0')),
+        (1.0, (b'1.0e0', b'1e+0')),
+        (-9007199254740991.0, (b'-9007199254740991.0e0', b'-9007199254740991e+0')),
         (2.0e-15, _FLOAT_2_E_NEG_15_ENC),
         (1.1, _FLOAT_1_1_ENC),
         (1.1999999999999999555910790149937383830547332763671875e0, b'1.2e0'),
@@ -136,7 +143,7 @@ SIMPLE_SCALARS_MAP_TEXT = {
     _IT.DECIMAL: (
         (None, b'null.decimal'),
         (_D('-0.0'), b'-0.0'),
-        (_D('0'), b'0d0'),
+        (_D('0'), (b'0d0', b'0d+0')),
         (_D('0e100'), b'0d+100'),
         (_D('0e-15'), b'0d-15'),
         (_D('-1e1000'), b'-1d+1000'),
@@ -156,7 +163,7 @@ SIMPLE_SCALARS_MAP_TEXT = {
     ),
     _IT.SYMBOL: (
         (None, b'null.symbol'),
-        (SymbolToken(None, 4), b'$4'),  # System symbol 'name'.
+        (SymbolToken(None, 4), (b'$4', b'name')),  # System symbol 'name'.
         (SymbolToken(u'a token', 400), b"'a token'"),
     ) + _SIMPLE_SYMBOLS_TEXT,
     _IT.STRING: (
@@ -227,75 +234,75 @@ SIMPLE_SCALARS_MAP_BINARY = {
         (_D("-0e-1"), b'\x52\xC1\x80'),
         (_D("-0e1"), b'\x52\x81\x80'),
     ),
-    # _IT.TIMESTAMP: (
-    #     (None, b'\x6F'),
-    #     # TODO Clarify whether there's a valid zero-length Timestamp representation.
-    #     (_DT(year=1, month=1, day=1), b'\x68\xC0\x81\x81\x81\x80\x80\x80\xc6'),
-    #     (_DT(year=1, month=1, day=1, tzinfo=OffsetTZInfo(timedelta(minutes=-1))),
-    #      b'\x68\xC1\x81\x81\x81\x80\x81\x80\xc6'),
-    #     (_DT(year=1, month=1, day=1, hour=0, minute=0, second=0, microsecond=1),
-    #      b'\x69\xC0\x81\x81\x81\x80\x80\x80\xC6\x01'),
-    #     (timestamp(year=1, month=1, day=1, precision=TimestampPrecision.DAY), b'\x64\xC0\x81\x81\x81'),
-    #     (timestamp(year=1, month=1, day=1, off_minutes=-1, precision=TimestampPrecision.SECOND),
-    #      b'\x67\xC1\x81\x81\x81\x80\x81\x80'),
-    #     (
-    #         timestamp(year=1, month=1, day=1, hour=0, minute=0, second=0,
-    #                   microsecond=1, precision=TimestampPrecision.SECOND),
-    #         b'\x69\xC0\x81\x81\x81\x80\x80\x80\xC6\x01'
-    #     ),
-    #     (
-    #         timestamp(year=1, month=1, day=1, hour=0, minute=0, second=0,
-    #                   microsecond=100000, precision=TimestampPrecision.SECOND, fractional_precision=1),
-    #         b'\x69\xC0\x81\x81\x81\x80\x80\x80\xC1\x01'
-    #     ),
-    #     (timestamp(2016, precision=TimestampPrecision.YEAR), b'\x63\xC0\x0F\xE0'),  # -00:00
-    #     (timestamp(2016, off_hours=0, precision=TimestampPrecision.YEAR), b'\x63\x80\x0F\xE0'),
-    #     (
-    #         timestamp(2016, 2, 1, 0, 1, off_minutes=1, precision=TimestampPrecision.MONTH),
-    #         b'\x64\x81\x0F\xE0\x82'
-    #     ),
-    #     (
-    #         timestamp(2016, 2, 1, 23, 0, off_hours=-1, precision=TimestampPrecision.DAY),
-    #         b'\x65\xFC\x0F\xE0\x82\x82'
-    #     ),
-    #     (
-    #         timestamp(2016, 2, 2, 0, 0, off_hours=-7, precision=TimestampPrecision.MINUTE),
-    #         b'\x68\x43\xA4\x0F\xE0\x82\x82\x87\x80'
-    #     ),
-    #     (
-    #         timestamp(2016, 2, 2, 0, 0, 30, off_hours=-7, precision=TimestampPrecision.SECOND),
-    #         b'\x69\x43\xA4\x0F\xE0\x82\x82\x87\x80\x9E'
-    #     ),
-    #     (
-    #         timestamp(2016, 2, 2, 0, 0, 30, 1000, off_hours=-7,
-    #                   precision=TimestampPrecision.SECOND),
-    #         # When fractional_precision not specified, defaults to 6 (same as regular datetime).
-    #         b'\x6C\x43\xA4\x0F\xE0\x82\x82\x87\x80\x9E\xC6\x03\xE8'  # The last three octets represent 1000d-6
-    #     ),
-    #     (
-    #         timestamp(2016, 2, 2, 0, 0, 30, 1000, off_hours=-7,
-    #                   precision=TimestampPrecision.SECOND, fractional_precision=3),
-    #         b'\x6B\x43\xA4\x0F\xE0\x82\x82\x87\x80\x9E\xC3\x01'
-    #     ),
-    #     (
-    #         timestamp(2016, 2, 2, 0, 0, 30, 100000, off_hours=-7,
-    #                   precision=TimestampPrecision.SECOND, fractional_precision=1),
-    #         b'\x6B\x43\xA4\x0F\xE0\x82\x82\x87\x80\x9E\xC1\x01'
-    #     ),
-    # ),
-    # _IT.SYMBOL: (
-    #     (None, b'\x7F'),
-    #     (SYMBOL_ZERO_TOKEN, b'\x70'),
-    #     (SymbolToken(u'$ion', 1), b'\x71\x01'),
-    # ),
-    # _IT.STRING: (
-    #     (None, b'\x8F'),
-    #     (u'', b'\x80'),
-    #     (u'abc', b'\x83abc'),
-    #     (u'abcdefghijklmno', b'\x8E\x8Fabcdefghijklmno'),
-    #     (u'a\U0001f4a9c', b'\x86' + bytearray([b for b in u'a\U0001f4a9c'.encode('utf-8')])),
-    #     (u'a\u0009\x0a\x0dc', b'\x85' + bytearray([b for b in 'a\t\n\rc'.encode('utf-8')])),
-    # ),
+    _IT.TIMESTAMP: (
+        (None, b'\x6F'),
+        # TODO Clarify whether there's a valid zero-length Timestamp representation.
+        (_DT(year=1, month=1, day=1), b'\x68\xC0\x81\x81\x81\x80\x80\x80\xc6'),
+        (_DT(year=1, month=1, day=1, tzinfo=OffsetTZInfo(timedelta(minutes=-1))),
+         b'\x68\xC1\x81\x81\x81\x80\x81\x80\xc6'),
+        (_DT(year=1, month=1, day=1, hour=0, minute=0, second=0, microsecond=1),
+         b'\x69\xC0\x81\x81\x81\x80\x80\x80\xC6\x01'),
+        (timestamp(year=1, month=1, day=1, precision=TimestampPrecision.DAY), b'\x64\xC0\x81\x81\x81'),
+        (timestamp(year=1, month=1, day=1, off_minutes=-1, precision=TimestampPrecision.SECOND),
+         b'\x67\xC1\x81\x81\x81\x80\x81\x80'),
+        (
+            timestamp(year=1, month=1, day=1, hour=0, minute=0, second=0,
+                      microsecond=1, precision=TimestampPrecision.SECOND),
+            b'\x69\xC0\x81\x81\x81\x80\x80\x80\xC6\x01'
+        ),
+        (
+            timestamp(year=1, month=1, day=1, hour=0, minute=0, second=0,
+                      microsecond=100000, precision=TimestampPrecision.SECOND, fractional_precision=1),
+            b'\x69\xC0\x81\x81\x81\x80\x80\x80\xC1\x01'
+        ),
+        (timestamp(2016, precision=TimestampPrecision.YEAR), b'\x63\xC0\x0F\xE0'),  # -00:00
+        (timestamp(2016, off_hours=0, precision=TimestampPrecision.YEAR), b'\x63\xC0\x0F\xE0'),
+        (
+            timestamp(2016, 2, 1, 0, 1, off_minutes=1, precision=TimestampPrecision.MONTH),
+            b'\x64\xC0\x0F\xE0\x82'
+        ),
+        (
+            timestamp(2016, 2, 1, 23, 0, off_hours=-1, precision=TimestampPrecision.DAY),
+            b'\x65\xC0\x0F\xE0\x82\x81'
+        ),
+        (
+            timestamp(2016, 2, 2, 0, 0, off_hours=-7, precision=TimestampPrecision.MINUTE),
+            b'\x68\x43\xA4\x0F\xE0\x82\x82\x87\x80'
+        ),
+        (
+            timestamp(2016, 2, 2, 0, 0, 30, off_hours=-7, precision=TimestampPrecision.SECOND),
+            b'\x69\x43\xA4\x0F\xE0\x82\x82\x87\x80\x9E'
+        ),
+        (
+            timestamp(2016, 2, 2, 0, 0, 30, 1000, off_hours=-7,
+                      precision=TimestampPrecision.SECOND),
+            # When fractional_precision not specified, defaults to 6 (same as regular datetime).
+            b'\x6C\x43\xA4\x0F\xE0\x82\x82\x87\x80\x9E\xC6\x03\xE8'  # The last three octets represent 1000d-6
+        ),
+        (
+            timestamp(2016, 2, 2, 0, 0, 30, 1000, off_hours=-7,
+                      precision=TimestampPrecision.SECOND, fractional_precision=3),
+            b'\x6B\x43\xA4\x0F\xE0\x82\x82\x87\x80\x9E\xC3\x01'
+        ),
+        (
+            timestamp(2016, 2, 2, 0, 0, 30, 100000, off_hours=-7,
+                      precision=TimestampPrecision.SECOND, fractional_precision=1),
+            b'\x6B\x43\xA4\x0F\xE0\x82\x82\x87\x80\x9E\xC1\x01'
+        ),
+    ),
+    _IT.SYMBOL: (
+        (None, b'\x7F'),
+        (SYMBOL_ZERO_TOKEN, b'\x70'),
+        (SymbolToken(u'$ion', 1), b'\x71\x01'),
+    ),
+    _IT.STRING: (
+        (None, b'\x8F'),
+        (u'', b'\x80'),
+        (u'abc', b'\x83abc'),
+        (u'abcdefghijklmno', b'\x8E\x8Fabcdefghijklmno'),
+        (u'a\U0001f4a9c', b'\x86' + bytearray([b for b in u'a\U0001f4a9c'.encode('utf-8')])),
+        (u'a\u0009\x0a\x0dc', b'\x85' + bytearray([b for b in 'a\t\n\rc'.encode('utf-8')])),
+    ),
     _IT.CLOB: (
         (None, b'\x9F'),
         (b'', b'\x90'),

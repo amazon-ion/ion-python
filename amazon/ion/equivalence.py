@@ -29,7 +29,7 @@ import six
 from amazon.ion.core import IonType, Timestamp, TimestampPrecision, MICROSECOND_PRECISION, OffsetTZInfo
 from amazon.ion.simple_types import _IonNature, IonPyList, IonPyDict, IonPyTimestamp, IonPyNull, IonPySymbol, \
     IonPyText, IonPyDecimal, IonPyFloat
-from amazon.ion.symbols import SymbolToken
+from amazon.ion.symbols import SymbolToken, SYSTEM_SYMBOL_TABLE
 
 
 def ion_equals(a, b, timestamps_instants_only=False):
@@ -152,22 +152,42 @@ def _timestamps_eq(a, b):
     assert isinstance(a, datetime)
     if not isinstance(b, datetime):
         return False
-    # Local offsets must be equivalent.
-    if (a.tzinfo is None) ^ (b.tzinfo is None):
-        return False
-    if a.utcoffset() != b.utcoffset():
-        return False
     for a, b in ((a, b), (b, a)):
         if isinstance(a, Timestamp):
             if isinstance(b, Timestamp):
                 # Both operands declare their precisions. They are only equivalent if their precisions are the same.
-                if a.precision is b.precision and a.fractional_precision is b.fractional_precision:
+                if a.precision is b.precision:
+                    precision = a.precision
+                    if not precision.includes_second:
+                        # Timestamps with less than second precision have seconds and microseconds ignored.
+                        a = a.replace(second=0, microsecond=0)
+                        b = b.replace(second=0, microsecond=0)
+                    elif a.fractional_precision is not b.fractional_precision:
+                        # Timestamps with seconds precision must have equivalent fractional precision.
+                        return False
+                    if not precision.includes_minute:
+                        # Timestamps with less than minute precision have minutes, hours, and any local offsets ignored.
+                        a = a.replace(minute=0, hour=0, tzinfo=None)
+                        b = b.replace(minute=0, hour=0, tzinfo=None)
+                    if not precision.includes_day:
+                        # Timestamps with less than day precision have days ignored.
+                        a = a.replace(day=1)
+                        b = b.replace(day=1)
+                    if not precision.includes_month:
+                        # Timestamps with less than month precision have months ignored.
+                        a = a.replace(month=1)
+                        b = b.replace(month=1)
                     break
                 return False
             elif a.precision is not TimestampPrecision.SECOND or a.fractional_precision != MICROSECOND_PRECISION:
                 # Only one of the operands declares its precision. It is only equivalent to the other (a naive datetime)
                 # if it has full microseconds precision.
                 return False
+    # Local offsets must be equivalent.
+    if (a.tzinfo is None) ^ (b.tzinfo is None):
+        return False
+    if a.utcoffset() != b.utcoffset():
+        return False
     return a == b
 
 
@@ -212,6 +232,26 @@ def _symbols_eq(a, b):
                 # SID 0 is only equal to SID 0.
                 return False
         return True
+    elif a_text is None or b_text is None:
+        # One has unknown text. If both have system SIDs, they are still equivalent.
+        a_sid = getattr(a, 'sid', None)
+        b_sid = getattr(b, 'sid', None)
+        if a_sid is None:
+            if a_text is None:
+                raise ValueError('Attempted to compare malformed symbols %s, %s.' % (a, b))
+            a_system = SYSTEM_SYMBOL_TABLE.get(a_text)
+            if a_system is None:
+                return False
+            a_sid = a_system.sid
+        if b_sid is None:
+            if b_text is None:
+                raise ValueError('Attempted to compare malformed symbols %s, %s.' % (a, b))
+            b_system = SYSTEM_SYMBOL_TABLE.get(b_text)
+            if b_system is None:
+                return False
+            b_sid = b_system.sid
+        if a_sid == b_sid and a_sid <= SYSTEM_SYMBOL_TABLE.max_id:
+            return True
     return False
 
 

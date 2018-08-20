@@ -121,8 +121,22 @@ static void c_string_from_py(PyObject* str, char** out, Py_ssize_t* len_out) {
     // TODO does this need to work for binary types?
     *out = PyUnicode_AsUTF8AndSize(str, len_out);
 #else
+    PyObject *utf8_str;
+    if (PyUnicode_Check(str)) {
+        utf8_str = PyUnicode_AsUTF8String(str);
+    }
+    else {
+        utf8_str = PyString_AsEncodedObject(str, "utf-8", "strict");
+    }
+    if (!utf8_str) {
+        return; // TODO raise error
+    }
+    //*out = PyUnicode_AS_DATA(utf8_str);
+    //*len_out = PyUnicode_GET_DATA_SIZE(utf8_str);
+    PyString_AsStringAndSize(utf8_str, out, len_out);
+    //Py_DECREF(utf8_str); // TODO this needs to be done in a safe place. Without it, this is a MEMORY LEAK
     // NOTE: This returns a string in the default encoding, which should be UTF8.
-    PyString_AsStringAndSize(str, out, len_out);
+    //PyString_AsStringAndSize(str, out, len_out);
 #endif
 }
 
@@ -134,19 +148,29 @@ static void ion_string_from_py(PyObject* str, ION_STRING* out) {
     ion_string_assign_cstr(out, c_str, c_str_len);
 }
 
-static iERR ionc_write_symboltoken(hWRITER writer, PyObject* symboltoken) {
+static iERR ionc_write_symboltoken(hWRITER writer, PyObject* symboltoken, BOOL is_value) {
     iENTER;
     PyObject* symbol_text = PyObject_GetAttrString(symboltoken, "text");
     if (symbol_text == Py_None) {
         PyObject* py_sid = PyObject_GetAttrString(symboltoken, "sid");
         SID sid = PyInt_AsSsize_t(py_sid);
-        err = ion_writer_write_symbol_sid(writer, sid);
+        if (is_value) {
+            err = ion_writer_write_symbol_sid(writer, sid);
+        }
+        else {
+            err = ion_writer_add_annotation_sid(writer, sid);
+        }
         Py_DECREF(py_sid);
     }
     else {
         ION_STRING string_value;
-        ion_string_from_py(symboltoken, &string_value);
-        err = ion_writer_write_symbol(writer, &string_value);
+        ion_string_from_py(symbol_text, &string_value);
+        if (is_value) {
+            err = ion_writer_write_symbol(writer, &string_value);
+        }
+        else {
+            err = ion_writer_add_annotation(writer, &string_value);
+        }
     }
     Py_DECREF(symbol_text);
     IONCHECK(err);
@@ -173,7 +197,7 @@ static iERR ionc_write_annotations(hWRITER writer, PyObject* obj) {
             err = ion_writer_add_annotation(writer, &annotation);
         }
         else if (PyObject_TypeCheck(pyAnnotation, (PyTypeObject*)_py_symboltoken_constructor)){
-            err = ionc_write_symboltoken(writer, pyAnnotation);  // TODO this is being written as a symbol value, not an annotation!
+            err = ionc_write_symboltoken(writer, pyAnnotation, /*is_value=*/FALSE);
         }
         Py_DECREF(pyAnnotation);
         if (err) break;
@@ -403,6 +427,7 @@ static iERR ionc_write_value(hWRITER writer, PyObject* obj) {
                 decQuad tmp;
                 decQuadScaleB(&fraction, &fraction, decQuadFromInt32(&tmp, -MICROSECOND_DIGITS), &dec_context);
                 decQuadToNumber(&fraction, &helper);
+                decContextClearStatus(&dec_context, DEC_Inexact); // TODO consider saving, clearing, and resetting the status flag
                 decNumberRescale(&helper, &helper, decNumberFromInt32(&dec_number_precision, -fractional_precision), &dec_context);
                 if (decContextTestStatus(&dec_context, DEC_Inexact)) {
                     // This means the fractional component is not [0, 1) or has more than microsecond precision.
@@ -442,12 +467,14 @@ static iERR ionc_write_value(hWRITER writer, PyObject* obj) {
             _FAILWITHMSG(IERR_INVALID_STATE, "Invalid timestamp precision.");
         }
 
-        PyObject* offset_timedelta = PyObject_CallMethod(obj, "utcoffset", NULL);
-        if (offset_timedelta != Py_None) {
-            err = ion_timestamp_set_local_offset(&timestamp_value, offset_seconds(offset_timedelta) / 60);
+        if (precision >= MINUTE_PRECISION) {
+            PyObject* offset_timedelta = PyObject_CallMethod(obj, "utcoffset", NULL);
+            if (offset_timedelta != Py_None) {
+                err = ion_timestamp_set_local_offset(&timestamp_value, offset_seconds(offset_timedelta) / 60);
+            }
+            Py_DECREF(offset_timedelta);
+            IONCHECK(err);
         }
-        Py_DECREF(offset_timedelta);
-        IONCHECK(err);
 
         IONCHECK(ion_writer_write_timestamp(writer, &timestamp_value));
 
@@ -471,7 +498,7 @@ static iERR ionc_write_value(hWRITER writer, PyObject* obj) {
         if (tid_SYMBOL_INT != ion_type) {
             _FAILWITHMSG(IERR_INVALID_ARG, "Found SymbolToken; expected SYMBOL Ion type.");
         }
-        IONCHECK(ionc_write_symboltoken(writer, obj));
+        IONCHECK(ionc_write_symboltoken(writer, obj, /*is_value=*/TRUE));
     }
     else if (PyList_Check(obj) || PyTuple_Check(obj)) {
         if (ion_type == tid_none_INT) {
@@ -499,6 +526,7 @@ int _ionc_write(PyObject* obj, PyObject* binary, ION_STREAM* ion_stream) {
     ION_WRITER_OPTIONS options;
     memset(&options, 0, sizeof(options));
     options.output_as_binary = PyObject_IsTrue(binary);
+    options.escape_all_non_ascii = TRUE; // otherwise, text strings/symbols will be written as UTF-8.
 
     IONCHECK(ion_writer_open(&writer, ion_stream, &options));
     IONCHECK(ionc_write_value(writer, obj));
@@ -532,7 +560,7 @@ ionc_write(PyObject *self, PyObject *args, PyObject *kwds)
             PyObject* pyObj = PySequence_Fast_GET_ITEM(objs, i);
             Py_INCREF(pyObj);
             // TODO wait a second... this creates a new writer for every element. It should not do that.
-            err = _ionc_write(obj, binary, ion_stream);
+            err = _ionc_write(pyObj, binary, ion_stream);
             Py_DECREF(pyObj);
             if (err) break;
         }
@@ -712,7 +740,7 @@ static iERR ionc_read_timestamp(hREADER hreader, PyObject** timestamp_out) {
             decContextClearStatus(&dec_context, DEC_Inexact);
             _FAILWITHMSG(IERR_INVALID_TIMESTAMP, "Timestamp fractional seconds must be in [0,1).");
         }
-        PyDict_SetItemString(timestamp_args, "fractional_precision", PyLong_FromLong(fractional_precision));
+        PyDict_SetItemString(timestamp_args, "fractional_precision", PyInt_FromLong(fractional_precision));
         PyDict_SetItemString(timestamp_args, "microsecond", PyLong_FromLong(microsecond));
     }
     case ION_TS_SEC:
@@ -747,6 +775,7 @@ static iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BO
     PyObject*   ion_nature_constructor = NULL;
 
     if (in_struct) {
+        // TODO copy the field name
         IONCHECK(ion_reader_get_field_name(hreader, &field_name));
     }
 
@@ -813,7 +842,7 @@ static iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BO
                 PyMem_Free(ion_int_str);
                 IONCHECK(err);
             }
-            if (int_char_len != int_char_written) {
+            if (int_char_len < int_char_written) {
                 PyMem_Free(ion_int_str);
                 _FAILWITHMSG(IERR_BUFFER_TOO_SMALL, "Not enough space given to represent int as string.");
             }

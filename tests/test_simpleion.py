@@ -109,8 +109,7 @@ _SIMPLE_CONTAINER_MAP = {
             [{u'foo': 0}, ],
             _Expected(
                 bytearray([
-                    0xDE,  # The lower nibble may vary. It does not indicate actual length unless it's 0.
-                    VARUINT_END_BYTE | 2,  # Field name 10 and value 0 each fit in 1 byte.
+                    0xD2,
                     VARUINT_END_BYTE | 10,
                     ION_ENCODED_INT_ZERO
                 ]),
@@ -121,8 +120,7 @@ _SIMPLE_CONTAINER_MAP = {
             [IonPyDict.from_value(IonType.STRUCT, {u'foo': 0}), ],
             _Expected(
                 bytearray([
-                    0xDE,  # The lower nibble may vary. It does not indicate actual length unless it's 0.
-                    VARUINT_END_BYTE | 2,  # Field name 10 and value 0 each fit in 1 byte.
+                    0xD2,
                     VARUINT_END_BYTE | 10,
                     ION_ENCODED_INT_ZERO
                 ]),
@@ -207,8 +205,8 @@ def generate_annotated_values_binary(scalars_map, container_map):
 @parametrize(
     *tuple(chain(
         generate_scalars_binary(SIMPLE_SCALARS_MAP_BINARY),
-        #generate_containers_binary(_SIMPLE_CONTAINER_MAP),
-        #generate_annotated_values_binary(SIMPLE_SCALARS_MAP_BINARY, _SIMPLE_CONTAINER_MAP),
+        generate_containers_binary(_SIMPLE_CONTAINER_MAP),
+        generate_annotated_values_binary(SIMPLE_SCALARS_MAP_BINARY, _SIMPLE_CONTAINER_MAP),
     ))
 )
 def test_dump_load_binary(p):
@@ -267,10 +265,16 @@ def generate_annotated_values_text(scalars_map, container_map):
         if not isinstance(obj, _IonNature):
             continue
         obj.ion_annotations = (_st(u'annot1'), _st(u'annot2'),)
+        annotated_expected = ()
+        if isinstance(value_p.expected, (tuple, list)):
+            for expected in value_p.expected:
+                annotated_expected += (b"'annot1'::'annot2'::" + expected, b"annot1::annot2::" + expected)
+        else:
+            annotated_expected += (b"'annot1'::'annot2'::" + value_p.expected, b"annot1::annot2::" + value_p.expected)
         yield _Parameter(
             desc='ANNOTATED %s' % value_p.desc,
             obj=obj,
-            expected=b"'annot1'::'annot2'::" + value_p.expected,  # TODO text writer should emit unquoted symbol tokens.
+            expected=annotated_expected,
             has_symbols=True,
             stream=value_p.stream
         )
@@ -288,14 +292,24 @@ def test_dump_load_text(p):
     out = BytesIO()
     dump(p.obj, out, binary=False, sequence_as_stream=p.stream)
     res = out.getvalue()
-    if not p.has_symbols:
-        try:
-            assert (b'$ion_1_0 ' + p.expected) == res
-        except AssertionError:
-            assert p.expected == res
+    if isinstance(p.expected, (tuple, list)):
+        expecteds = p.expected
     else:
-        # The payload contains a LST. The value comes last, so compare the end bytes.
-        assert p.expected == res[len(res) - len(p.expected):]
+        expecteds = (p.expected, )
+    write_success = False
+    for expected in expecteds:
+        if not p.has_symbols:
+            if (b'$ion_1_0 ' + expected) == res:
+                write_success = True
+            else:
+                write_success = expected == res
+        else:
+            # The payload contains a LST. The value comes last, so compare the end bytes.
+            write_success = expected == res[len(res) - len(expected):]
+        if write_success:
+            break
+    if not write_success:
+        raise AssertionError('Expected: %s , found %s' % (expecteds, res))
     # test load
     out.seek(0)
     res = load(out, single_value=(not p.stream))
