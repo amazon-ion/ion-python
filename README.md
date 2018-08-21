@@ -91,8 +91,6 @@ The following build, deployment, or release tasks are required:
 
 * Add support for [code coverage](http://coverage.readthedocs.io/en/latest/) reporting.
     * Publish coverage to something like [Coverage.io](https://coveralls.io/)
-* Provide proper documentation generation via [Sphinx](http://www.sphinx-doc.org/en/stable/).
-    * Add good surrounding documentation around setup/development/contribution/getting started.
-    * Publish documentation to [Read the Docs](http://docs.readthedocs.io/en/latest/index.html).
+* Improve documentation around setup/development/contribution/getting started.
 * Consider using something like [PyPy.js](https://github.com/pypyjs/pypyjs) to build an interactive shell for playing
   with Ion python and provide a client-side Ion playground.
