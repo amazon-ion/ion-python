@@ -3,6 +3,7 @@ An implementation of [Amazon Ion](https://amzn.github.io/ion-docs/)
 for Python.
 
 [![Build Status](https://travis-ci.org/amzn/ion-python.svg?branch=master)](https://travis-ci.org/amzn/ion-python)
+[![Documentation Status](https://readthedocs.org/projects/ion-python/badge/?version=latest)](https://ion-python.readthedocs.io/en/latest/?badge=latest)
 
 This package is designed to work with **Python 2.6+** and **Python 3.3+**
 
