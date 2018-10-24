@@ -113,7 +113,10 @@ def dump(obj, fp, imports=None, binary=True, sequence_as_stream=False, skipkeys=
         check_circular: NOT IMPLEMENTED
         allow_nan: NOT IMPLEMENTED
         cls: NOT IMPLEMENTED
-        indent: NOT IMPLEMENTED
+        indent (Str): If binary is False and indent is a string, then members of containers will be pretty-printed with
+            a newline followed by that string repeated for each level of nesting. None (the default) selects the most
+            compact representation without any newlines. Example: to indent with four spaces per level of nesting,
+            use ``'    '``.
         separators: NOT IMPLEMENTED
         encoding: NOT IMPLEMENTED
         default: NOT IMPLEMENTED
@@ -130,7 +133,8 @@ def dump(obj, fp, imports=None, binary=True, sequence_as_stream=False, skipkeys=
         **kw: NOT IMPLEMENTED
 
     """
-    raw_writer = binary_writer(imports) if binary else text_writer()
+
+    raw_writer = binary_writer(imports) if binary else text_writer(indent=indent)
     writer = blocking_writer(raw_writer, fp)
     writer.send(ION_VERSION_MARKER_EVENT)  # The IVM is emitted automatically in binary; it's optional in text.
     if sequence_as_stream and isinstance(obj, (list, tuple)):
@@ -223,7 +227,10 @@ def dumps(obj, imports=None, binary=True, sequence_as_stream=False, skipkeys=Fal
         check_circular: NOT IMPLEMENTED
         allow_nan: NOT IMPLEMENTED
         cls: NOT IMPLEMENTED
-        indent: NOT IMPLEMENTED
+        indent (Str): If binary is False and indent is a string, then members of containers will be pretty-printed with
+            a newline followed by that string repeated for each level of nesting. None (the default) selects the most
+            compact representation without any newlines. Example: to indent with four spaces per level of nesting,
+            use ``'    '``.
         separators: NOT IMPLEMENTED
         encoding: NOT IMPLEMENTED
         default: NOT IMPLEMENTED

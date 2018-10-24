@@ -298,7 +298,6 @@ _SERIALIZE_SCALAR_JUMP_TABLE = {
 _serialize_scalar = partial(serialize_scalar, jump_table=_SERIALIZE_SCALAR_JUMP_TABLE, null_table=_NULL_TYPE_NAMES)
 
 
-_TOP_LEVEL_DELIMITER = b' '
 _FIELD_NAME_DELIMITER = b':'
 _ANNOTATION_DELIMITER = b'::'
 
@@ -338,19 +337,28 @@ _CONTAINER_END_MAP = {
     IonType.LIST: b']',
     IonType.SEXP: b')',
 }
-_CONTAINER_DELIMITER_MAP = {
+_CONTAINER_DELIMITER_MAP_NORMAL = {
     IonType.STRUCT: b',',
     IonType.LIST: b',',
     IonType.SEXP: b' ',
 }
+_CONTAINER_DELIMITER_MAP_PRETTY = {
+    IonType.STRUCT: b',',
+    IonType.LIST: b',',
+    IonType.SEXP: b'', # we use newlines when pretty printing
+}
 
 _serialize_container_start = _serialize_container_factory('start', _CONTAINER_START_MAP)
 _serialize_container_end = _serialize_container_factory('end', _CONTAINER_END_MAP)
-_serialize_container_delimiter = _serialize_container_factory('delimiter', _CONTAINER_DELIMITER_MAP)
+_serialize_container_delimiter_normal = _serialize_container_factory('delimiter', _CONTAINER_DELIMITER_MAP_NORMAL)
+_serialize_container_delimiter_pretty = _serialize_container_factory('delimiter', _CONTAINER_DELIMITER_MAP_PRETTY)
 
 
 @coroutine
-def _raw_writer_coroutine(depth=0, container_event=None, whence=None):
+def _raw_writer_coroutine(depth=0, container_event=None, whence=None, indent=None):
+    pretty = indent is not None
+    serialize_container_delimiter = \
+            _serialize_container_delimiter_pretty if pretty else _serialize_container_delimiter_normal
     has_written_values = False
     transition = None
     while True:
@@ -361,22 +369,37 @@ def _raw_writer_coroutine(depth=0, container_event=None, whence=None):
             # TODO This will always emit a delimiter for containers--should make it not do that.
             # Write the delimiter for the next value.
             if depth == 0:
-                yield partial_transition(_TOP_LEVEL_DELIMITER, self)
+                # if we are pretty printing, we'll insert a newline between top-level containers
+                delimiter = b'' if pretty else b' '
             else:
-                yield partial_transition(_serialize_container_delimiter(container_event), self)
+                delimiter = serialize_container_delimiter(container_event)
+            if len(delimiter) > 0:
+                yield partial_transition(delimiter, self)
+
+        if pretty and (has_written_values or container_event is not None) and not ion_event.event_type is IonEventType.STREAM_END:
+            yield partial_transition(b'\n', self)
+            indent_depth = depth - (1 if ion_event.event_type is IonEventType.CONTAINER_END else 0)
+            if indent_depth > 0:
+                yield partial_transition(indent * indent_depth, self)
 
         if depth > 0 \
                 and container_event.ion_type is IonType.STRUCT \
                 and ion_event.event_type.begins_value:
             # Write the field name.
             yield partial_transition(_serialize_field_name(ion_event), self)
+            if pretty:
+                # separate the field name and the field value
+                yield partial_transition(b' ', self)
 
         if ion_event.event_type.begins_value:
             # Write the annotations.
             for annotation in ion_event.annotations:
                 yield partial_transition(_serialize_annotation_value(annotation), self)
 
-        if depth == 0:
+        if ion_event.event_type is IonEventType.CONTAINER_START:
+            writer_event = DataEvent(WriteEventType.NEEDS_INPUT, _serialize_container_start(ion_event))
+            delegate = _raw_writer_coroutine(depth + 1, ion_event, self, indent=indent)
+        elif depth == 0:
             # Serialize at the top-level.
             if ion_event.event_type is IonEventType.STREAM_END:
                 writer_event = NOOP_WRITER_EVENT
@@ -384,23 +407,14 @@ def _raw_writer_coroutine(depth=0, container_event=None, whence=None):
                 writer_event = _IVM_WRITER_EVENT
             elif ion_event.event_type is IonEventType.SCALAR:
                 writer_event = DataEvent(WriteEventType.COMPLETE, _serialize_scalar(ion_event))
-            elif ion_event.event_type is IonEventType.CONTAINER_START:
-                writer_event = DataEvent(WriteEventType.NEEDS_INPUT, _serialize_container_start(ion_event))
-                delegate = _raw_writer_coroutine(1, ion_event, self)
             else:
                 raise TypeError('Invalid event: %s' % ion_event)
         else:
             # Serialize within a container.
             if ion_event.event_type is IonEventType.SCALAR:
                 writer_event = DataEvent(WriteEventType.NEEDS_INPUT, _serialize_scalar(ion_event))
-            elif ion_event.event_type is IonEventType.CONTAINER_START:
-                writer_event = DataEvent(WriteEventType.NEEDS_INPUT, _serialize_container_start(ion_event))
-                delegate = _raw_writer_coroutine(depth + 1, ion_event, self)
             elif ion_event.event_type is IonEventType.CONTAINER_END:
-                if depth == 1:
-                    write_type = WriteEventType.COMPLETE
-                else:
-                    write_type = WriteEventType.NEEDS_INPUT
+                write_type = WriteEventType.COMPLETE if depth == 1 else WriteEventType.NEEDS_INPUT
                 writer_event = DataEvent(write_type, _serialize_container_end(container_event))
                 delegate = whence
             else:
@@ -411,7 +425,7 @@ def _raw_writer_coroutine(depth=0, container_event=None, whence=None):
 
 
 # TODO Add options for text formatting.
-def raw_writer():
+def raw_writer(indent=None):
     """Returns a raw text writer co-routine.
 
     Yields:
@@ -420,8 +434,14 @@ def raw_writer():
         Receives :class:`amazon.ion.core.IonEvent` or ``None`` when the co-routine yields
         ``HAS_PENDING`` :class:`WriteEventType` events.
     """
-    return writer_trampoline(_raw_writer_coroutine())
 
+    is_whitespace_str = isinstance(indent, str) and re.search(r'\A\s*\Z', indent, re.M) is not None
+    if not (indent is None or is_whitespace_str):
+        raise ValueError('The indent parameter must either be None or a string containing only whitespace')
+
+    indent_bytes = six.b(indent) if isinstance(indent, str) else indent
+
+    return writer_trampoline(_raw_writer_coroutine(indent=indent_bytes))
 
 # TODO Determine if we need to do anything special for non-raw writer.  Validation?
 text_writer = raw_writer
