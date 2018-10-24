@@ -33,6 +33,7 @@ from amazon.ion.core import OffsetTZInfo, IonEvent, IonType, IonEventType
 
 from tests import parametrize
 
+from amazon.ion.simpleion import loads, dumps
 from amazon.ion.symbols import SymbolToken
 from amazon.ion.writer import blocking_writer
 from amazon.ion.writer_text import raw_writer
@@ -210,3 +211,29 @@ def new_writer():
 )
 def test_raw_writer(p):
     assert_writer_events(p, new_writer)
+
+@parametrize(
+        (None, True),
+        ('', True),
+        (' ', True),
+        (' ', True),
+        ('\t', True),
+        ('\n', True),
+        ('       ', True),
+        ('  \t     \n', True),
+        ('  \t  x  \n', False),
+        ('\"', False),
+        ('apple', False),
+        ('1', False))
+def test_valid_indent_strs(p):
+    indent, is_valid = p
+    try:
+        raw_writer(indent)
+        assert is_valid
+    except ValueError as e:
+        assert not is_valid
+        assert 'only whitespace' in str(e)
+    if is_valid:
+        # we only allow indent strings to be used to be used if they produce valid ion.
+        ion_val = loads('[a, {x:2, y: height::17}]')
+        assert ion_val == loads(dumps(ion_val, binary=False, indent=indent))

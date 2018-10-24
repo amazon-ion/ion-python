@@ -20,6 +20,7 @@ from itertools import chain
 from math import isnan
 
 import six
+import re
 from pytest import raises
 
 from amazon.ion.exceptions import IonException
@@ -421,32 +422,32 @@ _ROUNDTRIPS = [
 
 def _generate_roundtrips(roundtrips):
     for is_binary in (True, False):
+        for indent in ('not used',) if is_binary else (None, '', ' ', '   ', '\t', '\n\t\n  '):
+            def _adjust_sids(annotations=()):
+                if is_binary and isinstance(obj, SymbolToken):
+                    return SymbolToken(obj.text, 10 + len(annotations))
+                return obj
 
-        def _adjust_sids(annotations=()):
-            if is_binary and isinstance(obj, SymbolToken):
-                return SymbolToken(obj.text, 10 + len(annotations))
-            return obj
+            def _to_obj(to_type=None, annotations=()):
+                if to_type is None:
+                    to_type = ion_type
+                obj_out = _adjust_sids(annotations)
+                return _FROM_ION_TYPE[ion_type].from_value(to_type, obj_out, annotations=annotations), is_binary, indent
 
-        def _to_obj(to_type=None, annotations=()):
-            if to_type is None:
-                to_type = ion_type
-            obj_out = _adjust_sids(annotations)
-            return _FROM_ION_TYPE[ion_type].from_value(to_type, obj_out, annotations=annotations), is_binary
-
-        for obj in roundtrips:
-            obj = _adjust_sids()
-            yield obj, is_binary
-            if not isinstance(obj, _IonNature):
-                ion_type = _ion_type(obj)
-                yield _to_obj()
-            else:
-                ion_type = obj.ion_type
-            if isinstance(obj, IonPyNull):
-                obj = None
-            yield _to_obj(annotations=(u'annot1', u'annot2'))
-            if isinstance(obj, list):
-                yield _to_obj(IonType.SEXP)
-                yield _to_obj(IonType.SEXP, annotations=(u'annot1', u'annot2'))
+            for obj in roundtrips:
+                obj = _adjust_sids()
+                yield obj, is_binary, indent
+                if not isinstance(obj, _IonNature):
+                    ion_type = _ion_type(obj)
+                    yield _to_obj()
+                else:
+                    ion_type = obj.ion_type
+                if isinstance(obj, IonPyNull):
+                    obj = None
+                yield _to_obj(annotations=(u'annot1', u'annot2'))
+                if isinstance(obj, list):
+                    yield _to_obj(IonType.SEXP)
+                    yield _to_obj(IonType.SEXP, annotations=(u'annot1', u'annot2'))
 
 
 def _assert_roundtrip(before, after):
@@ -477,9 +478,9 @@ def _assert_roundtrip(before, after):
     *tuple(_generate_roundtrips(_ROUNDTRIPS))
 )
 def test_roundtrip(p):
-    obj, is_binary = p
+    obj, is_binary, indent = p
     out = BytesIO()
-    dump(obj, out, binary=is_binary)
+    dump(obj, out, binary=is_binary, indent=indent)
     out.seek(0)
     res = load(out)
     _assert_roundtrip(obj, res)
@@ -501,3 +502,29 @@ def test_unknown_object_type_fails(is_binary):
     out = BytesIO()
     with raises(TypeError):
         dump(Dummy(), out, binary=is_binary)
+
+class PrettyPrintParams(record('ion_text', 'indent', ('exact_text', None), ('needles', []), ('regexes', []))):
+    pass
+
+@parametrize(
+        PrettyPrintParams(ion_text='a', indent='  ', exact_text="$ion_1_0\n'a'"),
+        PrettyPrintParams(ion_text='[a, b, chair::2008-08-08T]', indent='  ',
+            exact_text="$ion_1_0\n[\n  'a',\n  'b',\n  'chair'::2008-08-08T\n]"),
+        PrettyPrintParams(ion_text='[a, b, chair::2008-08-08T]', indent=None, # not pretty print
+            exact_text="$ion_1_0 ['a','b','chair'::2008-08-08T]"),
+        PrettyPrintParams(ion_text='[apple, {roof: false}]', indent='\t',
+            exact_text="$ion_1_0\n[\n\t'apple',\n\t{\n\t\t'roof': false\n\t}\n]"),
+        PrettyPrintParams(ion_text='[apple, {roof: false, walls:4, door: wood::large::true}]', indent='\t',
+            needles=["$ion_1_0\n[\n\t'apple',\n\t{", "\n\t}\n]"],
+            regexes=["\n\t\t'door': 'wood'::'large'::true,?\n", "\n\t\t'roof': false,?\n", "\n\t\t'walls': 4,?\n"])
+        )
+def test_pretty_print(p):
+    ion_text, indent, exact_text, needles, regexes = p
+    ion_value = loads(ion_text)
+    actual_pretty_ion_text = dumps(ion_value, binary=False, indent=indent)
+    if exact_text is not None:
+        assert actual_pretty_ion_text == exact_text
+    for needle in needles:
+        assert needle in actual_pretty_ion_text
+    for regex_str in regexes:
+        assert re.search(regex_str, actual_pretty_ion_text, re.M) is not None
