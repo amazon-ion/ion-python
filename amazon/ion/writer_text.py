@@ -221,7 +221,7 @@ def _escape(code_point):
 
 
 def _bytes_text(code_point_iter, quote, prefix=b'', suffix=b''):
-    quote_code_point = six.byte2int(quote)
+    quote_code_point = None if len(quote) == 0 else six.byte2int(quote)
     buf = BytesIO()
     buf.write(prefix)
     buf.write(quote)
@@ -241,11 +241,15 @@ def _bytes_text(code_point_iter, quote, prefix=b'', suffix=b''):
 
 _SINGLE_QUOTE = b"'"
 _DOUBLE_QUOTE = b'"'
+# all typed nulls (such as null.int) and the +inf, and -inf keywords are covered by this regex
+_UNQUOTED_SYMBOL_REGEX = re.compile(r'\A[a-zA-Z$_][a-zA-Z0-9$_]*\Z')
+_ADDITIONAL_SYMBOLS_REQUIRING_QUOTES = set(['nan', 'null', 'false', 'true'])
 
+def _symbol_needs_quotes(text):
+    return text in _ADDITIONAL_SYMBOLS_REQUIRING_QUOTES or _UNQUOTED_SYMBOL_REGEX.search(text) is None
 
 def _serialize_symbol_value(value, suffix=b''):
-    # TODO Be more aggressive about not quoting.
-    # TODO Support not quoting operators in s-expressions.
+    # TODO Support not quoting operators in s-expressions: http://amzn.github.io/ion-docs/docs/symbols.html
     try:
         text = value.text
         if text is None:
@@ -253,7 +257,8 @@ def _serialize_symbol_value(value, suffix=b''):
     except AttributeError:
         text = value
     validate_scalar_value(text, (six.text_type, type(SymbolToken)))
-    return _bytes_text(unicode_iter(text), _SINGLE_QUOTE, suffix=suffix)
+    quote = _SINGLE_QUOTE if _symbol_needs_quotes(text) else b''
+    return _bytes_text(unicode_iter(text), quote, suffix=suffix)
 
 
 def _serialize_symbol(ion_event):

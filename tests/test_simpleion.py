@@ -119,7 +119,7 @@ _SIMPLE_CONTAINER_MAP = {
                     VARUINT_END_BYTE | 10,
                     ION_ENCODED_INT_ZERO
                 ]),
-                b"{'foo':0}"
+                b"{foo:0}"
             )
         ),
         (
@@ -131,7 +131,7 @@ _SIMPLE_CONTAINER_MAP = {
                     VARUINT_END_BYTE | 10,
                     ION_ENCODED_INT_ZERO
                 ]),
-                b"{'foo':0}"
+                b"{foo:0}"
             )
         ),
     ),
@@ -326,7 +326,7 @@ def generate_annotated_values_text(scalars_map, container_map):
         yield _Parameter(
             desc='ANNOTATED %s' % value_p.desc,
             obj=obj,
-            expected=b"'annot1'::'annot2'::" + value_p.expected,  # TODO text writer should emit unquoted symbol tokens.
+            expected=b"annot1::annot2::" + value_p.expected,
             has_symbols=True,
             stream=value_p.stream
         )
@@ -413,7 +413,8 @@ _ROUNDTRIPS = [
              True, None, 1.23e4, IonPyText.from_value(IonType.SYMBOL, u'sym')
          ]),
          u'sxp': IonPyList.from_value(IonType.SEXP, [
-             False, IonPyNull.from_value(IonType.STRUCT, None, (u'class',)), Decimal('5.678')
+             False, IonPyNull.from_value(IonType.STRUCT, None, (u'class',)), Decimal('5.678'),
+             IonPyText.from_value(IonType.SYMBOL, u'sym2'), IonPyText.from_value(IonType.SYMBOL, u'_a_s_d_f_')
          ])
     },
 
@@ -503,28 +504,31 @@ def test_unknown_object_type_fails(is_binary):
     with raises(TypeError):
         dump(Dummy(), out, binary=is_binary)
 
-class PrettyPrintParams(record('ion_text', 'indent', ('exact_text', None), ('needles', []), ('regexes', []))):
+class PrettyPrintParams(record('ion_text', 'indent', ('exact_text', None), ('regexes', []))):
     pass
 
 @parametrize(
-        PrettyPrintParams(ion_text='a', indent='  ', exact_text="$ion_1_0\n'a'"),
+        PrettyPrintParams(ion_text='a', indent='  ', exact_text="$ion_1_0\na"),
+        PrettyPrintParams(ion_text='"a"', indent='  ', exact_text="$ion_1_0\n\"a\""),
+        PrettyPrintParams(ion_text='\'$a__9\'', indent='  ', exact_text="$ion_1_0\n$a__9"),
+        PrettyPrintParams(ion_text='\'$a_\\\'_9\'', indent='  ', exact_text="$ion_1_0\n\'$a_\\\'_9\'"),
         PrettyPrintParams(ion_text='[a, b, chair::2008-08-08T]', indent='  ',
-            exact_text="$ion_1_0\n[\n  'a',\n  'b',\n  'chair'::2008-08-08T\n]"),
+            exact_text="$ion_1_0\n[\n  a,\n  b,\n  chair::2008-08-08T\n]"),
         PrettyPrintParams(ion_text='[a, b, chair::2008-08-08T]', indent=None, # not pretty print
-            exact_text="$ion_1_0 ['a','b','chair'::2008-08-08T]"),
+            exact_text="$ion_1_0 [a,b,chair::2008-08-08T]"),
         PrettyPrintParams(ion_text='[apple, {roof: false}]', indent='\t',
-            exact_text="$ion_1_0\n[\n\t'apple',\n\t{\n\t\t'roof': false\n\t}\n]"),
+            exact_text="$ion_1_0\n[\n\tapple,\n\t{\n\t\troof: false\n\t}\n]"),
+        PrettyPrintParams(ion_text='[apple, "banana", {roof: false}]', indent='\t',
+            exact_text="$ion_1_0\n[\n\tapple,\n\t\"banana\",\n\t{\n\t\troof: false\n\t}\n]"),
         PrettyPrintParams(ion_text='[apple, {roof: false, walls:4, door: wood::large::true}]', indent='\t',
-            needles=["$ion_1_0\n[\n\t'apple',\n\t{", "\n\t}\n]"],
-            regexes=["\n\t\t'door': 'wood'::'large'::true,?\n", "\n\t\t'roof': false,?\n", "\n\t\t'walls': 4,?\n"])
+            regexes=["\\A\\$ion_1_0\n\\[\n\tapple,\n\t\\{", "\n\t\tdoor: wood::large::true,?\n",
+                "\n\t\troof: false,?\n", "\n\t\twalls: 4,?\n", "\n\t\\}\n\\]\\Z"])
         )
 def test_pretty_print(p):
-    ion_text, indent, exact_text, needles, regexes = p
+    ion_text, indent, exact_text, regexes = p
     ion_value = loads(ion_text)
     actual_pretty_ion_text = dumps(ion_value, binary=False, indent=indent)
     if exact_text is not None:
         assert actual_pretty_ion_text == exact_text
-    for needle in needles:
-        assert needle in actual_pretty_ion_text
     for regex_str in regexes:
         assert re.search(regex_str, actual_pretty_ion_text, re.M) is not None

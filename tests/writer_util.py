@@ -60,9 +60,13 @@ def _scalar_p(ion_type, value, expected, force_stream_end):
     )
 
 
-def _convert_symbol_pairs(symbol_pairs):
+def _convert_symbol_pairs_to_string_pairs(symbol_pairs):
     for value, literal in symbol_pairs:
-        yield (value, literal.replace(b"'", b'"'))
+        if literal.decode('utf-8')[0] == "'":
+            yield (value, literal.replace(b"'", b'"'))
+        else:
+            # Add quotes to unquoted symbols
+            yield (value, b'"' + literal + b'"')
 
 
 def _convert_clob_pairs(clob_pairs):
@@ -74,14 +78,16 @@ _SIMPLE_SYMBOLS_TEXT=(
     (u'', br"''"),
     (u'\u0000', br"'\x00'"),
     (u'4hello', br"'4hello'"),
-    (u'hello', br"'hello'"),
+    (u'hello', br"hello"),
+    (u'_hello_world', br"_hello_world"),
+    (u'null', br"'null'"),
     (u'hello world', br"'hello world'"),
     (u'hello\u0009\x0a\x0dworld', br"'hello\t\n\rworld'"),
     (u'hello\aworld', br"'hello\x07world'"),
     (u'hello\u3000world', br"'hello\u3000world'"), # A full width space.
     (u'hello\U0001f4a9world', br"'hello\U0001f4a9world'"), # A 'pile of poo' emoji code point.
 )
-_SIMPLE_STRINGS_TEXT=tuple(_convert_symbol_pairs(_SIMPLE_SYMBOLS_TEXT))
+_SIMPLE_STRINGS_TEXT=tuple(_convert_symbol_pairs_to_string_pairs(_SIMPLE_SYMBOLS_TEXT))
 
 _SIMPLE_CLOBS_TEXT=(
     (b'', br'{{""}}'),
