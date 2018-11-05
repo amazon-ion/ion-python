@@ -30,6 +30,8 @@ from itertools import chain
 from decimal import Decimal
 
 from amazon.ion.core import OffsetTZInfo, IonEvent, IonType, IonEventType
+from amazon.ion.core import record
+from amazon.ion.exceptions import IonException
 
 from tests import parametrize
 
@@ -121,7 +123,7 @@ def _generate_simple_containers(*generators, **opts):
                             (u'$%d:'% field_name.sid).encode() + value_expected
                     else:
                         value_expected = \
-                            b"'" + field_name.encode() + b"':" + value_expected
+                            field_name.encode() + b":" + value_expected
                 # Make sure to compose the rest of the value (if not scalar, i.e. empty containers).
                 value_events = (value_event,) + value_p.events[1:]
                 events = (start_event,) + (value_events * repeat) + (end_event,)
@@ -237,3 +239,53 @@ def test_valid_indent_strs(p):
         # we only allow indent strings to be used to be used if they produce valid ion.
         ion_val = loads('[a, {x:2, y: height::17}]')
         assert ion_val == loads(dumps(ion_val, binary=False, indent=indent))
+
+class _P_Q(record('symbol', 'needs_quotes', ('backslash_required', False))):
+    pass
+
+@parametrize(
+        _P_Q('a', False),
+        _P_Q('a0', False),
+        _P_Q('_a_0_', False),
+        _P_Q('int', False),
+        _P_Q('int32', False),
+        _P_Q('FALSE', False),
+        _P_Q('False', False),
+        _P_Q('bool', False),
+        _P_Q('NaN', False),
+        _P_Q('T', False),
+        _P_Q('type', False),
+        _P_Q('inf', False),
+        # begin needs quotes
+        _P_Q('a.0', True),
+        _P_Q('1', True),
+        _P_Q('{', True),
+        _P_Q('\'', True, backslash_required=True),
+        _P_Q('"', True),
+        _P_Q('\\', True, backslash_required=True),
+        # begin reserved words
+        _P_Q('nan', True),
+        _P_Q('null', True),
+        _P_Q('null.int', True),
+        _P_Q('+inf', True),
+        _P_Q('-inf', True),
+        _P_Q('false', True),
+        _P_Q('true', True),
+        )
+def test_quote_symbols(p):
+    symbol_text, needs_quotes, backslash_required = p
+
+    try:
+        loads(symbol_text + '::4')
+        threw_without_quotes = False
+    except IonException as e:
+        threw_without_quotes = True
+
+    quoted_symbol_text = "'" + ('\\' if backslash_required else '') + symbol_text + "'"
+    ion_value = loads(quoted_symbol_text + "::4")
+    quoted = "'" in dumps(ion_value, binary=False)
+
+    assert needs_quotes == threw_without_quotes
+    assert needs_quotes == quoted
+    assert len(ion_value.ion_annotations) == 1
+    assert ion_value.ion_annotations[0].text == symbol_text
