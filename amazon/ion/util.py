@@ -285,7 +285,9 @@ def _next_code_point(val, val_iter, yield_char=False, to_int=lambda x: x):
 
 if sys.version_info < (2, 7):
     def bit_length(value):
-        return len(bin(value)) - 2
+        if value == 0:
+            return 0
+        return len(bin(abs(value))) - 2
 
     def total_seconds(td):
         return (td.microseconds + (td.seconds + td.days * 24 * 3600) * 10 ** 6) / 10 ** 6
