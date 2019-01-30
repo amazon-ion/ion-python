@@ -298,5 +298,6 @@ else:
     def total_seconds(td):
         return td.total_seconds()
 
+
 bit_length.__doc__ = 'Returns the bit length of an integer'
 total_seconds.__doc__ = 'Timedelta ``total_seconds`` with backported support in Python 2.6'
