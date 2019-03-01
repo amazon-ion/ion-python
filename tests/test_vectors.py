@@ -68,9 +68,10 @@ _FILE_ENCODINGS[_good_file(u'utf16.ion')] = _ENCODING_UTF16_BE
 _FILE_ENCODINGS[_good_file(u'utf32.ion')] = _ENCODING_UTF32_BE
 
 # Set these Decimal limits arbitrarily high because some test vectors require it. If users need decimals this large,
-# they'll have to do this in their code too.
-getcontext().Emax = 100000000000000000
-getcontext().Emin = -100000000000000000
+# they'll have to do this in their code too. CPython may store these in an ssize_t, so the values should remain in the
+# 32-bit range for compatibility with 32-bit platforms.
+getcontext().Emax = 2147483647
+getcontext().Emin = -2147483648
 getcontext().prec = 100000
 
 
