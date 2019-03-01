@@ -1,18 +1,19 @@
 language: python
-dist: xenial
-sudo: true
-python:
-  - "2.6"
-  - "2.7"
-  - "3.3"
-  - "3.4"
-  - "3.5"
-  - "3.6"
-  - "3.7"
-  - "pypy"
-  # https://github.com/travis-ci/travis-ci/issues/9542
-  # pypy3 < 6.0.0 fails due to discrepancies with decimal...
-  #- "pypy3"
+matrix:
+  include:
+    - python: "2.6"
+    - python: "2.7"
+    - python: "3.3"
+    - python: "3.4"
+    - python: "3.5"
+    - python: "3.6"
+    - python: "3.7"
+      dist: xenial
+      sudo: true
+    - python: "pypy"
+    # https://github.com/travis-ci/travis-ci/issues/9542
+    # pypy3 < 6.0.0 fails due to discrepancies with decimal...
+    #- python: "pypy3"
 install:
   - "pip install -r requirements.txt"
   - "pip install ."
