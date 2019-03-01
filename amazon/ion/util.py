@@ -207,7 +207,10 @@ def unicode_iter(val):
     """
     val_iter = iter(val)
     while True:
-        code_point = next(_next_code_point(val, val_iter, to_int=ord))
+        try:
+            code_point = next(_next_code_point(val, val_iter, to_int=ord))
+        except StopIteration:
+            return
         if code_point is None:
             raise ValueError('Unpaired high surrogate at end of Unicode sequence: %r' % val)
         yield code_point
@@ -249,7 +252,10 @@ def _next_code_point(val, val_iter, yield_char=False, to_int=lambda x: x):
             surrogate pair in order to successfully convert the code point back to a unicode character.
         to_int (Optional[callable]): A function to call on each element of val_iter to convert that element to an int.
     """
-    high = next(val_iter)
+    try:
+        high = next(val_iter)
+    except StopIteration:
+        return
     low = None
     code_point = to_int(high)
     if _LOW_SURROGATE_START <= code_point <= _LOW_SURROGATE_END:
