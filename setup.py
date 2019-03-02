@@ -17,7 +17,18 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import os
+
 from setuptools import setup, find_packages
+
+
+def find_files(directory, suffix=None):
+    files = []
+    for root, _, filenames in os.walk(directory):
+        for filename in filenames:
+            if not filename.startswith('.') and (suffix is None or filename.endswith(suffix)):
+                files.append(os.path.join(root, filename))
+    return files
 
 
 setup(
@@ -43,4 +54,10 @@ setup(
     tests_require=[
         'pytest',
     ],
+
+    data_files=[
+        ('', ['LICENSE', 'NOTICE', 'CHANGES.md']),
+        ('tests', find_files('tests', '.py')),
+        ('vectors', find_files('vectors'))
+    ]
 )
