@@ -17,6 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import struct
 from collections import defaultdict
 from decimal import getcontext
 from functools import partial
@@ -67,11 +68,19 @@ _FILE_ENCODINGS = defaultdict(lambda: _ENCODING_UTF8)
 _FILE_ENCODINGS[_good_file(u'utf16.ion')] = _ENCODING_UTF16_BE
 _FILE_ENCODINGS[_good_file(u'utf32.ion')] = _ENCODING_UTF32_BE
 
+# 32 or 64 bits.
+_PLATFORM_ARCHITECTURE = struct.calcsize('P') * 8
+
 # Set these Decimal limits arbitrarily high because some test vectors require it. If users need decimals this large,
-# they'll have to do this in their code too. CPython may store these in an ssize_t, so the values should remain in the
-# 32-bit range for compatibility with 32-bit platforms.
-getcontext().Emax = 2147483647
-getcontext().Emin = -2147483648
+# they'll have to do this in their code too. Note: these values are equivalent to the MAX_EMAX and MAX_EMIN values
+# for the platform's architecture (32 or 64 bit); the constants were introduced in Python 3.3.
+# See: https://python.readthedocs.io/en/stable/whatsnew/3.3.html#id2
+if _PLATFORM_ARCHITECTURE == 32:
+    getcontext().Emax = 425000000
+    getcontext().Emin = -425000000
+else:
+    getcontext().Emax = 999999999999999999
+    getcontext().Emin = -999999999999999999
 getcontext().prec = 100000
 
 
@@ -81,6 +90,7 @@ def _open(file):
         return open(file, 'rb')
     else:
         return open(file, mode='r', encoding=_FILE_ENCODINGS[file])
+
 
 _SKIP_LIST = (
     # TEXT:
@@ -93,6 +103,12 @@ _SKIP_LIST = (
     # BINARY:
     _good_file(u'item1.10n'),  # TODO amzn/ion-python#46
 )
+
+if _PLATFORM_ARCHITECTURE == 32:
+    _SKIP_LIST += (
+        # Contains a decimal with a negative exponent outside the 32-bit Emin range.
+        _good_file(u'subfieldVarInt.ion'),
+    )
 
 _DEBUG_WHITELIST = (
     # Place files here to run only their tests.
