@@ -7,6 +7,23 @@ for Python.
 
 This package is designed to work with **Python 2.6+** and **Python 3.3+**
 
+## Getting Started
+
+Start with the [simpleion](https://ion-python.readthedocs.io/en/latest/amazon.ion.html#module-amazon.ion.simpleion)
+module, which provides four APIs (`dump`, `dumps`, `load`, `loads`) that will be familiar to users of Python's
+built-in JSON parsing module.
+
+For example:
+
+```
+>>> import amazon.ion.simpleion as ion
+>>> obj = ion.loads('{abc: 123}')
+>>> obj['abc']
+123
+>>> ion.dumps(obj, binary=False)
+'$ion_1_0 {abc:123}'
+```
+
 ## Git Setup
 This repository contains a [git submodule](https://git-scm.com/docs/git-submodule)
 called `ion-tests`, which holds test data used by `ion-python`'s unit tests.
