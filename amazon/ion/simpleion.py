@@ -362,8 +362,7 @@ def _load(out, reader, end_type=IonEventType.STREAM_END, in_struct=False):
 
     def add(obj):
         if in_struct:
-            # TODO what about duplicate field names?
-            out[event.field_name.text] = obj
+            out.add_item(event.field_name.text, obj)
         else:
             out.append(obj)
 

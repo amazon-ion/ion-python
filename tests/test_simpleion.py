@@ -26,7 +26,7 @@ from pytest import raises
 from amazon.ion.exceptions import IonException
 from amazon.ion.symbols import SymbolToken, SYSTEM_SYMBOL_TABLE
 from amazon.ion.writer_binary import _IVM
-from amazon.ion.core import IonType, IonEvent, IonEventType, OffsetTZInfo
+from amazon.ion.core import IonType, IonEvent, IonEventType, OffsetTZInfo, Multimap
 from amazon.ion.simple_types import IonPyDict, IonPyText, IonPyList, IonPyNull, IonPyBool, IonPyInt, IonPyFloat, \
     IonPyDecimal, IonPyTimestamp, IonPyBytes, IonPySymbol, _IonNature
 from amazon.ion.equivalence import ion_equals
@@ -170,7 +170,7 @@ def generate_containers_binary(container_map, preceding_symbols=0):
             expecteds = test_tuple[1].binary
             has_symbols = False
             for elem in obj:
-                if isinstance(elem, dict) and len(elem) > 0:
+                if isinstance(elem, (dict, Multimap)) and len(elem) > 0:
                     has_symbols = True
             if has_symbols and preceding_symbols:
                 # we need to make a distinct copy that will contain an altered encoding

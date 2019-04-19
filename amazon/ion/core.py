@@ -19,8 +19,11 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from collections import MutableMapping, MutableSequence
 from datetime import datetime, timedelta, tzinfo
 from math import isnan
+
+import six
 
 from .util import Enum
 from .util import record
@@ -471,3 +474,87 @@ def timestamp(year, month=1, day=1,
         hour, minute, second, microsecond,
         tz, precision=precision, fractional_precision=fractional_precision
     )
+
+
+class Multimap(MutableMapping):
+    """
+    Dictionary that can hold multiple values for the same key
+
+    In order not to break existing customers, getting and inserting elements with ``[]`` keeps the same behaviour
+    as the built-in dict. If multiple elements are already mapped to the key, ``[]`  will return
+    the newest one.
+
+    To map multiple elements to a key, use the ``add_item`` operation.
+    To retrieve all the values map to a key, use ``get_all_values``.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super(Multimap, self).__init__()
+        self.store = {}
+        if args is not None and len(args) > 0:
+            for key, value in six.iteritems(args[0]):
+                self.store[key] = MultimapValue(value)
+
+    def __getitem__(self, key):
+        return self.store[key][len(self.store[key]) - 1]  # Return only one in order not to break clients
+
+    def __delitem__(self, key):
+        del self.store[key]
+
+    def __setitem__(self, key, value):
+        self.store[key] = MultimapValue(value)
+
+    def __len__(self):
+        return sum([len(values) for values in six.itervalues(self.store)])
+
+    def __iter__(self):
+        for key in six.iterkeys(self.store):
+            yield key
+
+    def add_item(self, key, value):
+        if key in self.store:
+            self.store[key].append(value)
+        else:
+            self.__setitem__(key, value)
+
+    def get_all_values(self, key):
+        return self.store[key]
+
+    def iteritems(self):
+        for key in self.store:
+            for value in self.store[key]:
+                yield (key, value)
+
+    def items(self):
+        output = []
+        for k, v in self.iteritems():
+            output.append((k, v))
+        return output
+
+
+class MultimapValue(MutableSequence):
+
+    def __init__(self, *args):
+        if args is not None:
+            self.store = [x for x in args]
+        else:
+            self.store = []
+
+    def insert(self, index, value):
+        self.__setitem__(index, value)
+
+    def __len__(self):
+        return len(self.store)
+
+    def __getitem__(self, index):
+        return self.store[index]
+
+    def __setitem__(self, index, value):
+        self.store.insert(index, value)
+
+    def __delitem__(self, index):
+        del self.store[index]
+
+    def __iter__(self):
+        for x in self.store:
+            yield x

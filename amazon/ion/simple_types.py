@@ -24,12 +24,13 @@ from __future__ import division
 from __future__ import print_function
 
 from decimal import Decimal
+from collections import MutableMapping
 
 import six
 
 from amazon.ion.symbols import SymbolToken
 from .core import TIMESTAMP_PRECISION_FIELD
-from .core import Timestamp, IonEvent, IonType, TIMESTAMP_FRACTION_PRECISION_FIELD, TimestampPrecision, \
+from .core import Multimap, Timestamp, IonEvent, IonType, TIMESTAMP_FRACTION_PRECISION_FIELD, TimestampPrecision, \
     MICROSECOND_PRECISION
 
 
@@ -211,4 +212,5 @@ def is_null(value):
 
 
 IonPyList = _ion_type_for('IonPyList', list)
-IonPyDict = _ion_type_for('IonPyDict', dict)  # TODO support multiple mappings for same field name (iteration only).
+IonPyDict = _ion_type_for('IonPyDict', Multimap)
+
