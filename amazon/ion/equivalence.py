@@ -26,7 +26,7 @@ from math import isnan
 
 import six
 
-from amazon.ion.core import IonType, Timestamp, TimestampPrecision, MICROSECOND_PRECISION, OffsetTZInfo
+from amazon.ion.core import IonType, Timestamp, TimestampPrecision, MICROSECOND_PRECISION, OffsetTZInfo, Multimap
 from amazon.ion.simple_types import _IonNature, IonPyList, IonPyDict, IonPyTimestamp, IonPyNull, IonPySymbol, \
     IonPyText, IonPyDecimal, IonPyFloat
 from amazon.ion.symbols import SymbolToken
@@ -128,10 +128,9 @@ def _sequences_eq(a, b, comparison_func):
 
 
 def _structs_eq(a, b, comparison_func):
-    assert isinstance(a, dict)
-    if not isinstance(b, dict):
+    assert isinstance(a, (dict, Multimap))
+    if not isinstance(b, (dict, Multimap)):
         return False
-    # TODO support multiple mappings from same field name.
     dict_len = len(a)
     if dict_len != len(b):
         return False
@@ -142,8 +141,20 @@ def _structs_eq(a, b, comparison_func):
                 key = next(key_iter)
             except StopIteration:
                 break
-            if not comparison_func(a[key], b[key]):
+            if key not in b:
                 return False
+            if isinstance(a, Multimap) and isinstance(b, Multimap):
+                values_a = a.get_all_values(key)
+                values_b = b.get_all_values(key)
+                if len(values_a) != len(values_b):
+                    return False
+                for value_a in values_a:
+                    if not any(comparison_func(value_a, value_b) for value_b in values_b):
+                        return False
+            else:
+                if not comparison_func(a[key], b[key]):
+                    return False
+
     return True
 
 
