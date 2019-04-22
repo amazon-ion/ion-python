@@ -490,39 +490,39 @@ class Multimap(MutableMapping):
 
     def __init__(self, *args, **kwargs):
         super(Multimap, self).__init__()
-        self.store = {}
+        self.__store = {}
         if args is not None and len(args) > 0:
             for key, value in six.iteritems(args[0]):
-                self.store[key] = MultimapValue(value)
+                self.__store[key] = MultimapValue(value)
 
     def __getitem__(self, key):
-        return self.store[key][len(self.store[key]) - 1]  # Return only one in order not to break clients
+        return self.__store[key][len(self.__store[key]) - 1]  # Return only one in order not to break clients
 
     def __delitem__(self, key):
-        del self.store[key]
+        del self.__store[key]
 
     def __setitem__(self, key, value):
-        self.store[key] = MultimapValue(value)
+        self.__store[key] = MultimapValue(value)
 
     def __len__(self):
-        return sum([len(values) for values in six.itervalues(self.store)])
+        return sum([len(values) for values in six.itervalues(self.__store)])
 
     def __iter__(self):
-        for key in six.iterkeys(self.store):
+        for key in six.iterkeys(self.__store):
             yield key
 
     def add_item(self, key, value):
-        if key in self.store:
-            self.store[key].append(value)
+        if key in self.__store:
+            self.__store[key].append(value)
         else:
             self.__setitem__(key, value)
 
     def get_all_values(self, key):
-        return self.store[key]
+        return self.__store[key]
 
     def iteritems(self):
-        for key in self.store:
-            for value in self.store[key]:
+        for key in self.__store:
+            for value in self.__store[key]:
                 yield (key, value)
 
     def items(self):
@@ -536,25 +536,25 @@ class MultimapValue(MutableSequence):
 
     def __init__(self, *args):
         if args is not None:
-            self.store = [x for x in args]
+            self.__store = [x for x in args]
         else:
-            self.store = []
+            self.__store = []
 
     def insert(self, index, value):
         self.__setitem__(index, value)
 
     def __len__(self):
-        return len(self.store)
+        return len(self.__store)
 
     def __getitem__(self, index):
-        return self.store[index]
+        return self.__store[index]
 
     def __setitem__(self, index, value):
-        self.store.insert(index, value)
+        self.__store.insert(index, value)
 
     def __delitem__(self, index):
-        del self.store[index]
+        del self.__store[index]
 
     def __iter__(self):
-        for x in self.store:
+        for x in self.__store:
             yield x
