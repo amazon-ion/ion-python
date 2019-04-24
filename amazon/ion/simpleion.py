@@ -117,6 +117,7 @@ def dump(obj, fp, imports=None, binary=True, sequence_as_stream=False, skipkeys=
             a newline followed by that string repeated for each level of nesting. None (the default) selects the most
             compact representation without any newlines. Example: to indent with four spaces per level of nesting,
             use ``'    '``.
+        item_sort_key: custom callable to sort the items in each dictionary
         separators: NOT IMPLEMENTED
         encoding: NOT IMPLEMENTED
         default: NOT IMPLEMENTED
@@ -125,7 +126,6 @@ def dump(obj, fp, imports=None, binary=True, sequence_as_stream=False, skipkeys=
         tuple_as_array: NOT IMPLEMENTED
         bigint_as_string: NOT IMPLEMENTED
         sort_keys: NOT IMPLEMENTED
-        item_sort_key: NOT IMPLEMENTED
         for_json: NOT IMPLEMENTED
         ignore_nan: NOT IMPLEMENTED
         int_as_string_bitcount: NOT IMPLEMENTED
@@ -141,9 +141,9 @@ def dump(obj, fp, imports=None, binary=True, sequence_as_stream=False, skipkeys=
         # Treat this top-level sequence as a stream; serialize its elements as top-level values, but don't serialize the
         # sequence itself.
         for top_level in obj:
-            _dump(top_level, writer)
+            _dump(top_level, writer, item_sort_key=item_sort_key)
     else:
-        _dump(obj, writer)
+        _dump(obj, writer, item_sort_key=item_sort_key)
     writer.send(ION_STREAM_END_EVENT)
 
 _FROM_TYPE = dict(chain(
@@ -178,7 +178,9 @@ def _ion_type(obj):
     raise TypeError('Unknown scalar type %r' % (type(obj),))
 
 
-def _dump(obj, writer, field=None):
+def _dump(obj, writer, field=None, item_sort_key=None):
+    if item_sort_key and not callable(item_sort_key):
+        raise TypeError("item_sort_key must be None or callable")
     null = is_null(obj)
     try:
         ion_type = obj.ion_type
@@ -193,7 +195,15 @@ def _dump(obj, writer, field=None):
             event = IonEvent(IonEventType.CONTAINER_START, ion_type, field_name=field)
         writer.send(event)
         if ion_type is IonType.STRUCT:
-            for field, val in six.iteritems(obj):
+            iteritems = six.iteritems(obj)
+            if item_sort_key:
+                items = []
+                for k, v in iteritems:
+                    items.append((k, v))
+                items.sort(key=item_sort_key)
+            else:
+                items = iteritems
+            for field, val in items:
                 _dump(val, writer, field)
         else:
             for elem in obj:
@@ -231,6 +241,7 @@ def dumps(obj, imports=None, binary=True, sequence_as_stream=False, skipkeys=Fal
             a newline followed by that string repeated for each level of nesting. None (the default) selects the most
             compact representation without any newlines. Example: to indent with four spaces per level of nesting,
             use ``'    '``.
+        item_sort_key: Custom callable to sort each dictionary
         separators: NOT IMPLEMENTED
         encoding: NOT IMPLEMENTED
         default: NOT IMPLEMENTED
@@ -239,7 +250,6 @@ def dumps(obj, imports=None, binary=True, sequence_as_stream=False, skipkeys=Fal
         tuple_as_array: NOT IMPLEMENTED
         bigint_as_string: NOT IMPLEMENTED
         sort_keys: NOT IMPLEMENTED
-        item_sort_key: NOT IMPLEMENTED
         for_json: NOT IMPLEMENTED
         ignore_nan: NOT IMPLEMENTED
         int_as_string_bitcount: NOT IMPLEMENTED
