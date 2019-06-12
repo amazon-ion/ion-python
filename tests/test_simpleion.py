@@ -61,11 +61,25 @@ _SIMPLE_CONTAINER_MAP = {
             _Expected(b'\xB0', b'[]')
         ),
         (
+            [(), ],
+            _Expected(b'\xB0', b'[]')
+        ),
+        (
             [IonPyList.from_value(IonType.LIST, []), ],
             _Expected(b'\xB0', b'[]')
         ),
         (
             [[0], ],
+            _Expected(
+                bytes_of([
+                    0xB0 | 0x01,  # Int value 0 fits in 1 byte.
+                    ION_ENCODED_INT_ZERO
+                ]),
+                b'[0]'
+            )
+        ),
+        (
+            [(0,), ],
             _Expected(
                 bytes_of([
                     0xB0 | 0x01,  # Int value 0 fits in 1 byte.

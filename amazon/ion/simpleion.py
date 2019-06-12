@@ -159,6 +159,7 @@ _FROM_TYPE = dict(chain(
         six.binary_type: IonType.BLOB,
         SymbolToken: IonType.SYMBOL,
         list: IonType.LIST,
+        tuple: IonType.LIST,
         dict: IonType.STRUCT
     }),
     six.iteritems(
