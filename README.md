@@ -44,10 +44,10 @@ $ git submodule update
 ```
 
 ## Development
-It is recommended to use `virtualenv` to create a clean environment to build/test Ion Python.
+It is recommended to use `venv` to create a clean environment to build/test Ion Python.
 
 ```
-$ virtualenv venv
+$ python3 -m venv ./venv
 ...
 $ . venv/bin/activate
 $ pip install -r requirements.txt
