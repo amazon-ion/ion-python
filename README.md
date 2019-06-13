@@ -5,7 +5,7 @@ for Python.
 [![Build Status](https://travis-ci.org/amzn/ion-python.svg?branch=master)](https://travis-ci.org/amzn/ion-python)
 [![Documentation Status](https://readthedocs.org/projects/ion-python/badge/?version=latest)](https://ion-python.readthedocs.io/en/latest/?badge=latest)
 
-This package is designed to work with **Python 2.6+** and **Python 3.3+**
+This package is designed to work with **Python 2.7+** and **Python 3.4+**
 
 ## Getting Started
 
@@ -67,25 +67,14 @@ of [tox](http://tox.readthedocs.io/en/latest/) with [pyenv](https://github.com/y
 Install relevant versions of Python:
 
 ```
-$ for V in 2.6.9 2.7.15 3.3.7 3.4.8 3.5.5 3.6.5 3.7.2 pypy2.7-6.0.0 pypy3.5-6.0.0; do pyenv install $V; done
-```
-
-Note that on Mac OS X, you may need to change the `CFLAGS`:
-
-```
-$ for V in 2.6.9 2.7.15 3.3.7 3.4.8 3.5.5 3.6.5 3.7.2 pypy2.7-6.0.0 pypy3.5-6.0.0; do
-    CFLAGS="-I$(xcrun --show-sdk-path)/usr/include" pyenv install $V; done
+$ for V in 2.7.16 3.4.10 3.5.7 3.6.8 3.7.3 pypy2.7-7.1.1 pypy3.6-7.1.1; do pyenv install $V; done
 ```
 
 Once you have these installations, add them as a local `pyenv` configuration
 
 ```
-$ pyenv local 2.6.9 2.7.15 3.3.7 3.4.8 3.5.5 3.6.5 3.7.2 pypy2.7-6.0.0 pypy3.5-6.0.0
+$ pyenv local 2.7.16 3.4.10 3.5.7 3.6.8 3.7.3 pypy2.7-7.1.1 pypy3.6-7.1.1
 ```
-
-At the time of this writing, on Mac OS X, you may have problems with `pyenv` and `pypy`.
-On this platform, it is probably easier to have `pypy` not managed by `pyenv` and install
-and use it directly from `brew`.
 
 Assuming you have `pyenv` properly set up (making sure `pyenv init` is evaluated into your shell),
 you can now run `tox`:
