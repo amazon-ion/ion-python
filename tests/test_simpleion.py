@@ -546,3 +546,18 @@ def test_pretty_print(p):
         assert actual_pretty_ion_text == exact_text
     for regex_str in regexes:
         assert re.search(regex_str, actual_pretty_ion_text, re.M) is not None
+
+
+# Regression test for issue #95
+def test_struct_field():
+    # pass a dict through simpleion to get a reconstituted dict of Ion values.
+    struct_a = loads(dumps({u'dont_remember_my_name': 1}))
+
+    # copy the value of the "dont_remember_my_name" field to a new struct, which is also passed through simpleion
+    struct_b = {u'new_name': struct_a[u"dont_remember_my_name"]}
+    struct_c = loads(dumps(struct_b))
+
+    # The bug identified in ion-python#95 is that the name of the original field is somehow preserved.
+    # verify this no longer happens
+    assert u'dont_remember_my_name' not in struct_c
+    assert u'new_name' in struct_c

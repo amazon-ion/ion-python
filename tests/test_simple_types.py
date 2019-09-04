@@ -101,11 +101,9 @@ def test_event_types(p):
         output_event = e_scalar(ion_type, event_output)
         assert value_event == output_event
 
-    assert event_output.ion_event == p.event
     assert event_output.ion_type is ion_type
     assert p.event.annotations == event_output.ion_annotations
 
-    assert value_output.ion_event is to_event_output
     assert value_output.ion_type is ion_type
     assert p.event.annotations == value_output.ion_annotations
 
