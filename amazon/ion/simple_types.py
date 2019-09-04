@@ -50,7 +50,6 @@ class _IonNature(object):
         User constructed values will generally not set this field.
     """
     def __init__(self, *args, **kwargs):
-        self.ion_event = None
         self.ion_type = None
         self.ion_annotations = ()
 
@@ -61,7 +60,6 @@ class _IonNature(object):
         """
         args, kwargs = self._to_constructor_args(self)
         value = self.__class__(*args, **kwargs)
-        value.ion_event = None
         value.ion_type = self.ion_type
         value.ion_annotations = self.ion_annotations
         return value
@@ -84,7 +82,6 @@ class _IonNature(object):
             # underlying container will fail.
             args, kwargs = (), {}
         value = cls(*args, **kwargs)
-        value.ion_event = ion_event
         value.ion_type = ion_event.ion_type
         value.ion_annotations = ion_event.annotations
         return value
@@ -103,7 +100,6 @@ class _IonNature(object):
         else:
             args, kwargs = cls._to_constructor_args(value)
             value = cls(*args, **kwargs)
-        value.ion_event = None
         value.ion_type = ion_type
         value.ion_annotations = annotations
         return value
@@ -119,13 +115,11 @@ class _IonNature(object):
         Returns:
             An IonEvent with the properties from this value.
         """
-        if self.ion_event is None:
-            value = self
-            if isinstance(self, IonPyNull):
-                value = None
-            self.ion_event = IonEvent(event_type, ion_type=self.ion_type, value=value, field_name=field_name,
-                                      annotations=self.ion_annotations, depth=depth)
-        return self.ion_event
+        value = self
+        if isinstance(self, IonPyNull):
+            value = None
+        return IonEvent(event_type, ion_type=self.ion_type, value=value, field_name=field_name,
+                                  annotations=self.ion_annotations, depth=depth)
 
 
 def _ion_type_for(name, base_cls):
