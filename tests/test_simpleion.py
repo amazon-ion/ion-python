@@ -559,5 +559,5 @@ def test_struct_field():
 
     # The bug identified in ion-python#95 is that the name of the original field is somehow preserved.
     # verify this no longer happens
-    assert 'dont_remember_my_name' not in struct_b
-    assert 'new_name' in struct_b
+    assert 'dont_remember_my_name' not in struct_c
+    assert 'new_name' in struct_c
