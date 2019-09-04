@@ -557,8 +557,6 @@ def test_struct_field():
     struct_b = {'new_name': struct_a["dont_remember_my_name"]}
     struct_c = loads(dumps(struct_b))
 
-    print(dumps(struct_b, binary=False))
-
     # The bug identified in ion-python#95 is that the name of the original field is somehow preserved.
     # verify this no longer happens
     assert 'dont_remember_my_name' not in struct_b
