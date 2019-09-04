@@ -548,16 +548,14 @@ def test_pretty_print(p):
         assert re.search(regex_str, actual_pretty_ion_text, re.M) is not None
 
 
-# Regression test for ion-python#95
-# Field name of the original test is here.
+# Regression test for issue #95
 def test_struct_field():
     # pass a dict through simpleion to get a reconstituted dict of Ion values.
     struct_a = loads(dumps({'dont_remember_my_name': 1}))
 
     # copy the value of the "dont_remember_my_name" field to a new struct, which is also passed through simpleion
-    mutant = {'new_name': struct_a["dont_remember_my_name"]}
-    print(mutant)
-    struct_b = loads(dumps(mutant))
+    struct_b = {'new_name': struct_a["dont_remember_my_name"]}
+    struct_c = loads(dumps(struct_b))
 
     print(dumps(struct_b, binary=False))
 
