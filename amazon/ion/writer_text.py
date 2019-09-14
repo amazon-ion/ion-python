@@ -35,7 +35,7 @@ from . import symbols
 
 from .util import coroutine, unicode_iter
 from .core import DataEvent, Transition, IonEventType, IonType, TIMESTAMP_PRECISION_FIELD, TimestampPrecision, \
-    _ZERO_DELTA, TIMESTAMP_FRACTION_PRECISION_FIELD, MICROSECOND_PRECISION
+    _ZERO_DELTA, TIMESTAMP_FRACTION_PRECISION_FIELD, MICROSECOND_PRECISION, TIMESTAMP_FRACTIONAL_SECONDS_FIELD
 from .writer import partial_transition, writer_trampoline, serialize_scalar, validate_scalar_value, \
     illegal_state_null, NOOP_WRITER_EVENT
 from .writer import WriteEventType
@@ -57,6 +57,27 @@ _NULL_TYPE_NAMES = [
     b'null.sexp',
     b'null.struct',
 ]
+
+
+def _scientific_notation_to_decimal_string(value):
+    """Converts the Decimal ```value```, which must be expressed in scientific notation, to a string version of the full
+    precision decimal with the zero that precedes the decimal point omitted.
+
+    Input example: Decimal('1.2E-14')
+    Output example: '.000000000000012'
+
+    Args:
+        value (Decimal): The numerical value, which must be expressed in scientific notation
+    Returns:
+        string: A string version of the full precision decimal with the zero that precedes the decimal point omitted.
+    """
+    value_string = str(value).replace('.', '').lower()
+    pos = value_string.find('e')
+    number_value = value_string[:pos]
+    exponent_value = value_string[pos + 1:]
+    total_num_of_zeroes = (int(exponent_value) * -1) - 1
+    decimal_string = '.' + ('0' * total_num_of_zeroes) + number_value
+    return decimal_string
 
 
 def _serialize_bool(ion_event):
@@ -173,15 +194,25 @@ def _bytes_datetime(dt):
         return tz_string + _bytes_utc_offset(dt)
 
     fractional_precision = getattr(original_dt, TIMESTAMP_FRACTION_PRECISION_FIELD, MICROSECOND_PRECISION)
-    if fractional_precision:
+    fractional_seconds = getattr(original_dt, TIMESTAMP_FRACTIONAL_SECONDS_FIELD, None)
+    if fractional_seconds is None:
         fractional = dt.strftime('%f')
         assert len(fractional) == MICROSECOND_PRECISION
-        if fractional[fractional_precision:] != ('0' * (MICROSECOND_PRECISION - fractional_precision)):
-            raise ValueError('Found timestamp fractional with more than the specified %d digits of precision.'
-                             % (fractional_precision,))
-        fractional = fractional[:fractional_precision]
-        tz_string += '.' + fractional
 
+        if fractional_precision is not None:
+            if fractional[fractional_precision:] != ('0' * (MICROSECOND_PRECISION - fractional_precision)):
+                raise ValueError('Found timestamp fractional with more than the specified %d digits of precision.'
+                                 % (fractional_precision,))
+            fractional = fractional[:fractional_precision]
+            tz_string += '.' + fractional
+
+    if fractional_seconds == 0:
+        tz_string += '.' + ('0' * fractional_precision)
+    elif fractional_seconds is not None:
+        if 'e' in str(fractional_seconds).lower():
+            tz_string += _scientific_notation_to_decimal_string(fractional_seconds)
+        else:
+            tz_string += str(fractional_seconds)[1:]
     return tz_string + _bytes_utc_offset(dt)
 
 

@@ -96,8 +96,6 @@ _BASIC_PARAMS = (
 )
 
 _BAD_VALUES = (
-    # Only up to microsecond precision is supported (6 digits).
-    (b'\x69\xC0\x81\x81\x81\x80\x80\x80\xC7\x01', 'OVERFLOWING TIMESTAMP PRECISION'),
     # The annotation wrapper declares 6 octets, but the wrapped value (a symbol value) ends after only 4.
     (b'\xe6\x81\x84\x71\x04\x71\x04', 'ANNOT LENGTH TOO LONG - SCALAR'),
     # The annotation wrapper declares 6 octets, but the wrapped value (a list) ends after only 4.
@@ -188,6 +186,11 @@ _TOP_LEVEL_VALUES = (
         e_timestamp(_ts(2016, 2, 2, 0, 0, 30, off_hours=-7, precision=_PREC_SECOND))
     ),
     (
+        b'\x69\xC0\x81\x81\x81\x80\x80\x80\xC7\x01',
+        e_timestamp(_ts(1, 1, 1, 0, 0, 0, None, precision=_PREC_SECOND, fractional_precision=None,
+                        fractional_seconds=Decimal('1e-7')))
+    ),
+    (
         b'\x6B\x43\xA4\x0F\xE0\x82\x82\x87\x80\x9E\xC3\x01',
         e_timestamp(_ts(
             2016, 2, 2, 0, 0, 30, 1000, off_hours=-7, precision=_PREC_SECOND, fractional_precision=3
@@ -245,10 +248,10 @@ _TOP_LEVEL_VALUES = (
 
     (b'\xBF', e_null_list()),
     (b'\xB0', e_start_list(), e_end_list()),
-    
+
     (b'\xCF', e_null_sexp()),
     (b'\xC0', e_start_sexp(), e_end_sexp()),
-    
+
     (b'\xDF', e_null_struct()),
     (b'\xD0', e_start_struct(), e_end_struct()),
     (b'\xD1\x82\x84\x20', e_start_struct(), e_int(0, field_name=SymbolToken(None, 4)), e_end_struct())
