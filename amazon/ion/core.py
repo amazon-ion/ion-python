@@ -144,6 +144,7 @@ class IonEvent(record(
                 # Special case for timestamps to capture equivalence over precision.
                 self_precision = getattr(self.value, TIMESTAMP_PRECISION_FIELD, None)
                 other_precision = getattr(other.value, TIMESTAMP_PRECISION_FIELD, None)
+                self_fractional_units = getattr(other.value, FRACTIONAL_UNITS, None)
                 if self_precision != other_precision \
                         and not ((self_precision is None and other_precision is TimestampPrecision.SECOND) or
                                      (self_precision is TimestampPrecision.SECOND and other_precision is None)):
@@ -366,6 +367,7 @@ class TimestampPrecision(Enum):
 
 TIMESTAMP_PRECISION_FIELD = 'precision'
 TIMESTAMP_FRACTION_PRECISION_FIELD = 'fractional_precision'
+FRACTIONAL_UNITS = 'fractional_units'
 MICROSECOND_PRECISION = 6
 
 
@@ -375,27 +377,28 @@ class Timestamp(datetime):
     Notes:
         The ``precision`` field is passed as a keyword argument of the same name.
     """
-    __slots__ = [TIMESTAMP_PRECISION_FIELD, TIMESTAMP_FRACTION_PRECISION_FIELD]
+    __slots__ = [TIMESTAMP_PRECISION_FIELD, TIMESTAMP_FRACTION_PRECISION_FIELD, FRACTIONAL_UNITS]
 
     def __new__(cls, *args, **kwargs):
         precision = None
         fractional_precision = None
+        fractional_units = None
         if TIMESTAMP_PRECISION_FIELD in kwargs:
             precision = kwargs.get(TIMESTAMP_PRECISION_FIELD)
             # Make sure we mask this before we construct the datetime.
             del kwargs[TIMESTAMP_PRECISION_FIELD]
         if TIMESTAMP_FRACTION_PRECISION_FIELD in kwargs:
             fractional_precision = kwargs.get(TIMESTAMP_FRACTION_PRECISION_FIELD)
-            if fractional_precision is not None and 1 > fractional_precision > MICROSECOND_PRECISION:
-                raise ValueError('Cannot construct a Timestamp with fractional precision of %d digits, '
-                                 'which is out of the supported range of [1, %d].'
-                                 % (fractional_precision, MICROSECOND_PRECISION,))
             # Make sure we mask this before we construct the datetime.
             del kwargs[TIMESTAMP_FRACTION_PRECISION_FIELD]
+        if FRACTIONAL_UNITS in kwargs:
+            fractional_units = kwargs.get(FRACTIONAL_UNITS)
+            del kwargs[FRACTIONAL_UNITS]
 
         instance = super(Timestamp, cls).__new__(cls, *args, **kwargs)
         setattr(instance, TIMESTAMP_PRECISION_FIELD, precision)
         setattr(instance, TIMESTAMP_FRACTION_PRECISION_FIELD, fractional_precision)
+        setattr(instance, FRACTIONAL_UNITS, fractional_units)
 
         return instance
 
@@ -437,13 +440,14 @@ class Timestamp(datetime):
 def timestamp(year, month=1, day=1,
               hour=0, minute=0, second=0, microsecond=None,
               off_hours=None, off_minutes=None,
-              precision=None, fractional_precision=None):
+              precision=None, fractional_precision=None, fractional_units=None):
     """Shorthand for the :class:`Timestamp` constructor.
 
     Specifically, converts ``off_hours`` and ``off_minutes`` parameters to a suitable
     :class:`OffsetTZInfo` instance.
     """
     delta = None
+    fractional_units_to_pass = None
     if off_hours is not None:
         if off_hours < -23 or off_hours > 23:
             raise ValueError('Hour offset %d is out of required range -23..23.' % (off_hours,))
@@ -469,10 +473,15 @@ def timestamp(year, month=1, day=1,
         if fractional_precision is not None:
             raise ValueError('Cannot have fractional precision without a fractional component.')
 
+    if fractional_precision is not None and fractional_precision > MICROSECOND_PRECISION:
+        diff = fractional_precision - MICROSECOND_PRECISION
+        fractional_units_to_pass = round(microsecond / (10 ** diff))
+    else:
+        fractional_units_to_pass = microsecond
     return Timestamp(
         year, month, day,
-        hour, minute, second, microsecond,
-        tz, precision=precision, fractional_precision=fractional_precision
+        hour, minute, second, fractional_units_to_pass,
+        tz, precision=precision, fractional_precision=fractional_precision, fractional_units=microsecond
     )
 
 

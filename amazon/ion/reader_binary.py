@@ -714,15 +714,21 @@ def _timestamp_factory(data):
             else:
                 fractional_precision = -1 * fraction_exponent
                 if fractional_precision > MICROSECOND_PRECISION:
-                    raise IonException(
-                        'Timestamp has a fractional component %s with greater than microsecond precision.' % fraction)
-                microsecond = fraction.scaleb(MICROSECOND_PRECISION).to_integral_value()
+                    microsecond = fraction.scaleb(fractional_precision).to_integral_value()
+                else:
+                    microsecond = fraction.scaleb(MICROSECOND_PRECISION).to_integral_value()
+
+        if fractional_precision is not None and fractional_precision > MICROSECOND_PRECISION:
+            diff = fractional_precision - MICROSECOND_PRECISION
+            microseconds_to_pass = round(microsecond / (10 ** diff))
+        else:
+            microseconds_to_pass = microsecond
 
         return Timestamp.adjust_from_utc_fields(
             year, month, day,
-            hour, minute, second, microsecond,
+            hour, minute, second, microseconds_to_pass,
             tz,
-            precision=precision, fractional_precision=fractional_precision
+            precision=precision, fractional_precision=fractional_precision, fractional_units=microsecond
         )
 
     return parse_timestamp
