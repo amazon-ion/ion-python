@@ -205,7 +205,6 @@ _BAD_VALUE = (
     (b'2000-01-01T24:00Z',),  # Hour is 0..23.
     (b'2000-01-01T00:60Z',),  # Minute is 0..59.
     (b'2000-01-01T00:00:60Z',),  # Second is 0..59.
-    (b'2000-01-01T00:00:00.9999999Z',),  # Only up to microsecond-level precision is supported.
     (b'2000-01-01T00:00:00.000+24:00',),  # Hour offset is 0..23.
     (b'2000-01-01T00:00:00.000+00:60',),  # Minute offset is 0..59.
     (b'"\\udbff\\u3000"',),  # Malformed surrogate pair (\u3000 is not a low surrogate).
@@ -787,6 +786,27 @@ _GOOD_SCALARS = (
         b'2000-01-01T00:00:00.99999900000Z',
         e_timestamp(_ts(
             2000, 1, 1, 0, 0, 0, 999999, off_hours=0, off_minutes=0, precision=_tp.SECOND, fractional_precision=6
+        ))
+    ),
+    (
+        b'2000-01-01T00:00:00.9999999Z',
+        e_timestamp(_ts(
+            2000, 1, 1, 0, 0, 0, None, off_hours=0, off_minutes=0, precision=_tp.SECOND, fractional_precision=None,
+            fractional_seconds=Decimal('0.9999999')
+        ))
+    ),
+    (
+        b'2000-01-01T00:00:00.1234567Z',
+        e_timestamp(_ts(
+            2000, 1, 1, 0, 0, 0, None, off_hours=0, off_minutes=0, precision=_tp.SECOND, fractional_precision=None,
+            fractional_seconds=Decimal('0.1234567')
+        ))
+    ),
+    (
+        b'2000-01-01T00:00:00.1234567800Z',
+        e_timestamp(_ts(
+            2000, 1, 1, 0, 0, 0, None, off_hours=0, off_minutes=0, precision=_tp.SECOND, fractional_precision=None,
+            fractional_seconds=Decimal('0.1234567800')
         ))
     ),
     (

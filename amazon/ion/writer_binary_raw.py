@@ -30,7 +30,7 @@ import struct
 from amazon.ion.equivalence import _is_float_negative_zero
 from amazon.ion.symbols import SymbolToken
 from .core import IonEventType, IonType, DataEvent, Transition, TimestampPrecision, TIMESTAMP_FRACTION_PRECISION_FIELD, \
-    MICROSECOND_PRECISION, TIMESTAMP_PRECISION_FIELD
+    MICROSECOND_PRECISION, TIMESTAMP_PRECISION_FIELD, TIMESTAMP_FRACTIONAL_SECONDS_FIELD
 from .util import coroutine, total_seconds, Enum
 from .writer import NOOP_WRITER_EVENT, WriteEventType, \
                     writer_trampoline, partial_transition, serialize_scalar, \
@@ -170,6 +170,13 @@ def _write_decimal_value(buf, exponent, coefficient, sign=0):
     return length
 
 
+def _write_decimal_to_buf(buf, value):
+    sign, digits, exponent = value.as_tuple()
+    coefficient = int(value.scaleb(-exponent).to_integral_value())
+    length = _write_decimal_value(buf, exponent, coefficient, sign)
+    return length
+
+
 def _serialize_decimal(ion_event):
     buf = bytearray()
     value = ion_event.value
@@ -226,7 +233,7 @@ _serialize_clob = partial(_serialize_lob_value, tid=_TypeIds.CLOB)
 
 _MICROSECOND_DECIMAL_EXPONENT = -6  # There are 1e6 microseconds per second.
 
-_TEN_EXP_MINUS_ONE = [
+_TEN_EXP_MINUS_ONE = (
     -1,
     9,
     99,
@@ -234,7 +241,7 @@ _TEN_EXP_MINUS_ONE = [
     9999,
     99999,
     999999,
-]
+)
 
 
 def _serialize_timestamp(ion_event):
@@ -263,8 +270,9 @@ def _serialize_timestamp(ion_event):
         length += _write_varuint(value_buf, dt.minute)
     if precision.includes_second:
         length += _write_varuint(value_buf, dt.second)
-        coefficient = dt.microsecond
+        coefficient_fraction_seconds = getattr(ion_event.value, TIMESTAMP_FRACTIONAL_SECONDS_FIELD, None)
         fractional_precision = getattr(ion_event.value, TIMESTAMP_FRACTION_PRECISION_FIELD, MICROSECOND_PRECISION)
+        coefficient = dt.microsecond
         if coefficient is not None and fractional_precision is not None:
             if coefficient == 0:
                 adjusted_fractional_precision = fractional_precision
@@ -279,9 +287,13 @@ def _serialize_timestamp(ion_event):
                 raise ValueError('Error writing event %s. Found timestamp fractional precision of %d digits, '
                                  'which is less than needed to serialize %d microseconds.'
                                  % (ion_event, fractional_precision, dt.microsecond))
-            exponent = -adjusted_fractional_precision
-            if not (coefficient == 0 and exponent >= 0):
-                length += _write_decimal_value(value_buf, exponent, coefficient)
+            if coefficient_fraction_seconds is None:
+                exponent = -adjusted_fractional_precision
+                if not (coefficient == 0 and exponent >= 0):
+                    length += _write_decimal_value(value_buf, exponent, coefficient)
+
+        if coefficient_fraction_seconds is not None:
+            length += _write_decimal_to_buf(value_buf, coefficient_fraction_seconds)
     _write_length(buf, length, _TypeIds.TIMESTAMP)
     buf.extend(value_buf)
     return buf

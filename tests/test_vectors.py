@@ -96,7 +96,6 @@ _SKIP_LIST = (
     # TEXT:
     _good_file(u'subfieldVarUInt.ion'),  # TODO amzn/ion-python#34
     _good_file(u'subfieldVarUInt32bit.ion'),  # TODO amzn/ion-python#34
-    _equivs_file(u'timestampsLargeFractionalPrecision.ion'),  # TODO amzn/ion-python#35
     _nonequivs_file(u'symbolTablesUnknownText.ion'),  # TODO amzn/ion-python#46
     # BINARY:
     _good_file(u'item1.10n'),  # TODO amzn/ion-python#46
