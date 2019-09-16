@@ -31,7 +31,7 @@ import six
 from amazon.ion.symbols import SymbolToken
 from .core import TIMESTAMP_PRECISION_FIELD
 from .core import Multimap, Timestamp, IonEvent, IonType, TIMESTAMP_FRACTION_PRECISION_FIELD, TimestampPrecision, \
-    MICROSECOND_PRECISION, FRACTIONAL_UNITS
+    MICROSECOND_PRECISION, FRACTIONAL_SECONDS
 
 
 class _IonNature(object):
@@ -175,8 +175,8 @@ class IonPyTimestamp(Timestamp, _IonNature):
         except AttributeError:
             fractional_precision = MICROSECOND_PRECISION
         kwargs[TIMESTAMP_FRACTION_PRECISION_FIELD] = fractional_precision
-        fractional_units = getattr(ts, FRACTIONAL_UNITS, ts.microsecond)
-        kwargs[FRACTIONAL_UNITS] = fractional_units
+        fractional_seconds = getattr(ts, FRACTIONAL_SECONDS, ts.microsecond)
+        kwargs[FRACTIONAL_SECONDS] = fractional_seconds
         return args, kwargs
 
 

@@ -720,15 +720,15 @@ def _timestamp_factory(data):
 
         if fractional_precision is not None and fractional_precision > MICROSECOND_PRECISION:
             diff = fractional_precision - MICROSECOND_PRECISION
-            microseconds_to_pass = round(microsecond / (10 ** diff))
+            fractional_seconds_to_pass = round(microsecond / (10 ** diff))
         else:
-            microseconds_to_pass = microsecond
+            fractional_seconds_to_pass = microsecond
 
         return Timestamp.adjust_from_utc_fields(
             year, month, day,
-            hour, minute, second, microseconds_to_pass,
+            hour, minute, second, fractional_seconds_to_pass,
             tz,
-            precision=precision, fractional_precision=fractional_precision, fractional_units=microsecond
+            precision=precision, fractional_precision=fractional_precision, fractional_seconds=microsecond
         )
 
     return parse_timestamp

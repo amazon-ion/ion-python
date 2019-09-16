@@ -30,7 +30,7 @@ import struct
 from amazon.ion.equivalence import _is_float_negative_zero
 from amazon.ion.symbols import SymbolToken
 from .core import IonEventType, IonType, DataEvent, Transition, TimestampPrecision, TIMESTAMP_FRACTION_PRECISION_FIELD, \
-    MICROSECOND_PRECISION, TIMESTAMP_PRECISION_FIELD, FRACTIONAL_UNITS
+    MICROSECOND_PRECISION, TIMESTAMP_PRECISION_FIELD, FRACTIONAL_SECONDS
 from .util import coroutine, total_seconds, Enum
 from .writer import NOOP_WRITER_EVENT, WriteEventType, \
                     writer_trampoline, partial_transition, serialize_scalar, \
@@ -253,7 +253,7 @@ def _serialize_timestamp(ion_event):
         length += _write_varuint(value_buf, dt.minute)
     if precision.includes_second:
         length += _write_varuint(value_buf, dt.second)
-        coefficient = getattr(ion_event.value, FRACTIONAL_UNITS, dt.microsecond)
+        coefficient = getattr(ion_event.value, FRACTIONAL_SECONDS, dt.microsecond)
         if coefficient is None:
             coefficient = dt.microsecond
         fractional_precision = getattr(ion_event.value, TIMESTAMP_FRACTION_PRECISION_FIELD, MICROSECOND_PRECISION)

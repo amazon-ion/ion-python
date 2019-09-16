@@ -943,7 +943,7 @@ def _parse_timestamp(tokens):
             year, month, day,
             hour, minute, second, microsecond,
             off_hour, off_minutes,
-            precision=precision, fractional_precision=fraction_digits, fractional_units=microsecond
+            precision=precision, fractional_precision=fraction_digits, fractional_seconds=microsecond
         )
     return parse
 
