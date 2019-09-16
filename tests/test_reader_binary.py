@@ -96,8 +96,6 @@ _BASIC_PARAMS = (
 )
 
 _BAD_VALUES = (
-    # Only up to microsecond precision is supported (6 digits).
-    (b'\x69\xC0\x81\x81\x81\x80\x80\x80\xC7\x01', 'OVERFLOWING TIMESTAMP PRECISION'),
     # The annotation wrapper declares 6 octets, but the wrapped value (a symbol value) ends after only 4.
     (b'\xe6\x81\x84\x71\x04\x71\x04', 'ANNOT LENGTH TOO LONG - SCALAR'),
     # The annotation wrapper declares 6 octets, but the wrapped value (a list) ends after only 4.

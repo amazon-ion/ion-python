@@ -932,7 +932,7 @@ def _parse_timestamp(tokens):
                     for digit in fraction[MICROSECOND_PRECISION:]:
                         if digit != _ZERO:
                             has_unnecessary_padding = False
-                            break;
+                            break
                     if has_unnecessary_padding:
                         fraction_digits = MICROSECOND_PRECISION
                         fraction = fraction[0:MICROSECOND_PRECISION]

@@ -182,6 +182,9 @@ def _bytes_datetime(dt):
             if fractional is None:
                 fractional = dt.strftime('%f')
             fractional = str(fractional)
+            if len(fractional) < fractional_precision:
+                diff = fractional_precision - len(fractional)
+                fractional = ('0' * diff) + fractional
 
         if fractional_precision <= MICROSECOND_PRECISION and \
                 fractional[fractional_precision:] != ('0' * (MICROSECOND_PRECISION - fractional_precision)):

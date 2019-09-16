@@ -226,19 +226,6 @@ _serialize_clob = partial(_serialize_lob_value, tid=_TypeIds.CLOB)
 
 _MICROSECOND_DECIMAL_EXPONENT = -6  # There are 1e6 microseconds per second.
 
-_TEN_EXP_MINUS_ONE = [
-    -1,
-    9,
-    99,
-    999,
-    9999,
-    99999,
-    999999,
-    9999999,
-    99999999,
-    999999999
-]
-
 
 def _serialize_timestamp(ion_event):
     buf = bytearray()
@@ -271,16 +258,17 @@ def _serialize_timestamp(ion_event):
             coefficient = dt.microsecond
         fractional_precision = getattr(ion_event.value, TIMESTAMP_FRACTION_PRECISION_FIELD, MICROSECOND_PRECISION)
         if coefficient is not None and fractional_precision is not None:
-            if coefficient == 0 or fractional_precision > MICROSECOND_PRECISION:
+            if coefficient == 0:
                 adjusted_fractional_precision = fractional_precision
             else:
                 adjusted_fractional_precision = MICROSECOND_PRECISION
+                if fractional_precision > MICROSECOND_PRECISION:
+                    adjusted_fractional_precision = fractional_precision
                 # This optimizes the size of the fractional encoding when the extra precision is not needed.
                 while adjusted_fractional_precision > fractional_precision and coefficient % 10 == 0:
                     coefficient //= 10
                     adjusted_fractional_precision -= 1
-            if adjusted_fractional_precision > fractional_precision or \
-                    coefficient > _TEN_EXP_MINUS_ONE[fractional_precision]:
+            if adjusted_fractional_precision > fractional_precision:
                 raise ValueError('Error writing event %s. Found timestamp fractional precision of %d digits, '
                                  'which is less than needed to serialize %d microseconds.'
                                  % (ion_event, fractional_precision, dt.microsecond))
