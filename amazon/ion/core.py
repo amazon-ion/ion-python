@@ -476,6 +476,8 @@ def timestamp(year, month=1, day=1,
     if fractional_precision is not None and fractional_precision > MICROSECOND_PRECISION:
         diff = fractional_precision - MICROSECOND_PRECISION
         fractional_seconds_to_pass = round(microsecond / (10 ** diff))
+        if fractional_seconds_to_pass > 999999:
+            fractional_seconds_to_pass = int(str(microsecond)[0:MICROSECOND_PRECISION])
     else:
         fractional_seconds_to_pass = microsecond
     return Timestamp(
