@@ -927,23 +927,12 @@ def _parse_timestamp(tokens):
             fraction = tokens[_TimestampState.FRACTIONAL]
             if fraction is not None:
                 fraction_digits = len(fraction)
-                if fraction_digits > MICROSECOND_PRECISION:
-                    has_unnecessary_padding = True
-                    for digit in fraction[MICROSECOND_PRECISION:]:
-                        if digit != _ZERO:
-                            has_unnecessary_padding = False
-                            break
-                    if has_unnecessary_padding:
-                        fraction_digits = MICROSECOND_PRECISION
-                        fraction = fraction[0:MICROSECOND_PRECISION]
-                else:
-                    fraction.extend(_ZEROS[MICROSECOND_PRECISION - fraction_digits])
                 microsecond = int(fraction)
         return timestamp(
             year, month, day,
-            hour, minute, second, microsecond,
+            hour, minute, second, None,
             off_hour, off_minutes,
-            precision=precision, fractional_precision=fraction_digits, fractional_seconds=microsecond
+            precision=precision, fractional_precision=None, fractional_seconds=microsecond
         )
     return parse
 

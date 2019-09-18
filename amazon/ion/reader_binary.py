@@ -661,6 +661,7 @@ def _timestamp_factory(data):
     def parse_timestamp():
         end = len(data)
         buf = BytesIO(data)
+        fraction = 0
 
         precision = TimestampPrecision.YEAR
         off_sign, off_value = _parse_var_int_components(buf, signed=True)
@@ -714,23 +715,15 @@ def _timestamp_factory(data):
             else:
                 fractional_precision = -1 * fraction_exponent
                 if fractional_precision > MICROSECOND_PRECISION:
-                    microsecond = fraction.scaleb(fractional_precision).to_integral_value()
+                    fraction = fraction.scaleb(fractional_precision).to_integral_value()
                 else:
-                    microsecond = fraction.scaleb(MICROSECOND_PRECISION).to_integral_value()
-
-        if fractional_precision is not None and fractional_precision > MICROSECOND_PRECISION:
-            diff = fractional_precision - MICROSECOND_PRECISION
-            fractional_seconds_to_pass = round(microsecond / (10 ** diff))
-            if fractional_seconds_to_pass > 999999:
-                fractional_seconds_to_pass = int(str(microsecond)[0:MICROSECOND_PRECISION])
-        else:
-            fractional_seconds_to_pass = microsecond
+                    fraction = fraction.scaleb(MICROSECOND_PRECISION).to_integral_value()
 
         return Timestamp.adjust_from_utc_fields(
             year, month, day,
-            hour, minute, second, fractional_seconds_to_pass,
+            hour, minute, second, None,
             tz,
-            precision=precision, fractional_precision=fractional_precision, fractional_seconds=microsecond
+            precision=precision, fractional_precision=None, fractional_seconds=fraction
         )
 
     return parse_timestamp

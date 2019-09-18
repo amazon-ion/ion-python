@@ -35,7 +35,7 @@ from . import symbols
 
 from .util import coroutine, unicode_iter
 from .core import DataEvent, Transition, IonEventType, IonType, TIMESTAMP_PRECISION_FIELD, TimestampPrecision, \
-    _ZERO_DELTA, TIMESTAMP_FRACTION_PRECISION_FIELD, MICROSECOND_PRECISION, FRACTIONAL_SECONDS
+    _ZERO_DELTA, TIMESTAMP_FRACTION_PRECISION_FIELD, MICROSECOND_PRECISION, TIMESTAMP_FRACTIONAL_SECONDS_FIELD
 from .writer import partial_transition, writer_trampoline, serialize_scalar, validate_scalar_value, \
     illegal_state_null, NOOP_WRITER_EVENT
 from .writer import WriteEventType
@@ -178,7 +178,7 @@ def _bytes_datetime(dt):
             fractional = dt.strftime('%f')
             assert len(fractional) == MICROSECOND_PRECISION
         else:
-            fractional = getattr(original_dt, FRACTIONAL_SECONDS, dt.strftime('%f'))
+            fractional = getattr(original_dt, TIMESTAMP_FRACTIONAL_SECONDS_FIELD, dt.strftime('%f'))
             if fractional is None:
                 fractional = dt.strftime('%f')
             fractional = str(fractional)
