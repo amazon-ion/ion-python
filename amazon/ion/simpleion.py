@@ -49,7 +49,7 @@ def dump(obj, fp, imports=None, binary=True, sequence_as_stream=False, skipkeys=
          check_circular=True, allow_nan=True, cls=None, indent=None, separators=None, encoding='utf-8', default=None,
          use_decimal=True, namedtuple_as_object=True, tuple_as_array=True, bigint_as_string=False, sort_keys=False,
          item_sort_key=None, for_json=None, ignore_nan=False, int_as_string_bitcount=None, iterable_as_array=False,
-         **kw):
+         tuple_as_sexp=False, **kw):
     """Serialize ``obj`` as an Ion-formatted stream to ``fp`` (a file-like object), using the following conversion
     table::
         +-------------------+-------------------+
@@ -90,10 +90,16 @@ def dump(obj, fp, imports=None, binary=True, sequence_as_stream=False, skipkeys=
         | bytes (Python 3)  |     blob          |
         | IonPyBytes(BLOB)  |                   |
         |-------------------+-------------------|
-        | list, tuple,      |                   |
-        | IonPyList(LIST)   |     list          |
+        | list,             |                   |
+        | tuple (when       |                   |
+        |  tuple_as_sexp=   |     list          |
+        |  False)           |                   |
+        | IonPyList(LIST)   |                   |
         |-------------------+-------------------|
-        | IonPyList(SEXP)   |     sexp          |
+        | tuple (when       |                   |
+        |  tuple_as_sexp=   |     sexp          |
+        |  True),           |                   |
+        | IonPyList(SEXP)   |                   |
         |-------------------+-------------------|
         | dict, namedtuple, |                   |
         | IonPyDict         |     struct        |
@@ -130,21 +136,25 @@ def dump(obj, fp, imports=None, binary=True, sequence_as_stream=False, skipkeys=
         ignore_nan: NOT IMPLEMENTED
         int_as_string_bitcount: NOT IMPLEMENTED
         iterable_as_array: NOT IMPLEMENTED
+        tuple_as_sexp (Optional[True|False]): When True, all tuple values will be written as Ion s-expressions.
+            When False, all tuple values will be written as Ion lists. Default: False.
         **kw: NOT IMPLEMENTED
 
     """
 
     raw_writer = binary_writer(imports) if binary else text_writer(indent=indent)
     writer = blocking_writer(raw_writer, fp)
+    from_type = _FROM_TYPE_TUPLE_AS_SEXP if tuple_as_sexp else _FROM_TYPE
     writer.send(ION_VERSION_MARKER_EVENT)  # The IVM is emitted automatically in binary; it's optional in text.
     if sequence_as_stream and isinstance(obj, (list, tuple)):
         # Treat this top-level sequence as a stream; serialize its elements as top-level values, but don't serialize the
         # sequence itself.
         for top_level in obj:
-            _dump(top_level, writer)
+            _dump(top_level, writer, from_type)
     else:
-        _dump(obj, writer)
+        _dump(obj, writer, from_type)
     writer.send(ION_STREAM_END_EVENT)
+
 
 _FROM_TYPE = dict(chain(
     six.iteritems({
@@ -167,25 +177,34 @@ _FROM_TYPE = dict(chain(
     ),
 ))
 
+_FROM_TYPE_TUPLE_AS_SEXP = dict(_FROM_TYPE)
+_FROM_TYPE_TUPLE_AS_SEXP.update({
+    tuple: IonType.SEXP
+})
 
-def _ion_type(obj):
+
+def _ion_type(obj, from_type):
     types = [type(obj)]
     while types:
         current_type = types.pop()
-        if current_type in _FROM_TYPE:
-            return _FROM_TYPE[current_type]
+        if current_type in from_type:
+            if current_type is SymbolToken:
+                # SymbolToken is a tuple. Since tuple also has a mapping, SymbolToken has to be special-cased
+                # to avoid relying on how the dict is ordered.
+                return IonType.SYMBOL
+            return from_type[current_type]
         types.extend(current_type.__bases__)
 
     raise TypeError('Unknown scalar type %r' % (type(obj),))
 
 
-def _dump(obj, writer, field=None):
+def _dump(obj, writer, from_type, field=None):
     null = is_null(obj)
     try:
         ion_type = obj.ion_type
         ion_nature = True
     except AttributeError:
-        ion_type = _ion_type(obj)
+        ion_type = _ion_type(obj, from_type)
         ion_nature = False
     if not null and ion_type.is_container:
         if ion_nature:
@@ -195,10 +214,10 @@ def _dump(obj, writer, field=None):
         writer.send(event)
         if ion_type is IonType.STRUCT:
             for field, val in six.iteritems(obj):
-                _dump(val, writer, field)
+                _dump(val, writer, from_type, field)
         else:
             for elem in obj:
-                _dump(elem, writer)
+                _dump(elem, writer, from_type)
         event = _ION_CONTAINER_END_EVENT
     else:
         # obj is a scalar value
@@ -212,7 +231,8 @@ def _dump(obj, writer, field=None):
 def dumps(obj, imports=None, binary=True, sequence_as_stream=False, skipkeys=False, ensure_ascii=True, check_circular=True,
           allow_nan=True, cls=None, indent=None, separators=None, encoding='utf-8', default=None, use_decimal=True,
           namedtuple_as_object=True, tuple_as_array=True, bigint_as_string=False, sort_keys=False, item_sort_key=None,
-          for_json=None, ignore_nan=False, int_as_string_bitcount=None, iterable_as_array=False, **kw):
+          for_json=None, ignore_nan=False, int_as_string_bitcount=None, iterable_as_array=False, tuple_as_sexp=False,
+          **kw):
     """Serialize ``obj`` as Python ``string`` or ``bytes`` object, using the conversion table used by ``dump`` (above).
 
     Args:
@@ -245,6 +265,8 @@ def dumps(obj, imports=None, binary=True, sequence_as_stream=False, skipkeys=Fal
         ignore_nan: NOT IMPLEMENTED
         int_as_string_bitcount: NOT IMPLEMENTED
         iterable_as_array: NOT IMPLEMENTED
+        tuple_as_sexp (Optional[True|False]): When True, all tuple values will be written as Ion s-expressions.
+            When False, all tuple values will be written as Ion lists. Default: False.
         **kw: NOT IMPLEMENTED
 
     Returns:
@@ -253,11 +275,13 @@ def dumps(obj, imports=None, binary=True, sequence_as_stream=False, skipkeys=Fal
     """
     ion_buffer = six.BytesIO()
 
-    dump(obj, ion_buffer, sequence_as_stream=sequence_as_stream, binary=binary, skipkeys=skipkeys, ensure_ascii=ensure_ascii, check_circular=check_circular,
+    dump(obj, ion_buffer, imports=imports, sequence_as_stream=sequence_as_stream, binary=binary, skipkeys=skipkeys,
+         ensure_ascii=ensure_ascii, check_circular=check_circular,
          allow_nan=allow_nan, cls=cls, indent=indent, separators=separators, encoding=encoding, default=default,
          use_decimal=use_decimal, namedtuple_as_object=namedtuple_as_object, tuple_as_array=tuple_as_array,
          bigint_as_string=bigint_as_string, sort_keys=sort_keys, item_sort_key=item_sort_key, for_json=for_json,
-         ignore_nan=ignore_nan, int_as_string_bitcount=int_as_string_bitcount, iterable_as_array=iterable_as_array)
+         ignore_nan=ignore_nan, int_as_string_bitcount=int_as_string_bitcount, iterable_as_array=iterable_as_array,
+         tuple_as_sexp=tuple_as_sexp, **kw)
 
     ret_val = ion_buffer.getvalue()
     ion_buffer.close()

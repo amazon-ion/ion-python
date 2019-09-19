@@ -30,7 +30,7 @@ from amazon.ion.simple_types import is_null, IonPyNull, IonPyBool, IonPyInt, Ion
                                     IonPyDecimal, IonPyTimestamp, IonPyText, IonPyBytes, \
                                     IonPyList, IonPyDict, IonPySymbol
 from amazon.ion.equivalence import ion_equals
-from amazon.ion.simpleion import _ion_type
+from amazon.ion.simpleion import _ion_type, _FROM_TYPE
 
 _TEST_FIELD_NAME = SymbolToken('foo', 10)
 _TEST_ANNOTATIONS = (SymbolToken('bar', 11),)
@@ -107,8 +107,9 @@ def test_event_types(p):
     assert value_output.ion_type is ion_type
     assert p.event.annotations == value_output.ion_annotations
 
+
 def test_subclass_types():
     class Foo(dict):
         pass
 
-    assert _ion_type(Foo()) is IonType.STRUCT
+    assert _ion_type(Foo(), _FROM_TYPE) is IonType.STRUCT

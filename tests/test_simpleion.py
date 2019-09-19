@@ -30,7 +30,8 @@ from amazon.ion.core import IonType, IonEvent, IonEventType, OffsetTZInfo, Multi
 from amazon.ion.simple_types import IonPyDict, IonPyText, IonPyList, IonPyNull, IonPyBool, IonPyInt, IonPyFloat, \
     IonPyDecimal, IonPyTimestamp, IonPyBytes, IonPySymbol, _IonNature
 from amazon.ion.equivalence import ion_equals
-from amazon.ion.simpleion import dump, dumps, load, loads, _ion_type, _FROM_ION_TYPE
+from amazon.ion.simpleion import dump, dumps, load, loads, _ion_type, _FROM_ION_TYPE, _FROM_TYPE_TUPLE_AS_SEXP, \
+    _FROM_TYPE
 from amazon.ion.util import record
 from amazon.ion.writer_binary_raw import _serialize_symbol, _write_length
 from tests.writer_util import VARUINT_END_BYTE, ION_ENCODED_INT_ZERO, SIMPLE_SCALARS_MAP_BINARY, SIMPLE_SCALARS_MAP_TEXT
@@ -40,7 +41,7 @@ from tests import parametrize
 _st = partial(SymbolToken, sid=None, location=None)
 
 
-class _Parameter(record('desc', 'obj', 'expected', 'has_symbols', ('stream', False))):
+class _Parameter(record('desc', 'obj', 'expected', 'has_symbols', ('stream', False), ('tuple_as_sexp', False))):
     def __str__(self):
         return self.desc
 
@@ -114,6 +115,10 @@ _SIMPLE_CONTAINER_MAP = {
                 b'(0)'
             )
         ),
+        (
+            [(), ],  # NOTE: the generators will detect this and set 'tuple_as_sexp' to True for this case.
+            _Expected(b'\xC0', b'()')
+        )
     ),
     IonType.STRUCT: (
         (
@@ -183,9 +188,12 @@ def generate_containers_binary(container_map, preceding_symbols=0):
             obj = test_tuple[0]
             expecteds = test_tuple[1].binary
             has_symbols = False
+            tuple_as_sexp = False
             for elem in obj:
                 if isinstance(elem, (dict, Multimap)) and len(elem) > 0:
                     has_symbols = True
+                elif ion_type is IonType.SEXP and isinstance(elem, tuple):
+                    tuple_as_sexp = True
             if has_symbols and preceding_symbols:
                 # we need to make a distinct copy that will contain an altered encoding
                 expecteds = []
@@ -197,7 +205,7 @@ def generate_containers_binary(container_map, preceding_symbols=0):
             expected = bytearray()
             for e in expecteds:
                 expected.extend(e)
-            yield _Parameter(repr(obj), obj, expected, has_symbols, True)
+            yield _Parameter(repr(obj), obj, expected, has_symbols, True, tuple_as_sexp=tuple_as_sexp)
 
 
 def generate_annotated_values_binary(scalars_map, container_map):
@@ -248,7 +256,7 @@ def _assert_symbol_aware_ion_equals(assertion, output):
 
 def _dump_load_run(p, dumps_func, loads_func, binary):
     # test dump
-    res = dumps_func(p.obj, binary=binary, sequence_as_stream=p.stream)
+    res = dumps_func(p.obj, binary=binary, sequence_as_stream=p.stream, tuple_as_sexp=p.tuple_as_sexp)
     if not p.has_symbols:
         if binary:
             assert (_IVM + p.expected) == res
@@ -324,10 +332,13 @@ def generate_containers_text(container_map):
             obj = test_tuple[0]
             expected = test_tuple[1].text[0]
             has_symbols = False
+            tuple_as_sexp = False
             for elem in obj:
                 if isinstance(elem, dict) and len(elem) > 0:
                     has_symbols = True
-            yield _Parameter(repr(obj), obj, expected, has_symbols, True)
+                elif ion_type is IonType.SEXP and isinstance(elem, tuple):
+                    tuple_as_sexp = True
+            yield _Parameter(repr(obj), obj, expected, has_symbols, True, tuple_as_sexp=tuple_as_sexp)
 
 
 def generate_annotated_values_text(scalars_map, container_map):
@@ -416,10 +427,13 @@ _ROUNDTRIPS = [
     [[[]]],
     [[], [], []],
     [{}, {}, {}],
-    {u'foo': [], u'bar': [], u'baz': []},
+    [(), (), ()],
+    (((),),),
+    ([], [], [],),
+    {u'foo': [], u'bar': (), u'baz': []},
     {u'foo': {u'foo': {}}},
     [{u'foo': [{u'foo': []}]}],
-    {u'foo': [{u'foo': []}]},
+    {u'foo': ({u'foo': []},)},
     {
          u'foo': IonPyText.from_value(IonType.STRING, u'bar', annotations=(u'str',)),
          u'baz': 123,
@@ -429,7 +443,8 @@ _ROUNDTRIPS = [
          u'sxp': IonPyList.from_value(IonType.SEXP, [
              False, IonPyNull.from_value(IonType.STRUCT, None, (u'class',)), Decimal('5.678'),
              IonPyText.from_value(IonType.SYMBOL, u'sym2'), IonPyText.from_value(IonType.SYMBOL, u'_a_s_d_f_')
-         ])
+         ]),
+         u'lst_or_sxp': (123, u'abc')
     },
 
 ]
@@ -443,17 +458,17 @@ def _generate_roundtrips(roundtrips):
                     return SymbolToken(obj.text, 10 + len(annotations))
                 return obj
 
-            def _to_obj(to_type=None, annotations=()):
+            def _to_obj(to_type=None, annotations=(), tuple_as_sexp=False):
                 if to_type is None:
                     to_type = ion_type
                 obj_out = _adjust_sids(annotations)
-                return _FROM_ION_TYPE[ion_type].from_value(to_type, obj_out, annotations=annotations), is_binary, indent
+                return _FROM_ION_TYPE[ion_type].from_value(to_type, obj_out, annotations=annotations), is_binary, indent, tuple_as_sexp
 
             for obj in roundtrips:
                 obj = _adjust_sids()
-                yield obj, is_binary, indent
+                yield obj, is_binary, indent, False
                 if not isinstance(obj, _IonNature):
-                    ion_type = _ion_type(obj)
+                    ion_type = _ion_type(obj, _FROM_TYPE)
                     yield _to_obj()
                 else:
                     ion_type = obj.ion_type
@@ -463,15 +478,19 @@ def _generate_roundtrips(roundtrips):
                 if isinstance(obj, list):
                     yield _to_obj(IonType.SEXP)
                     yield _to_obj(IonType.SEXP, annotations=(u'annot1', u'annot2'))
+                if isinstance(obj, tuple) and not isinstance(obj, SymbolToken):
+                    yield _to_obj(IonType.SEXP, tuple_as_sexp=True)
+                    yield _to_obj(IonType.SEXP, annotations=(u'annot1', u'annot2'), tuple_as_sexp=True)
 
 
-def _assert_roundtrip(before, after):
+def _assert_roundtrip(before, after, tuple_as_sexp):
     # All loaded Ion values extend _IonNature, even if they were dumped from primitives. This recursively
     # wraps each input value in _IonNature for comparison against the output.
     def _to_ion_nature(obj):
         out = obj
         if not isinstance(out, _IonNature):
-            ion_type = _ion_type(out)
+            from_type = _FROM_TYPE_TUPLE_AS_SEXP if tuple_as_sexp else _FROM_TYPE
+            ion_type = _ion_type(out, from_type)
             out = _FROM_ION_TYPE[ion_type].from_value(ion_type, out)
         if isinstance(out, dict):
             update = {}
@@ -485,6 +504,7 @@ def _assert_roundtrip(before, after):
                 update.append(_to_ion_nature(value))
             update = IonPyList.from_value(out.ion_type, update, out.ion_annotations)
             out = update
+
         return out
     assert ion_equals(_to_ion_nature(before), after)
 
@@ -493,12 +513,12 @@ def _assert_roundtrip(before, after):
     *tuple(_generate_roundtrips(_ROUNDTRIPS))
 )
 def test_roundtrip(p):
-    obj, is_binary, indent = p
+    obj, is_binary, indent, tuple_as_sexp = p
     out = BytesIO()
-    dump(obj, out, binary=is_binary, indent=indent)
+    dump(obj, out, binary=is_binary, indent=indent, tuple_as_sexp=tuple_as_sexp)
     out.seek(0)
     res = load(out)
-    _assert_roundtrip(obj, res)
+    _assert_roundtrip(obj, res, tuple_as_sexp)
 
 
 @parametrize(True, False)
