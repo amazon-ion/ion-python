@@ -174,22 +174,16 @@ def _bytes_datetime(dt):
 
     fractional_precision = getattr(original_dt, TIMESTAMP_FRACTION_PRECISION_FIELD, MICROSECOND_PRECISION)
     if fractional_precision:
-        if fractional_precision <= MICROSECOND_PRECISION:
-            fractional = dt.strftime('%f')
-            assert len(fractional) == MICROSECOND_PRECISION
-        else:
-            fractional = getattr(original_dt, TIMESTAMP_FRACTIONAL_SECONDS_FIELD, dt.strftime('%f'))
-            if fractional is None:
-                fractional = dt.strftime('%f')
-            fractional = str(fractional)
-            if len(fractional) < fractional_precision:
-                diff = fractional_precision - len(fractional)
-                fractional = ('0' * diff) + fractional
+        fractional = getattr(original_dt, TIMESTAMP_FRACTIONAL_SECONDS_FIELD, dt.strftime('%f'))
+        fractional = str(fractional)
+        if len(fractional) < fractional_precision:
+            diff = fractional_precision - len(fractional)
+            fractional = ('0' * diff) + fractional
 
-        if fractional_precision <= MICROSECOND_PRECISION and \
-                fractional[fractional_precision:] != ('0' * (MICROSECOND_PRECISION - fractional_precision)):
-            raise ValueError('Found timestamp fractional with more than the specified %d digits of precision.'
-                             % (fractional_precision,))
+    if fractional_precision is not None and fractional_precision <= MICROSECOND_PRECISION and \
+            fractional[fractional_precision:] != ('0' * (MICROSECOND_PRECISION - fractional_precision)):
+        raise ValueError('Found timestamp fractional with more than the specified %d digits of precision.'
+                         % (fractional_precision,))
         fractional = fractional[:fractional_precision]
         tz_string += '.' + fractional
 

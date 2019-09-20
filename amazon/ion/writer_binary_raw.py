@@ -276,6 +276,9 @@ def _serialize_timestamp(ion_event):
             exponent = -adjusted_fractional_precision
             if not (coefficient == 0 and exponent >= 0):
                 length += _write_decimal_value(value_buf, exponent, coefficient)
+        else:
+            exponent = -(len(str(coefficient)))
+            length += _write_decimal_value(value_buf, exponent, coefficient)
     _write_length(buf, length, _TypeIds.TIMESTAMP)
     buf.extend(value_buf)
     return buf

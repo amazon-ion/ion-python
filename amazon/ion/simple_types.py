@@ -164,7 +164,7 @@ class IonPyTimestamp(Timestamp, _IonNature):
 
     @staticmethod
     def _to_constructor_args(ts):
-        args = (ts.year, ts.month, ts.day, ts.hour, ts.minute, ts.second, ts.microsecond, ts.tzinfo)
+        args = (ts.year, ts.month, ts.day, ts.hour, ts.minute, ts.second, None, ts.tzinfo)
         kwargs = {}
         precision = getattr(ts, TIMESTAMP_PRECISION_FIELD, None)
         if precision is None:

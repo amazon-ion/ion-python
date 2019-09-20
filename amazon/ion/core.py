@@ -434,6 +434,10 @@ class Timestamp(datetime):
             args = tuple(lst)
             fractional_precision = min(fraction_seconds_length, MICROSECOND_PRECISION)
 
+        if args[6] is None:
+            lst = list(args)
+            lst[6] = 0
+            args = tuple(lst)
         instance = super(Timestamp, cls).__new__(cls, *args, **kwargs)
         setattr(instance, TIMESTAMP_PRECISION_FIELD, precision)
         setattr(instance, TIMESTAMP_FRACTION_PRECISION_FIELD, fractional_precision)
@@ -507,7 +511,6 @@ def timestamp(year, month=1, day=1,
         if fractional_precision is None:
             fractional_precision = MICROSECOND_PRECISION
     else:
-        microsecond = 0
         if fractional_precision is not None:
             raise ValueError('Cannot have fractional precision without a fractional component.')
     return Timestamp(
