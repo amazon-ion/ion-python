@@ -27,7 +27,7 @@ from struct import unpack
 
 from .core import ION_STREAM_INCOMPLETE_EVENT, ION_STREAM_END_EVENT, ION_VERSION_MARKER_EVENT,\
                   IonEventType, IonType, IonEvent, IonThunkEvent, Transition, \
-                  TimestampPrecision, Timestamp, OffsetTZInfo, MICROSECOND_PRECISION
+                  TimestampPrecision, Timestamp, OffsetTZInfo
 from .exceptions import IonException
 from .util import coroutine, record, Enum
 from .reader import reader_trampoline, BufferQueue, ReadEventType
@@ -699,8 +699,7 @@ def _timestamp_factory(data):
             precision = TimestampPrecision.SECOND
 
         if buf.tell() == end:
-            microsecond = 0
-            fractional_precision = None
+            fraction = None
         else:
             fraction = _parse_decimal(buf)
             if fraction < 0 or fraction >= 1:
@@ -708,21 +707,13 @@ def _timestamp_factory(data):
                     'Timestamp has a fractional component out of bounds: %s' % fraction)
             fraction_exponent = fraction.as_tuple().exponent
             if fraction == 0 and fraction_exponent > -1:
-                # According to the spec, fractions with coefficients of zero and exponents >= zero are ignored.
-                microsecond = 0
-                fractional_precision = None
-            else:
-                fractional_precision = -1 * fraction_exponent
-                if fractional_precision > MICROSECOND_PRECISION:
-                    microsecond = fraction.scaleb(fractional_precision).to_integral_value()
-                else:
-                    microsecond = fraction.scaleb(MICROSECOND_PRECISION).to_integral_value()
+                fraction = None
 
         return Timestamp.adjust_from_utc_fields(
             year, month, day,
             hour, minute, second, None,
             tz,
-            precision=precision, fractional_precision=None, fractional_seconds=microsecond
+            precision=precision, fractional_precision=None, fractional_seconds=fraction
         )
 
     return parse_timestamp
