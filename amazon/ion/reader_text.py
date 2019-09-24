@@ -927,13 +927,15 @@ def _parse_timestamp(tokens):
             fraction = tokens[_TimestampState.FRACTIONAL]
             if fraction is not None:
                 fraction_digits = len(fraction)
+                # print(fraction)
                 fraction = int(fraction)
                 fraction = scale_to_precision(fraction, fraction_digits)
+        # print(fraction_digits)
         return timestamp(
             year, month, day,
             hour, minute, second, None,
             off_hour, off_minutes,
-            precision=precision, fractional_precision=None, fractional_seconds=fraction
+            precision=precision, fractional_precision=fraction_digits, fractional_seconds=fraction
         )
     return parse
 

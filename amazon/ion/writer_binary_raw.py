@@ -277,9 +277,11 @@ def _serialize_timestamp(ion_event):
         else:
             if coefficient_fraction_seconds is not None:
                 exponent = -fractional_precision
-                coefficient_fraction_seconds = int(Decimal(coefficient_fraction_seconds * (10**fractional_precision))
+                coefficient_fraction_seconds2 = int(Decimal(coefficient_fraction_seconds * (10**fractional_precision))
                                                    .quantize(MICROSECOND_PRECISION, rounding="ROUND_DOWN"))
-                length += _write_decimal_value(value_buf, exponent, coefficient_fraction_seconds)
+                # coefficient_fraction_seconds = coefficient_fraction_seconds * (10**fractional_precision)
+                # coefficient_fraction_seconds = int(str(coefficient_fraction_seconds)[:fractional_precision])
+                length += _write_decimal_value(value_buf, exponent, coefficient_fraction_seconds2)
     _write_length(buf, length, _TypeIds.TIMESTAMP)
     buf.extend(value_buf)
     return buf

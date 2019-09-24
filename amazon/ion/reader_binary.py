@@ -700,6 +700,7 @@ def _timestamp_factory(data):
 
         if buf.tell() == end:
             fraction = None
+            fraction_precison = None
         else:
             fraction = _parse_decimal(buf)
             if fraction < 0 or fraction >= 1:
@@ -708,12 +709,13 @@ def _timestamp_factory(data):
             fraction_exponent = fraction.as_tuple().exponent
             if fraction == 0 and fraction_exponent > -1:
                 fraction = None
-
+            fraction_precison = -1 * fraction_exponent
+        # print(fraction_precison)
         return Timestamp.adjust_from_utc_fields(
             year, month, day,
             hour, minute, second, None,
             tz,
-            precision=precision, fractional_precision=None, fractional_seconds=fraction
+            precision=precision, fractional_precision=fraction_precison, fractional_seconds=fraction
         )
 
     return parse_timestamp

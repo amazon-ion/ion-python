@@ -173,24 +173,27 @@ def _bytes_datetime(dt):
         return tz_string + _bytes_utc_offset(dt)
 
     fractional_precision = getattr(original_dt, TIMESTAMP_FRACTION_PRECISION_FIELD, MICROSECOND_PRECISION)
-    fractional_seconds = getattr(original_dt, TIMESTAMP_FRACTIONAL_SECONDS_FIELD)
+    fractional_seconds = getattr(original_dt, TIMESTAMP_FRACTIONAL_SECONDS_FIELD, None)
     if fractional_precision is not None and fractional_seconds is None:
         fractional = dt.strftime('%f')
         assert len(fractional) == MICROSECOND_PRECISION
-        fractional = str(fractional)
-        if len(fractional) < fractional_precision:
-            diff = fractional_precision - len(fractional)
-            fractional = ('0' * diff) + fractional
 
-        if fractional_precision <= MICROSECOND_PRECISION and \
-                fractional[fractional_precision:] != ('0' * (MICROSECOND_PRECISION - fractional_precision)):
+        if fractional[fractional_precision:] != ('0' * (MICROSECOND_PRECISION - fractional_precision)):
             raise ValueError('Found timestamp fractional with more than the specified %d digits of precision.'
                              % (fractional_precision,))
         fractional = fractional[:fractional_precision]
         tz_string += '.' + fractional
     else:
-        tz_string += str(fractional_seconds)[1:]
-
+        if fractional_seconds is not None:
+            # fractional_seconds_decimal = ("{:." + str(fractional_precision) + "f}").format(fractional_seconds)
+            # tz_string += str(fractional_seconds_decimal)[1:]
+            if "e" in str(fractional_seconds):
+                tz_string += str(Decimal(fractional_seconds))[1:]
+            else:
+                tz_string += str(fractional_seconds)[1:]
+    # print("hello")
+    # print(fractional_seconds)
+    # print(tz_string + _bytes_utc_offset(dt))
     return tz_string + _bytes_utc_offset(dt)
 
 
