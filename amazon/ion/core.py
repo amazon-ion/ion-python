@@ -109,10 +109,11 @@ def scale_to_precision(fractional_seconds, fractional_precision):
 
     Args:
         fractional_seconds (int): The numerical value to scale.
-        fractional_precision (int): The numerical value to scale ```fractional_seconds``` by.
+        fractional_precision (int): The negative of this numerical value to scale ```fractional_seconds``` by.
     Returns:
         Decimal: The scaled value.
     """
+    fractional_seconds = Decimal(str(fractional_seconds)[:fractional_precision])
     for i in range(fractional_precision):
         fractional_seconds = Decimal(fractional_seconds) / 10
     return fractional_seconds
@@ -412,7 +413,7 @@ class Timestamp(datetime):
             - If microsecond/fractional_precision is specified but fractional_seconds is not, a new Decimal is
             created from the value of microsecond and truncated to fractional_precision.
 
-            - If fractional_seconds is specified but microsecond/fractional_precision is not, microsecond is set
+            - If fractional_seconds is specified but microsecond is not, microsecond is set
             to the value of fractional_seconds scaled up to microseconds magnitude and fractional_precision is set to
             the minimum of the precision of fractional_seconds and MICROSECOND_PRECISION.
 
@@ -425,65 +426,55 @@ class Timestamp(datetime):
         precision = None
         fractional_precision = None
         fractional_seconds = None
-        fractional_seconds2 = None
+        print(len(args))
         MICROSECOND_ARGUMENT_INDEX = 6
+        DATETIME_MICROSECONDS = None
+        if len(args) > 6:
+            DATETIME_MICROSECONDS = args[MICROSECOND_ARGUMENT_INDEX]
         if TIMESTAMP_PRECISION_FIELD in kwargs:
             precision = kwargs.get(TIMESTAMP_PRECISION_FIELD)
             # Make sure we mask this before we construct the datetime.
             del kwargs[TIMESTAMP_PRECISION_FIELD]
         if TIMESTAMP_FRACTION_PRECISION_FIELD in kwargs:
             fractional_precision = kwargs.get(TIMESTAMP_FRACTION_PRECISION_FIELD)
-            # print(fractional_precision)
             if fractional_precision is not None and fractional_precision < 1:
-                fractional_precision = 1
-                # raise ValueError('Cannot construct a Timestamp with fractional precision of %d digits, '
-                #                  'which is less than 1.' % fractional_precision)
+                raise ValueError('Cannot construct a Timestamp with fractional precision of %d digits, '
+                                 'which is less than 1.' % fractional_precision)
             # Make sure we mask this before we construct the datetime.
             del kwargs[TIMESTAMP_FRACTION_PRECISION_FIELD]
         if TIMESTAMP_FRACTIONAL_SECONDS_FIELD in kwargs:
             fractional_seconds = kwargs.get(TIMESTAMP_FRACTIONAL_SECONDS_FIELD)
-            fractional_seconds2 = fractional_seconds
             # Fractional seconds should be a Decimal in the range [0, 1), or None.
             if fractional_seconds is not None and fractional_seconds > 1:
                 raise ValueError('Fractional seconds cannot be greater than 1.')
             # Make sure we mask this before we construct the datetime.
             del kwargs[TIMESTAMP_FRACTIONAL_SECONDS_FIELD]
+        if len(args) > 6:
+            if DATETIME_MICROSECONDS is not None and fractional_precision is None:
+                raise ValueError('Fractional precision cannot be None while microsecond is not None.')
 
-        # if args[MICROSECOND_ARGUMENT_INDEX] is not None and fractional_precision is None:
-        #     raise ValueError('Fractional precision cannot be None while microsecond is not None.')
+            if DATETIME_MICROSECONDS is not None and fractional_precision is not None \
+                    and fractional_seconds is not None:
+                if scale_to_precision(DATETIME_MICROSECONDS, fractional_precision) != fractional_seconds:
+                    raise ValueError('Microseconds and fractional seconds are not equivalent.')
 
-        if args[MICROSECOND_ARGUMENT_INDEX] is not None and fractional_precision is not None \
-                and fractional_seconds is not None:
-            if scale_to_precision(args[MICROSECOND_ARGUMENT_INDEX], fractional_precision) != fractional_seconds:
-                raise ValueError('Microseconds and fractional seconds are not equivalent.')
+            if DATETIME_MICROSECONDS is not None and fractional_precision is not None \
+                    and fractional_seconds is None:
+                fractional_seconds = scale_to_precision(DATETIME_MICROSECONDS, MICROSECOND_PRECISION)
 
-        if args[MICROSECOND_ARGUMENT_INDEX] is not None and fractional_precision is not None \
-                and fractional_seconds is None:
-            ss = args[MICROSECOND_ARGUMENT_INDEX]
-            fractional_seconds = scale_to_precision(args[MICROSECOND_ARGUMENT_INDEX], MICROSECOND_PRECISION)
-            # fractional_seconds2 = fractional_seconds
+            if DATETIME_MICROSECONDS is None and fractional_seconds is not None:
+                lst = list(args)
+                integral_fractional_seconds = fractional_seconds * (10**MICROSECOND_PRECISION)
+                lst[MICROSECOND_ARGUMENT_INDEX] = Decimal(integral_fractional_seconds).quantize(MICROSECOND_PRECISION,
+                                                                                                rounding="ROUND_DOWN")
+                args = tuple(lst)
+                DATETIME_MICROSECONDS = args[MICROSECOND_ARGUMENT_INDEX]
 
-        if args[MICROSECOND_ARGUMENT_INDEX] is None and fractional_seconds is not None:
-            # if fractional_seconds != 0:
-            #     fraction_seconds_length = len(str(fractional_seconds)) - str(fractional_seconds).index('.') - 1
-            # else:
-            #     fraction_seconds_length = fractional_seconds
-            # fractional_precision = min(fraction_seconds_length, MICROSECOND_PRECISION)
-            lst = list(args)
-            integral_fractional_seconds = fractional_seconds * (10**MICROSECOND_PRECISION)
-            lst[MICROSECOND_ARGUMENT_INDEX] = Decimal(integral_fractional_seconds).quantize(MICROSECOND_PRECISION,
-                                                                                            rounding="ROUND_DOWN")
-            # lst[MICROSECOND_ARGUMENT_INDEX] = int(str(integral_fractional_seconds)[:MICROSECOND_PRECISION])
-            # lst[MICROSECOND_ARGUMENT_INDEX] = int(str(lst[MICROSECOND_ARGUMENT_INDEX])[0:MICROSECOND_PRECISION])
-            args = tuple(lst)
-            print(args)
-
-        # If microsecond is still None, set it to 0.
-        elif args[MICROSECOND_ARGUMENT_INDEX] is None:
-            lst = list(args)
-            lst[MICROSECOND_ARGUMENT_INDEX] = 0
-            fractional_precision = 989898
-            args = tuple(lst)
+            # If microsecond is still None, set it to 0.
+            if DATETIME_MICROSECONDS is None:
+                lst = list(args)
+                lst[MICROSECOND_ARGUMENT_INDEX] = 0
+                args = tuple(lst)
 
         instance = super(Timestamp, cls).__new__(cls, *args, **kwargs)
         setattr(instance, TIMESTAMP_PRECISION_FIELD, precision)
@@ -503,11 +494,8 @@ class Timestamp(datetime):
     def adjust_from_utc_fields(*args, **kwargs):
         """Constructs a timestamp from UTC fields adjusted to the local offset if given."""
         raw_ts = Timestamp(*args, **kwargs)
-        # print(raw_ts.fractional_precision)
         offset = raw_ts.utcoffset()
         if offset is None or offset == timedelta():
-            # print(args)
-            # print(kwargs)
             return raw_ts
 
         # XXX This returns a datetime, not a Timestamp (which has our precision if defined)
@@ -523,7 +511,7 @@ class Timestamp(datetime):
             adjusted.hour,
             adjusted.minute,
             adjusted.second,
-            adjusted.microsecond,
+            None,
             raw_ts.tzinfo,
             precision=raw_ts.precision,
             fractional_precision=raw_ts.fractional_precision,

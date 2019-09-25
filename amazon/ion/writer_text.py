@@ -184,16 +184,22 @@ def _bytes_datetime(dt):
         fractional = fractional[:fractional_precision]
         tz_string += '.' + fractional
     else:
-        if fractional_seconds is not None:
-            # fractional_seconds_decimal = ("{:." + str(fractional_precision) + "f}").format(fractional_seconds)
-            # tz_string += str(fractional_seconds_decimal)[1:]
-            if "e" in str(fractional_seconds):
-                tz_string += str(Decimal(fractional_seconds))[1:]
+        # Since 0.000... is interpreted as 0, must do this in order to have full precision 0's.
+        if fractional_seconds == 0:
+            tz_string += '.' + ('0' * fractional_precision)
+        elif fractional_seconds is not None:
+            if 'e' in str(fractional_seconds):
+                fractional_string = str(Decimal(fractional_seconds))[1:]
+                padding = fractional_precision - len(fractional_string[1:])
+                fractional_string += ('0' * padding)
+                tz_string += fractional_string
             else:
-                tz_string += str(fractional_seconds)[1:]
-    # print("hello")
-    # print(fractional_seconds)
-    # print(tz_string + _bytes_utc_offset(dt))
+                # Avoiding conversion of fractional_seconds to Decimal here. Decimal adds extra precision to values
+                # less than one, want to keep original precision as much as we can.
+                fractional_string = str(fractional_seconds)[1:]
+                padding = fractional_precision - len(fractional_string[1:])
+                fractional_string += ('0' * padding)
+                tz_string += fractional_string
     return tz_string + _bytes_utc_offset(dt)
 
 

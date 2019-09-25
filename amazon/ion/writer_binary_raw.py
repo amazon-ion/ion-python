@@ -253,7 +253,7 @@ def _serialize_timestamp(ion_event):
         length += _write_varuint(value_buf, dt.minute)
     if precision.includes_second:
         length += _write_varuint(value_buf, dt.second)
-        coefficient_fraction_seconds = getattr(ion_event.value, TIMESTAMP_FRACTIONAL_SECONDS_FIELD)
+        coefficient_fraction_seconds = getattr(ion_event.value, TIMESTAMP_FRACTIONAL_SECONDS_FIELD, None)
         fractional_precision = getattr(ion_event.value, TIMESTAMP_FRACTION_PRECISION_FIELD, MICROSECOND_PRECISION)
         coefficient = dt.microsecond
         if coefficient is not None and fractional_precision is not None and coefficient_fraction_seconds is None:
@@ -278,9 +278,7 @@ def _serialize_timestamp(ion_event):
             if coefficient_fraction_seconds is not None:
                 exponent = -fractional_precision
                 coefficient_fraction_seconds2 = int(Decimal(coefficient_fraction_seconds * (10**fractional_precision))
-                                                   .quantize(MICROSECOND_PRECISION, rounding="ROUND_DOWN"))
-                # coefficient_fraction_seconds = coefficient_fraction_seconds * (10**fractional_precision)
-                # coefficient_fraction_seconds = int(str(coefficient_fraction_seconds)[:fractional_precision])
+                                                    .quantize(MICROSECOND_PRECISION, rounding="ROUND_DOWN"))
                 length += _write_decimal_value(value_buf, exponent, coefficient_fraction_seconds2)
     _write_length(buf, length, _TypeIds.TIMESTAMP)
     buf.extend(value_buf)

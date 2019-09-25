@@ -175,7 +175,7 @@ class IonPyTimestamp(Timestamp, _IonNature):
         except AttributeError:
             fractional_precision = MICROSECOND_PRECISION
         kwargs[TIMESTAMP_FRACTION_PRECISION_FIELD] = fractional_precision
-        fractional_seconds = getattr(ts, TIMESTAMP_FRACTIONAL_SECONDS_FIELD)
+        fractional_seconds = getattr(ts, TIMESTAMP_FRACTIONAL_SECONDS_FIELD, None)
         kwargs[TIMESTAMP_FRACTIONAL_SECONDS_FIELD] = fractional_seconds
         return args, kwargs
 
