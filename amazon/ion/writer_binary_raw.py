@@ -277,9 +277,15 @@ def _serialize_timestamp(ion_event):
         else:
             if coefficient_fraction_seconds is not None:
                 exponent = -fractional_precision
-                coefficient_fraction_seconds2 = int(Decimal(coefficient_fraction_seconds * (10**fractional_precision))
-                                                    .quantize(MICROSECOND_PRECISION, rounding="ROUND_DOWN"))
-                length += _write_decimal_value(value_buf, exponent, coefficient_fraction_seconds2)
+                coefficient_fraction_seconds_decimal = (Decimal(coefficient_fraction_seconds *
+                                                                (10**fractional_precision)))
+                coefficient_fraction_seconds_int = int(Decimal(coefficient_fraction_seconds *
+                                                               (10 ** fractional_precision)))
+                if coefficient_fraction_seconds_decimal > coefficient_fraction_seconds_int:
+                    raise ValueError('Error writing event %s. Found timestamp fractional precision of %d digits, '
+                                     'which is less than needed to serialize %d microseconds.'
+                                     % (ion_event, fractional_precision, coefficient_fraction_seconds_decimal))
+                length += _write_decimal_value(value_buf, exponent, coefficient_fraction_seconds_int)
     _write_length(buf, length, _TypeIds.TIMESTAMP)
     buf.extend(value_buf)
     return buf

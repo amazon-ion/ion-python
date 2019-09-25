@@ -426,7 +426,6 @@ class Timestamp(datetime):
         precision = None
         fractional_precision = None
         fractional_seconds = None
-        print(len(args))
         MICROSECOND_ARGUMENT_INDEX = 6
         DATETIME_MICROSECONDS = None
         if len(args) > 6:
@@ -450,9 +449,6 @@ class Timestamp(datetime):
             # Make sure we mask this before we construct the datetime.
             del kwargs[TIMESTAMP_FRACTIONAL_SECONDS_FIELD]
         if len(args) > 6:
-            if DATETIME_MICROSECONDS is not None and fractional_precision is None:
-                raise ValueError('Fractional precision cannot be None while microsecond is not None.')
-
             if DATETIME_MICROSECONDS is not None and fractional_precision is not None \
                     and fractional_seconds is not None:
                 if scale_to_precision(DATETIME_MICROSECONDS, fractional_precision) != fractional_seconds:
