@@ -414,11 +414,12 @@ class Timestamp(datetime):
             created from the value of microsecond and truncated to fractional_precision.
 
             - If fractional_seconds is specified but microsecond is not, microsecond is set
-            to the value of fractional_seconds scaled up to microseconds magnitude and fractional_precision is set to
-            the minimum of the precision of fractional_seconds and MICROSECOND_PRECISION.
+            to the value of fractional_seconds scaled up to microseconds magnitude.
 
-            - A ValueError when both microsecond and fractional_seconds are specified, but their values are not
-            equivalent.
+            - A ValueError is raised when both microsecond and fractional_seconds are specified, but their values are
+            not equivalent.
+
+            - A ValueError is raised when fractional_seconds is specified, but fractional_precision is not.
     """
     __slots__ = [TIMESTAMP_PRECISION_FIELD, TIMESTAMP_FRACTION_PRECISION_FIELD, TIMESTAMP_FRACTIONAL_SECONDS_FIELD]
 
@@ -453,6 +454,9 @@ class Timestamp(datetime):
                     and fractional_seconds is not None:
                 if scale_to_precision(DATETIME_MICROSECONDS, fractional_precision) != fractional_seconds:
                     raise ValueError('Microseconds and fractional seconds are not equivalent.')
+
+            if fractional_seconds is not None and fractional_precision is None:
+                raise ValueError('Fractional precision cannot be None while fractional seconds is not None.')
 
             if DATETIME_MICROSECONDS is not None and fractional_precision is not None \
                     and fractional_seconds is None:
