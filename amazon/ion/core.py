@@ -108,15 +108,12 @@ def scale_to_precision(fractional_seconds, fractional_precision):
     """Scales the ```fractional_seconds``` attribute by -```fractional_precision```.
 
     Args:
-        fractional_seconds (int): The numerical value to scale.
+        fractional_seconds (Decimal): The numerical value to scale.
         fractional_precision (int): The negative of this numerical value to scale ```fractional_seconds``` by.
     Returns:
         Decimal: The scaled value.
     """
-    fractional_seconds = Decimal(str(fractional_seconds)[:fractional_precision])
-    for i in range(fractional_precision):
-        fractional_seconds = Decimal(fractional_seconds) / 10
-    return fractional_seconds
+    return Decimal(fractional_seconds) * Decimal(Decimal(10) ** Decimal(-fractional_precision))
 
 
 class IonEvent(record(
