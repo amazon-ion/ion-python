@@ -460,7 +460,16 @@ class Timestamp(datetime):
 
             if DATETIME_MICROSECONDS is not None and fractional_precision is not None \
                     and fractional_seconds is None:
-                fractional_seconds = scale_to_precision(DATETIME_MICROSECONDS, MICROSECOND_PRECISION)
+                if fractional_precision > 6:
+                    fractional_seconds = scale_to_precision(DATETIME_MICROSECONDS, fractional_precision)
+                    lst = list(args)
+                    integral_fractional_seconds = fractional_seconds * (10 ** MICROSECOND_PRECISION)
+                    lst[MICROSECOND_ARGUMENT_INDEX] = Decimal(integral_fractional_seconds).quantize(
+                        MICROSECOND_PRECISION,
+                        rounding="ROUND_DOWN")
+                    args = tuple(lst)
+                else:
+                    fractional_seconds = scale_to_precision(DATETIME_MICROSECONDS, MICROSECOND_PRECISION)
 
             if DATETIME_MICROSECONDS is None and fractional_seconds is not None:
                 lst = list(args)

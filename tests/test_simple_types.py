@@ -49,7 +49,7 @@ _EVENT_TYPES = [
     (IonPyInt, e_int(2 ** 64 + 1)),
     (IonPyFloat, e_float(1e0)),
     (IonPyDecimal, e_decimal(Decimal('1.1'))),
-    (IonPyTimestamp, e_timestamp(datetime(2012, 1, 1))),
+    (IonPyTimestamp, e_timestamp(Timestamp(2012, 1, 1))),
     (IonPyTimestamp, e_timestamp(Timestamp(2012, 1, 1, precision=TimestampPrecision.DAY))),
     (IonPySymbol, e_symbol(SymbolToken(u'Hola', None, None))),
     (IonPyText, e_string(u'Hello')),
