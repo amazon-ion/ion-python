@@ -470,9 +470,8 @@ class Timestamp(datetime):
 
             if DATETIME_MICROSECONDS is None and fractional_seconds is not None:
                 lst = list(args)
-                integral_fractional_seconds = fractional_seconds * (10**MICROSECOND_PRECISION)
-                lst[MICROSECOND_ARGUMENT_INDEX] = Decimal(integral_fractional_seconds).quantize(MICROSECOND_PRECISION,
-                                                                                                rounding="ROUND_DOWN")
+                integral_fractional_seconds = fractional_seconds * (10 ** MICROSECOND_PRECISION)
+                lst[MICROSECOND_ARGUMENT_INDEX] = int(integral_fractional_seconds)
                 args = tuple(lst)
                 DATETIME_MICROSECONDS = args[MICROSECOND_ARGUMENT_INDEX]
 
