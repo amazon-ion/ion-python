@@ -1,4 +1,4 @@
-# Copyright 2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License").
 # You may not use this file except in compliance with the License.
@@ -18,121 +18,147 @@ from decimal import Decimal
 import pytest
 
 from amazon.ion.core import Timestamp, TimestampPrecision, record
-from tests import parametrize
+from tests import parametrize, listify
 
 
-class _P(record('timestamps', 'expected_microseconds')):
+class _P(record('timestamps', 'expected_value')):
     def __str__(self):
         return self.desc
 
 
-MISSING_MICROSECOND = _P(
-    timestamps=[Timestamp(
-            2011, 1, 1,
-            0, 0, 0, None,
-            precision=TimestampPrecision.SECOND, fractional_precision=6, fractional_seconds=0
-            ),
-            Timestamp(
-            2011, 1, 1,
-            0, 0, 0, None,
-            precision=TimestampPrecision.SECOND, fractional_precision=6, fractional_seconds=Decimal('0.123456')
-            ),
-            Timestamp(
-            2011, 1, 1,
-            0, 0, 0, None,
-            precision=TimestampPrecision.SECOND, fractional_precision=6, fractional_seconds=Decimal('0.123456789')
-            ),
-            Timestamp(
-            2011, 1, 1,
-            0, 0, 0, None,
-            precision=TimestampPrecision.SECOND, fractional_precision=6, fractional_seconds=Decimal('0.000123')
-            ),
-            Timestamp(
-            2011, 1, 1,
-            0, 0, 0, None,
-            precision=TimestampPrecision.SECOND, fractional_precision=6, fractional_seconds=Decimal('0.123000')
-            )],
-    expected_microseconds=[0, 123456, 123456, 123, 123000]
-)
+MISSING_MICROSECOND = [
+    (Timestamp(
+        2011, 1, 1,
+        0, 0, 0, None,
+        precision=TimestampPrecision.SECOND, fractional_precision=6, fractional_seconds=0
+        ), 0),
+    (Timestamp(
+        2011, 1, 1,
+        0, 0, 0, None,
+        precision=TimestampPrecision.SECOND, fractional_precision=6, fractional_seconds=Decimal('0.123456')
+        ), 123456),
+    (Timestamp(
+        2011, 1, 1,
+        0, 0, 0, None,
+        precision=TimestampPrecision.SECOND, fractional_precision=6, fractional_seconds=Decimal('0.123456789')
+        ), 123456),
+    (Timestamp(
+        2011, 1, 1,
+        0, 0, 0, None,
+        precision=TimestampPrecision.SECOND, fractional_precision=6, fractional_seconds=Decimal('0.000123')
+        ), 123),
+    (Timestamp(
+        2011, 1, 1,
+        0, 0, 0, None,
+        precision=TimestampPrecision.SECOND, fractional_precision=6, fractional_seconds=Decimal('0.123000')
+        ), 123000)
+]
 
 
-@parametrize(
-    MISSING_MICROSECOND
-)
+MISSING_FRACTIONAL_PRECISION = [
+    (Timestamp(
+        2011, 1, 1,
+        0, 0, 0, 0,
+        precision=TimestampPrecision.SECOND, fractional_precision=6, fractional_seconds=None
+        ), 0),
+    (Timestamp(
+        2011, 1, 1,
+        0, 0, 0, 123456,
+        precision=TimestampPrecision.SECOND, fractional_precision=6, fractional_seconds=None
+        ), Decimal('0.123456')),
+    (Timestamp(
+        2011, 1, 1,
+        0, 0, 0, 123,
+        precision=TimestampPrecision.SECOND, fractional_precision=6, fractional_seconds=None
+        ), Decimal('0.000123')),
+    (Timestamp(
+        2011, 1, 1,
+        0, 0, 0, 123000,
+        precision=TimestampPrecision.SECOND, fractional_precision=6, fractional_seconds=None
+        ), Decimal('0.123000'))
+]
+
+
+LARGE_MICROSECOND_FIELD = [
+    (Timestamp(
+        2011, 1, 1,
+        0, 0, 0, 12345678,
+        precision=TimestampPrecision.SECOND, fractional_precision=8, fractional_seconds=Decimal('0.12345678')
+        ), 123456),
+    (Timestamp(
+        2011, 1, 1,
+        0, 0, 0, 9999999,
+        precision=TimestampPrecision.SECOND, fractional_precision=7, fractional_seconds=Decimal('0.9999999')
+        ), 999999),
+    (Timestamp(
+        2011, 1, 1,
+        0, 0, 0, 1337894870,
+        precision=TimestampPrecision.SECOND, fractional_precision=10, fractional_seconds=Decimal('0.1337894870')
+        ), 133789),
+]
+
+
+@listify
+def event_type_parameters(list_name):
+    print(list_name)
+    for timestamp, expected_val in list_name:
+        yield _P(
+            timestamps=timestamp,
+            expected_value=expected_val,
+        )
+
+
+@parametrize(*event_type_parameters(MISSING_MICROSECOND))
 def test_missing_microsecond(item):
-    for i in range(len(item.timestamps)):
-        assert item.timestamps[i].microsecond == item.expected_microseconds[i]
+    timestamp = item.timestamps
+    expected_microsecond = item.expected_value
+    assert timestamp.microsecond == expected_microsecond
 
 
-class _P(record('timestamps', 'expected_fractional_precision')):
-    def __str__(self):
-        return self.desc
-
-
-MISSING_FRACTIONAL_PRECISION = _P(
-    timestamps=[Timestamp(
-            2011, 1, 1,
-            0, 0, 0, 0,
-            precision=TimestampPrecision.SECOND, fractional_precision=6, fractional_seconds=None
-            ),
-            Timestamp(
-            2011, 1, 1,
-            0, 0, 0, 123456,
-            precision=TimestampPrecision.SECOND, fractional_precision=6, fractional_seconds=None
-            ),
-            Timestamp(
-            2011, 1, 1,
-            0, 0, 0, 123,
-            precision=TimestampPrecision.SECOND, fractional_precision=6, fractional_seconds=None
-            ),
-            Timestamp(
-            2011, 1, 1,
-            0, 0, 0, 123000,
-            precision=TimestampPrecision.SECOND, fractional_precision=6, fractional_seconds=None
-            )],
-    expected_fractional_precision=[0, Decimal('0.123456'), Decimal('0.000123'), Decimal('0.123000')]
-)
-
-
-@parametrize(
-    MISSING_FRACTIONAL_PRECISION
-)
+@parametrize(*event_type_parameters(MISSING_FRACTIONAL_PRECISION))
 def test_missing_fractional_seconds(item):
-    for i in range(len(item.timestamps)):
-        assert item.timestamps[i].fractional_seconds == item.expected_fractional_precision[i]
+    timestamp = item.timestamps
+    expected_fractional_second = item.expected_value
+    assert timestamp.fractional_seconds == expected_fractional_second
 
 
-def test_nonequivalent_microsecond_and_fractional_seconds():
+@parametrize(*event_type_parameters(LARGE_MICROSECOND_FIELD))
+def test_large_microsecond_field_value(item):
+    timestamp = item.timestamps
+    expected_microsecond = item.expected_value
+    assert timestamp.microsecond == expected_microsecond
+
+
+def test_invalid_timestamp_constructor_parameters():
     with pytest.raises(ValueError):
+        # Non-equivalent microseconds and fractional seconds.
         Timestamp(
             2011, 1, 1,
             0, 0, 0, 123456,
             precision=TimestampPrecision.SECOND, fractional_precision=6, fractional_seconds=0
         )
 
-
-def test_fractional_seconds_with_no_fractional_precision():
     with pytest.raises(ValueError):
+        # Fractional seconds with no fractional precision.
         Timestamp(
             2011, 1, 1,
             0, 0, 0, None,
             precision=TimestampPrecision.SECOND, fractional_precision=None, fractional_seconds=Decimal('0.123')
         )
 
-
-def test_fractional_precision_less_than_1():
     with pytest.raises(ValueError):
+        # Fractional precision is less than 1.
         Timestamp(
             2011, 1, 1,
             0, 0, 0, 0,
             precision=TimestampPrecision.SECOND, fractional_precision=0, fractional_seconds=0
         )
 
-
-def test_fractional_seconds_greater_than_1():
     with pytest.raises(ValueError):
+        # Fractional seconds is greater than 1.
         Timestamp(
             2011, 1, 1,
             0, 0, 0, 0,
             precision=TimestampPrecision.SECOND, fractional_precision=1, fractional_seconds=2
         )
+

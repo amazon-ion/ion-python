@@ -113,7 +113,19 @@ def scale_to_precision(fractional_seconds, fractional_precision):
     Returns:
         Decimal: The scaled value.
     """
-    return Decimal(fractional_seconds) * Decimal(Decimal(10) ** Decimal(-fractional_precision))
+    return Decimal(fractional_seconds).scaleb(-fractional_precision)
+
+
+def round_to_sixth_precision(fractional_seconds):
+    """Scales the ```fractional_seconds``` attribute to a six digit integer.
+
+    Args:
+        fractional_seconds (Decimal): The numerical value to scale.
+    Returns:
+        int: The scaled value.
+    """
+    integral_fractional_seconds = fractional_seconds * (10 ** MICROSECOND_PRECISION)
+    return int(integral_fractional_seconds)
 
 
 class IonEvent(record(
@@ -424,10 +436,10 @@ class Timestamp(datetime):
         precision = None
         fractional_precision = None
         fractional_seconds = None
-        MICROSECOND_ARGUMENT_INDEX = 6
-        DATETIME_MICROSECONDS = None
+        microsecond_argument_index = 6
+        datetime_microseconds = None
         if len(args) > 6:
-            DATETIME_MICROSECONDS = args[MICROSECOND_ARGUMENT_INDEX]
+            datetime_microseconds = args[microsecond_argument_index]
         if TIMESTAMP_PRECISION_FIELD in kwargs:
             precision = kwargs.get(TIMESTAMP_PRECISION_FIELD)
             # Make sure we mask this before we construct the datetime.
@@ -447,39 +459,40 @@ class Timestamp(datetime):
             # Make sure we mask this before we construct the datetime.
             del kwargs[TIMESTAMP_FRACTIONAL_SECONDS_FIELD]
         if len(args) > 6:
-            if DATETIME_MICROSECONDS is not None and fractional_precision is not None \
+            if datetime_microseconds is not None and fractional_precision is not None \
                     and fractional_seconds is not None:
-                if scale_to_precision(DATETIME_MICROSECONDS, fractional_precision) != fractional_seconds:
+                if scale_to_precision(datetime_microseconds, fractional_precision) != fractional_seconds:
                     raise ValueError('Microseconds and fractional seconds are not equivalent.')
 
             if fractional_seconds is not None and fractional_precision is None:
                 raise ValueError('Fractional precision cannot be None while fractional seconds is not None.')
 
-            if DATETIME_MICROSECONDS is not None and fractional_precision is not None \
+            if datetime_microseconds is not None and fractional_precision is not None \
                     and fractional_seconds is None:
                 if fractional_precision > 6:
-                    fractional_seconds = scale_to_precision(DATETIME_MICROSECONDS, fractional_precision)
+                    fractional_seconds = scale_to_precision(datetime_microseconds, fractional_precision)
                     lst = list(args)
-                    integral_fractional_seconds = fractional_seconds * (10 ** MICROSECOND_PRECISION)
-                    lst[MICROSECOND_ARGUMENT_INDEX] = Decimal(integral_fractional_seconds).quantize(
-                        MICROSECOND_PRECISION,
-                        rounding="ROUND_DOWN")
+                    lst[microsecond_argument_index] = round_to_sixth_precision(fractional_seconds)
                     args = tuple(lst)
                 else:
-                    fractional_seconds = scale_to_precision(DATETIME_MICROSECONDS, MICROSECOND_PRECISION)
+                    fractional_seconds = scale_to_precision(datetime_microseconds, MICROSECOND_PRECISION)
 
-            if DATETIME_MICROSECONDS is None and fractional_seconds is not None:
+            if datetime_microseconds is None and fractional_seconds is not None:
                 lst = list(args)
-                integral_fractional_seconds = fractional_seconds * (10 ** MICROSECOND_PRECISION)
-                lst[MICROSECOND_ARGUMENT_INDEX] = int(integral_fractional_seconds)
+                lst[microsecond_argument_index] = round_to_sixth_precision(fractional_seconds)
                 args = tuple(lst)
-                DATETIME_MICROSECONDS = args[MICROSECOND_ARGUMENT_INDEX]
+                datetime_microseconds = args[microsecond_argument_index]
 
             # If microsecond is still None, set it to 0.
-            if DATETIME_MICROSECONDS is None:
+            if datetime_microseconds is None:
                 lst = list(args)
-                lst[MICROSECOND_ARGUMENT_INDEX] = 0
+                lst[microsecond_argument_index] = 0
                 args = tuple(lst)
+
+        if datetime_microseconds is not None and datetime_microseconds > 999999:
+            lst = list(args)
+            lst[microsecond_argument_index] = int(str(datetime_microseconds)[:MICROSECOND_PRECISION])
+            args = tuple(lst)
 
         instance = super(Timestamp, cls).__new__(cls, *args, **kwargs)
         setattr(instance, TIMESTAMP_PRECISION_FIELD, precision)
