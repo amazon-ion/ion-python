@@ -187,7 +187,7 @@ _TOP_LEVEL_VALUES = (
     ),
     (
         b'\x69\xC0\x81\x81\x81\x80\x80\x80\xC7\x01',
-        e_timestamp(_ts(1, 1, 1, 0, 0, 0, None, precision=_PREC_SECOND, fractional_precision=7,
+        e_timestamp(_ts(1, 1, 1, 0, 0, 0, None, precision=_PREC_SECOND, fractional_precision=None,
                         fractional_seconds=Decimal('1e-7')))
     ),
     (

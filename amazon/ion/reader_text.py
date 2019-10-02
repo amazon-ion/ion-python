@@ -26,7 +26,7 @@ import six
 import sys
 
 from amazon.ion.core import Transition, ION_STREAM_INCOMPLETE_EVENT, ION_STREAM_END_EVENT, IonType, IonEvent, \
-    IonEventType, IonThunkEvent, TimestampPrecision, timestamp, ION_VERSION_MARKER_EVENT, scale_to_precision
+    IonEventType, IonThunkEvent, TimestampPrecision, timestamp, ION_VERSION_MARKER_EVENT, _scale_to_precision
 from amazon.ion.exceptions import IonException
 from amazon.ion.reader import BufferQueue, reader_trampoline, ReadEventType, safe_unichr, CodePointArray, CodePoint, \
     _NARROW_BUILD
@@ -928,12 +928,12 @@ def _parse_timestamp(tokens):
             if fraction is not None:
                 fraction_digits = len(fraction)
                 fraction = int(fraction)
-                fraction = scale_to_precision(fraction, fraction_digits)
+                fraction = _scale_to_precision(fraction, fraction_digits)
         return timestamp(
             year, month, day,
             hour, minute, second, None,
             off_hour, off_minutes,
-            precision=precision, fractional_precision=fraction_digits, fractional_seconds=fraction
+            precision=precision, fractional_precision=None, fractional_seconds=fraction
         )
     return parse
 

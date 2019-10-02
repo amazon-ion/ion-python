@@ -164,22 +164,33 @@ class IonPyTimestamp(Timestamp, _IonNature):
 
     @staticmethod
     def _to_constructor_args(ts):
+        fractional_precision = getattr(ts, TIMESTAMP_FRACTION_PRECISION_FIELD, None)
         fractional_seconds = getattr(ts, TIMESTAMP_FRACTIONAL_SECONDS_FIELD, None)
+        precision = getattr(ts, TIMESTAMP_PRECISION_FIELD, TimestampPrecision.SECOND)
         if fractional_seconds is None:
             args = (ts.year, ts.month, ts.day, ts.hour, ts.minute, ts.second, ts.microsecond, ts.tzinfo)
         else:
             args = (ts.year, ts.month, ts.day, ts.hour, ts.minute, ts.second, None, ts.tzinfo)
-        kwargs = {}
-        precision = getattr(ts, TIMESTAMP_PRECISION_FIELD, None)
-        if precision is None:
-            precision = TimestampPrecision.SECOND
-        kwargs[TIMESTAMP_PRECISION_FIELD] = precision
-        try:
-            fractional_precision = getattr(ts, TIMESTAMP_FRACTION_PRECISION_FIELD)
-        except AttributeError:
-            fractional_precision = MICROSECOND_PRECISION
-        kwargs[TIMESTAMP_FRACTION_PRECISION_FIELD] = fractional_precision
-        kwargs[TIMESTAMP_FRACTIONAL_SECONDS_FIELD] = fractional_seconds
+            fractional_precision = None
+        kwargs = {TIMESTAMP_PRECISION_FIELD: precision, TIMESTAMP_FRACTION_PRECISION_FIELD: fractional_precision,
+                  TIMESTAMP_FRACTIONAL_SECONDS_FIELD: fractional_seconds}
+
+        # fractional_seconds = getattr(ts, TIMESTAMP_FRACTIONAL_SECONDS_FIELD, None)
+        # if fractional_seconds is None:
+        #     args = (ts.year, ts.month, ts.day, ts.hour, ts.minute, ts.second, ts.microsecond, ts.tzinfo)
+        # else:
+        #     args = (ts.year, ts.month, ts.day, ts.hour, ts.minute, ts.second, None, ts.tzinfo)
+        # kwargs = {}
+        # precision = getattr(ts, TIMESTAMP_PRECISION_FIELD, None)
+        # if precision is None:
+        #     precision = TimestampPrecision.SECOND
+        # kwargs[TIMESTAMP_PRECISION_FIELD] = precision
+        # try:
+        #     fractional_precision = getattr(ts, TIMESTAMP_FRACTION_PRECISION_FIELD)
+        # except AttributeError:
+        #     fractional_precision = MICROSECOND_PRECISION
+        # kwargs[TIMESTAMP_FRACTION_PRECISION_FIELD] = fractional_precision
+        # kwargs[TIMESTAMP_FRACTIONAL_SECONDS_FIELD] = fractional_seconds
         return args, kwargs
 
 

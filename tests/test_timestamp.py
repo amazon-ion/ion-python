@@ -40,7 +40,7 @@ MISSING_MICROSECOND = [
     (Timestamp(
         2011, 1, 1,
         0, 0, 0, None,
-        precision=TimestampPrecision.SECOND, fractional_precision=6, fractional_seconds=Decimal('0.123456789')
+        precision=TimestampPrecision.SECOND, fractional_precision=9, fractional_seconds=Decimal('0.123456789')
         ), 123456),
     (Timestamp(
         2011, 1, 1,
@@ -129,36 +129,56 @@ def test_large_microsecond_field_value(item):
     assert timestamp.microsecond == expected_microsecond
 
 
-def test_invalid_timestamp_constructor_parameters():
+def test_nonequivalent_microsecond_and_fractional_seconds():
     with pytest.raises(ValueError):
-        # Non-equivalent microseconds and fractional seconds.
         Timestamp(
             2011, 1, 1,
             0, 0, 0, 123456,
             precision=TimestampPrecision.SECOND, fractional_precision=6, fractional_seconds=0
         )
 
+
+def test_fractional_seconds_with_no_fractional_precision():
     with pytest.raises(ValueError):
-        # Fractional seconds with no fractional precision.
         Timestamp(
             2011, 1, 1,
             0, 0, 0, None,
             precision=TimestampPrecision.SECOND, fractional_precision=None, fractional_seconds=Decimal('0.123')
         )
 
+
+def test_fractional_precision_less_than_1():
     with pytest.raises(ValueError):
-        # Fractional precision is less than 1.
         Timestamp(
             2011, 1, 1,
             0, 0, 0, 0,
             precision=TimestampPrecision.SECOND, fractional_precision=0, fractional_seconds=0
         )
 
+
+def test_fractional_seconds_greater_than_1():
     with pytest.raises(ValueError):
-        # Fractional seconds is greater than 1.
         Timestamp(
             2011, 1, 1,
             0, 0, 0, 0,
             precision=TimestampPrecision.SECOND, fractional_precision=1, fractional_seconds=2
+        )
+
+
+def test_fractional_seconds_with_microseconds():
+    with pytest.raises(ValueError):
+        Timestamp(
+            2011, 1, 1,
+            0, 0, 0, 1,
+            precision=TimestampPrecision.SECOND, fractional_precision=None, fractional_seconds=Decimal('0.123456')
+        )
+
+
+def test_fractional_seconds_with_fractional_precision():
+    with pytest.raises(ValueError):
+        Timestamp(
+            2011, 1, 1,
+            0, 0, 0, None,
+            precision=TimestampPrecision.SECOND, fractional_precision=6, fractional_seconds=Decimal('0.123456')
         )
 

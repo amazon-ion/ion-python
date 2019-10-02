@@ -174,7 +174,7 @@ def _bytes_datetime(dt):
 
     fractional_precision = getattr(original_dt, TIMESTAMP_FRACTION_PRECISION_FIELD, MICROSECOND_PRECISION)
     fractional_seconds = getattr(original_dt, TIMESTAMP_FRACTIONAL_SECONDS_FIELD, None)
-    if fractional_precision is not None and fractional_seconds is None:
+    if fractional_seconds is None:
         fractional = dt.strftime('%f')
         assert len(fractional) == MICROSECOND_PRECISION
 
@@ -183,23 +183,8 @@ def _bytes_datetime(dt):
                              % (fractional_precision,))
         fractional = fractional[:fractional_precision]
         tz_string += '.' + fractional
-    else:
-        # Since 0.000... is interpreted as 0, must do this in order to have full precision 0's.
-        if fractional_seconds == 0:
-            tz_string += '.' + ('0' * fractional_precision)
-        elif fractional_seconds is not None:
-            if 'e' in str(fractional_seconds):
-                fractional_string = str(Decimal(fractional_seconds))[1:]
-                padding = fractional_precision - len(fractional_string[1:])
-                fractional_string += ('0' * padding)
-                tz_string += fractional_string
-            else:
-                # Avoiding conversion of fractional_seconds to Decimal here. Decimal adds extra precision to values
-                # less than one, want to keep original precision as much as we can.
-                fractional_string = str(fractional_seconds)[1:]
-                padding = fractional_precision - len(fractional_string[1:])
-                fractional_string += ('0' * padding)
-                tz_string += fractional_string
+    elif fractional_seconds is not None:
+        tz_string += str(fractional_seconds)[1:]
     return tz_string + _bytes_utc_offset(dt)
 
 
