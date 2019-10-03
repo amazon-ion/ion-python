@@ -124,7 +124,7 @@ def _fractional_seconds_to_microseconds(fractional_seconds):
     Returns:
         int: The scaled value.
     """
-    integral_fractional_seconds = fractional_seconds * (10 ** MICROSECOND_PRECISION)
+    integral_fractional_seconds = fractional_seconds * BASE_TEN_MICROSECOND_PRECISION_EXPONENTIATION
     return int(integral_fractional_seconds)
 
 
@@ -400,6 +400,7 @@ TIMESTAMP_PRECISION_FIELD = 'precision'
 TIMESTAMP_FRACTION_PRECISION_FIELD = 'fractional_precision'
 TIMESTAMP_FRACTIONAL_SECONDS_FIELD = 'fractional_seconds'
 MICROSECOND_PRECISION = 6
+BASE_TEN_MICROSECOND_PRECISION_EXPONENTIATION = 10 ** MICROSECOND_PRECISION
 
 
 class Timestamp(datetime):
@@ -480,6 +481,9 @@ class Timestamp(datetime):
         if fractional_seconds is not None and (fractional_precision is not None or datetime_microseconds is not None):
             raise ValueError('fractional_seconds cannot be specified '
                              'when fractional_precision or microseconds are not None.')
+
+        if fractional_precision is not None and datetime_microseconds is None:
+            raise ValueError('datetime_microseconds cannot be None while fractional_precision is not None.')
 
         if fractional_seconds is not None:
             fractional_precision = min(fractional_seconds.as_tuple().exponent * -1, MICROSECOND_PRECISION)

@@ -103,12 +103,12 @@ def test_missing_fractional_seconds(item):
     assert timestamp.fractional_seconds == expected_fractional_second
 
 
-def test_nonequivalent_microsecond_and_fractional_seconds():
+def test_fractional_precision_with_no_microseconds():
     with pytest.raises(ValueError):
         Timestamp(
             2011, 1, 1,
-            0, 0, 0, 123456,
-            precision=TimestampPrecision.SECOND, fractional_precision=6, fractional_seconds=0
+            0, 0, 0, None,
+            precision=TimestampPrecision.SECOND, fractional_precision=6
         )
 
 
