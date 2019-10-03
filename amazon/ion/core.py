@@ -169,27 +169,16 @@ class IonEvent(record(
                 # Special case for timestamps to capture equivalence over precision.
                 self_precision = getattr(self.value, TIMESTAMP_PRECISION_FIELD, None)
                 other_precision = getattr(other.value, TIMESTAMP_PRECISION_FIELD, None)
-                self_fractional_seconds = getattr(self.value, TIMESTAMP_FRACTIONAL_SECONDS_FIELD, None)
-                other_fractional_seconds = getattr(other.value, TIMESTAMP_FRACTIONAL_SECONDS_FIELD, None)
-                self_fractional_precision = getattr(self.value, TIMESTAMP_FRACTION_PRECISION_FIELD, None)
-                other_fractional_precision = getattr(other.value, TIMESTAMP_FRACTION_PRECISION_FIELD, None)
                 if self_precision != other_precision \
                         and not ((self_precision is None and other_precision is TimestampPrecision.SECOND) or
                                  (self_precision is TimestampPrecision.SECOND and other_precision is None)):
                     # The absence of precision indicates a naive datetime, which always has SECOND precision.
                     return False
-                if self_fractional_seconds is not None and other_fractional_seconds is not None \
-                        and self_fractional_seconds != other_fractional_seconds:
-                    return False
-                if (self_fractional_seconds is None and other_fractional_seconds is not None) and \
-                        (other_fractional_precision != self_fractional_precision
-                         or other_fractional_seconds !=
-                         _scale_to_precision(self.value.microsecond, self_fractional_precision)):
-                    return False
-                if (self_fractional_seconds is not None and other_fractional_seconds is None) and \
-                        (self_fractional_precision != other_fractional_precision
-                         or self_fractional_seconds !=
-                         _scale_to_precision(other.value.microsecond, other_fractional_precision)):
+
+            if isinstance(self.value, Timestamp) and isinstance(other.value, Timestamp):
+                self_fractional_seconds = getattr(self.value, TIMESTAMP_FRACTIONAL_SECONDS_FIELD, None)
+                other_fractional_seconds = getattr(other.value, TIMESTAMP_FRACTIONAL_SECONDS_FIELD, None)
+                if self_fractional_seconds != other_fractional_seconds:
                     return False
 
             if isinstance(self.value, datetime):
@@ -414,22 +403,47 @@ MICROSECOND_PRECISION = 6
 
 
 class Timestamp(datetime):
-    """Sub-class of :class:`datetime` that supports a precision field
+    """Sub-class of :class:`datetime` that supports a precision field; a ``fractional_precision``
+        field that specifies the  precision of the``microseconds`` field in :class:`datetime`;
+        and a ``fractional_seconds`` field that is a :class:`Decimal` specifying the fractional
+        seconds precisely.
 
-    Notes:
-        The ``precision`` field is passed as a keyword argument of the same name.
-        The behavior of the constructor is as follows:
-            - If microsecond/fractional_precision is specified but fractional_seconds is not, a new Decimal is
-            created from the value of microsecond and truncated to fractional_precision.
+        Notes:
+            * The ``precision`` field is passed as a keyword argument of the same name.
 
-            - If fractional_seconds is specified but microsecond is not, microsecond is set
-            to the value of fractional_seconds scaled up to microseconds magnitude.
+            * The ``fractional_precision`` field is passed as a keyword argument of the same name.
+              This field only relates to to the ``microseconds`` field and can be thought of
+              as the number of decimal digits that are significant.  This is an integer that
+              that is in the closed interval ``[0, 6]``.  If ``None``, ``microseconds`` must be
+              ``0`` indicating no precision below seconds.  This argument is optional and only valid
+              when ``microseconds`` is not ``None``.  If the ``microseconds`` specified has more
+              precision than this field indicates, then that is an error.
 
-            - A ValueError is raised when both microsecond and fractional_seconds are specified, but their values are
-            not equivalent.
+            * The ``fractional_seconds`` field is passed as a keyword argument of the same name.
+              It must be a :class:`Decimal` in the left-closed, right-opened interval of ``[0, 1)``.
+              If specified as an argument, ``microseconds`` must be ``None`` **and** ``fractional_precision``
+              must not be specified (but can be ``None``).  In addition, if ``microseconds`` is specified
+              this argument must not be specified (but can be ``None``).
 
-            - A ValueError is raised when fractional_seconds is specified, but fractional_precision is not.
-    """
+            * If ``microseconds``, ``fractional_precision``, or ``fractional_seconds`` is specified
+              in the constructor, all fields will be present and normalized in the resulting
+              :class:`Timestamp` instance.  If the precision of ``fractional_seconds`` is more than
+              is capable of being expressed in ``microseconds``, then the ``microseconds`` field
+              is truncated to six digits and ``fractional_precision`` is ``6``.
+
+            Consider some examples:
+
+            * `2019-10-01T12:45:01Z` would have the following fields set:
+              * ``microseconds == 0``, ``fractional_precision == None``, ``fractional_seconds == None``
+            * `2019-10-01T12:45:01.100Z` would have the following fields set:
+              * ``microseconds == 100000``, ``fractional_precision == 3``, ``fractional_seconds == Decimal('0.100')``
+            * `2019-10-01T12:45:01.123456789Z` would have the following fields set:
+              * ``microseconds == 123456``, ``fractional_precision == 6``, ``fractional_seconds ==
+              Decimal('0.123456789')``
+
+        Raises:
+            ValueError: If any of the preconditions above are violated.
+        """
     __slots__ = [TIMESTAMP_PRECISION_FIELD, TIMESTAMP_FRACTION_PRECISION_FIELD, TIMESTAMP_FRACTIONAL_SECONDS_FIELD]
 
     def __new__(cls, *args, **kwargs):
@@ -467,27 +481,22 @@ class Timestamp(datetime):
             raise ValueError('fractional_seconds cannot be specified '
                              'when fractional_precision or microseconds are not None.')
 
-        if fractional_precision is not None and datetime_microseconds is None:
-            raise ValueError('Cannot have fractional precision without a fractional component.')
-
-        if (datetime_microseconds is None) \
-                and fractional_precision is None and fractional_seconds is None:
-            if len(args) > 6:
-                lst = list(args)
-                lst[microsecond_argument_index] = 0
-                args = tuple(lst)
-        else:
-            if datetime_microseconds is not None:
-                if fractional_precision is None:
-                    fractional_precision = MICROSECOND_PRECISION
+        if fractional_seconds is not None:
+            fractional_precision = min(fractional_seconds.as_tuple().exponent * -1, MICROSECOND_PRECISION)
+            datetime_microseconds = _fractional_seconds_to_microseconds(fractional_seconds)
+            lst = list(args)
+            lst[microsecond_argument_index] = datetime_microseconds
+            args = tuple(lst)
+        elif not (datetime_microseconds == 0 and fractional_precision is None):
+            if datetime_microseconds is None:
+                if len(args) > 6:
+                    datetime_microseconds = 0
+                    lst = list(args)
+                    lst[microsecond_argument_index] = datetime_microseconds
+                    args = tuple(lst)
+            else:
                 fractional_seconds = str(_scale_to_precision(datetime_microseconds, MICROSECOND_PRECISION))
                 fractional_seconds = Decimal(fractional_seconds[0:(fractional_precision + 2)])
-            elif fractional_seconds is not None:
-                fractional_precision = min(fractional_seconds.as_tuple().exponent * -1, MICROSECOND_PRECISION)
-                datetime_microseconds = _fractional_seconds_to_microseconds(fractional_seconds)
-                lst = list(args)
-                lst[microsecond_argument_index] = datetime_microseconds
-                args = tuple(lst)
 
         instance = super(Timestamp, cls).__new__(cls, *args, **kwargs)
         setattr(instance, TIMESTAMP_PRECISION_FIELD, precision)
@@ -558,6 +567,14 @@ def timestamp(year, month=1, day=1,
     tz = None
     if delta is not None:
         tz = OffsetTZInfo(delta)
+
+    if microsecond is not None:
+        if fractional_precision is None:
+            fractional_precision = MICROSECOND_PRECISION
+    elif fractional_seconds is None:
+        microsecond = 0
+        if fractional_precision is not None:
+            raise ValueError('Cannot have fractional precision without a fractional component.')
 
     return Timestamp(
         year, month, day,

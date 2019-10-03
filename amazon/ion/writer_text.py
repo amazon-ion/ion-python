@@ -178,11 +178,15 @@ def _bytes_datetime(dt):
         fractional = dt.strftime('%f')
         assert len(fractional) == MICROSECOND_PRECISION
 
-        if fractional[fractional_precision:] != ('0' * (MICROSECOND_PRECISION - fractional_precision)):
-            raise ValueError('Found timestamp fractional with more than the specified %d digits of precision.'
-                             % (fractional_precision,))
-        fractional = fractional[:fractional_precision]
-        tz_string += '.' + fractional
+        if fractional_precision is not None:
+            if fractional[fractional_precision:] != ('0' * (MICROSECOND_PRECISION - fractional_precision)):
+                raise ValueError('Found timestamp fractional with more than the specified %d digits of precision.'
+                                 % (fractional_precision,))
+            fractional = fractional[:fractional_precision]
+            tz_string += '.' + fractional
+
+    if fractional_seconds == 0:
+        tz_string += '.' + ('0' * fractional_precision)
     elif fractional_seconds is not None:
         tz_string += str(fractional_seconds)[1:]
     return tz_string + _bytes_utc_offset(dt)

@@ -30,27 +30,27 @@ MISSING_MICROSECOND = [
     (Timestamp(
         2011, 1, 1,
         0, 0, 0, None,
-        precision=TimestampPrecision.SECOND, fractional_precision=6, fractional_seconds=0
+        precision=TimestampPrecision.SECOND, fractional_seconds=0
         ), 0),
     (Timestamp(
         2011, 1, 1,
         0, 0, 0, None,
-        precision=TimestampPrecision.SECOND, fractional_precision=6, fractional_seconds=Decimal('0.123456')
+        precision=TimestampPrecision.SECOND, fractional_seconds=Decimal('0.123456')
         ), 123456),
     (Timestamp(
         2011, 1, 1,
         0, 0, 0, None,
-        precision=TimestampPrecision.SECOND, fractional_precision=9, fractional_seconds=Decimal('0.123456789')
+        precision=TimestampPrecision.SECOND, fractional_seconds=Decimal('0.123456789')
         ), 123456),
     (Timestamp(
         2011, 1, 1,
         0, 0, 0, None,
-        precision=TimestampPrecision.SECOND, fractional_precision=6, fractional_seconds=Decimal('0.000123')
+        precision=TimestampPrecision.SECOND, fractional_seconds=Decimal('0.000123')
         ), 123),
     (Timestamp(
         2011, 1, 1,
         0, 0, 0, None,
-        precision=TimestampPrecision.SECOND, fractional_precision=6, fractional_seconds=Decimal('0.123000')
+        precision=TimestampPrecision.SECOND, fractional_seconds=Decimal('0.123000')
         ), 123000)
 ]
 
@@ -79,25 +79,6 @@ MISSING_FRACTIONAL_PRECISION = [
 ]
 
 
-LARGE_MICROSECOND_FIELD = [
-    (Timestamp(
-        2011, 1, 1,
-        0, 0, 0, 12345678,
-        precision=TimestampPrecision.SECOND, fractional_precision=8, fractional_seconds=Decimal('0.12345678')
-        ), 123456),
-    (Timestamp(
-        2011, 1, 1,
-        0, 0, 0, 9999999,
-        precision=TimestampPrecision.SECOND, fractional_precision=7, fractional_seconds=Decimal('0.9999999')
-        ), 999999),
-    (Timestamp(
-        2011, 1, 1,
-        0, 0, 0, 1337894870,
-        precision=TimestampPrecision.SECOND, fractional_precision=10, fractional_seconds=Decimal('0.1337894870')
-        ), 133789),
-]
-
-
 @listify
 def event_type_parameters(list_name):
     print(list_name)
@@ -122,28 +103,12 @@ def test_missing_fractional_seconds(item):
     assert timestamp.fractional_seconds == expected_fractional_second
 
 
-@parametrize(*event_type_parameters(LARGE_MICROSECOND_FIELD))
-def test_large_microsecond_field_value(item):
-    timestamp = item.timestamps
-    expected_microsecond = item.expected_value
-    assert timestamp.microsecond == expected_microsecond
-
-
 def test_nonequivalent_microsecond_and_fractional_seconds():
     with pytest.raises(ValueError):
         Timestamp(
             2011, 1, 1,
             0, 0, 0, 123456,
             precision=TimestampPrecision.SECOND, fractional_precision=6, fractional_seconds=0
-        )
-
-
-def test_fractional_seconds_with_no_fractional_precision():
-    with pytest.raises(ValueError):
-        Timestamp(
-            2011, 1, 1,
-            0, 0, 0, None,
-            precision=TimestampPrecision.SECOND, fractional_precision=None, fractional_seconds=Decimal('0.123')
         )
 
 

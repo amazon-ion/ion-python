@@ -788,27 +788,6 @@ _GOOD_SCALARS = (
             2000, 1, 1, 0, 0, 0, 999999, off_hours=0, off_minutes=0, precision=_tp.SECOND, fractional_precision=6
         ))
     ),
-    # (
-    #     b'2000-01-01T00:00:00.9999999Z',
-    #     e_timestamp(_ts(
-    #         2000, 1, 1, 0, 0, 0, 9999999, off_hours=0, off_minutes=0, precision=_tp.SECOND, fractional_precision=7,
-    #         fractional_seconds=Decimal('0.9999999')
-    #     ))
-    # ),
-    # (
-    #     b'2000-01-01T00:00:00.1234567Z',
-    #     e_timestamp(_ts(
-    #         2000, 1, 1, 0, 0, 0, 1234567, off_hours=0, off_minutes=0, precision=_tp.SECOND, fractional_precision=7,
-    #         fractional_seconds=Decimal('0.1234567')
-    #     ))
-    # ),
-    # (
-    #     b'2000-01-01T00:00:00.1234567800Z',
-    #     e_timestamp(_ts(
-    #         2000, 1, 1, 0, 0, 0, 1234567800, off_hours=0, off_minutes=0, precision=_tp.SECOND, fractional_precision=10,
-    #         fractional_seconds=Decimal('0.1234567800')
-    #     ))
-    # ),
     (
         b'2000-01-01T00:00:00.000-00:00',
         e_timestamp(_ts(2000, 1, 1, 0, 0, 0, 0, precision=_tp.SECOND, fractional_precision=3))

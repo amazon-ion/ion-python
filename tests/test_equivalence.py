@@ -86,10 +86,7 @@ _EQUIVS = (
         _timestamp(_dt(1, 1, 1, 0, 0, 0, 0, tzinfo=None)),
         _ts(1, microsecond=0, precision=_TP.SECOND, fractional_precision=6),
         _timestamp(_ts(1, microsecond=0, precision=_TP.SECOND)),
-        # _ts(1, microsecond=None, precision=_TP.SECOND, fractional_seconds=0),
-        # _timestamp(_ts(1, microsecond=None, precision=_TP.SECOND, fractional_seconds=0)),
-        # _ts(1, precision=_TP.SECOND, fractional_seconds=0),
-        # _timestamp(_ts(1, precision=_TP.SECOND, fractional_seconds=0))
+        _ts(1, precision=_TP.SECOND, fractional_seconds=Decimal('0.000000')),
     ),
     (
         u'abc',
@@ -151,9 +148,8 @@ _EQUIVS_INSTANTS = (
         _dt(2000, 1, 1, 1, tzinfo=OffsetTZInfo(timedelta(hours=1))),
         _ts(1999, 12, 31, 23, 59, off_hours=0, off_minutes=-1, precision=_TP.SECOND),
         _timestamp(_ts(2000, 1, 1, 1, off_hours=1, off_minutes=0, precision=_TP.SECOND)),
-        # _ts(2000, 1, 1, 0, precision=_TP.SECOND, fractional_seconds=0),
-        # _timestamp(_ts(2000, 1, 1, 0, precision=_TP.SECOND, fractional_seconds=0)),
-        # _timestamp(_ts(2000, 1, 1, 0, precision=_TP.SECOND, fractional_seconds=None))
+        _timestamp(_ts(2000, 1, 1, 1, off_hours=1, off_minutes=0, precision=_TP.SECOND,
+                       fractional_seconds=Decimal('0.000000'))),
     ),
 )
 
@@ -200,16 +196,13 @@ _NONEQUIVS = (
         _ts(1999, 12, 31, 23, 59, off_hours=0, off_minutes=-1, precision=_TP.SECOND),
         None,
     ),
-    # (
-    #     # Timestamps with different fractional seconds are not equivalent.
-    #     _timestamp(_ts(2000, 1, 1, 1, precision=_TP.SECOND, fractional_precision=9,
-    #                    fractional_seconds=Decimal('0.123456789'))),
-    #     _timestamp(_ts(2000, 1, 1, 1, precision=_TP.SECOND, fractional_precision=9,
-    #                    fractional_seconds=Decimal('0.999999999'))),
-    #     _timestamp(_ts(2000, 1, 1, 1, precision=_TP.SECOND, fractional_precision=9,
-    #                    fractional_seconds=Decimal('0.000000000'))),
-    #     None,
-    # ),
+    (
+        # Timestamps with different fractional seconds are not equivalent.
+        _timestamp(_ts(2000, 1, 1, 1, precision=_TP.SECOND, fractional_seconds=Decimal('0.123456789'))),
+        _timestamp(_ts(2000, 1, 1, 1, precision=_TP.SECOND, fractional_seconds=Decimal('0.9999999'))),
+        _timestamp(_ts(2000, 1, 1, 1, precision=_TP.SECOND, fractional_seconds=Decimal('0.000000000'))),
+        None,
+    ),
     (
         _string(u'abc'),
         u'abcd',
