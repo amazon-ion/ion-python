@@ -170,6 +170,13 @@ def _write_decimal_value(buf, exponent, coefficient, sign=0):
     return length
 
 
+def _write_decimal_to_buf(buf, value):
+    sign, digits, exponent = value.as_tuple()
+    coefficient = int(value.scaleb(-exponent).to_integral_value())
+    length = _write_decimal_value(buf, exponent, coefficient, sign)
+    return length
+
+
 def _serialize_decimal(ion_event):
     buf = bytearray()
     value = ion_event.value
@@ -286,9 +293,7 @@ def _serialize_timestamp(ion_event):
                     length += _write_decimal_value(value_buf, exponent, coefficient)
 
         if coefficient_fraction_seconds is not None:
-            exponent = coefficient_fraction_seconds.as_tuple().exponent
-            coefficient_fraction_seconds = int(coefficient_fraction_seconds * Decimal(10 ** -exponent))
-            length += _write_decimal_value(value_buf, exponent, coefficient_fraction_seconds)
+            length += _write_decimal_to_buf(value_buf, coefficient_fraction_seconds)
     _write_length(buf, length, _TypeIds.TIMESTAMP)
     buf.extend(value_buf)
     return buf
