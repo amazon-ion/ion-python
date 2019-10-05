@@ -233,7 +233,7 @@ _serialize_clob = partial(_serialize_lob_value, tid=_TypeIds.CLOB)
 
 _MICROSECOND_DECIMAL_EXPONENT = -6  # There are 1e6 microseconds per second.
 
-_TEN_EXP_MINUS_ONE = [
+_TEN_EXP_MINUS_ONE = (
     -1,
     9,
     99,
@@ -241,7 +241,7 @@ _TEN_EXP_MINUS_ONE = [
     9999,
     99999,
     999999,
-]
+)
 
 
 def _serialize_timestamp(ion_event):
