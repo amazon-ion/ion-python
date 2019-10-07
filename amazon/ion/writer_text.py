@@ -59,27 +59,6 @@ _NULL_TYPE_NAMES = [
 ]
 
 
-def _scientific_notation_to_decimal_string(value):
-    """Converts the Decimal ```value```, which must be expressed in scientific notation, to a string version of the full
-    precision decimal with the zero that precedes the decimal point omitted.
-
-    Input example: Decimal('1.2E-14')
-    Output example: '.000000000000012'
-
-    Args:
-        value (Decimal): The numerical value, which must be expressed in scientific notation
-    Returns:
-        string: A string version of the full precision decimal with the zero that precedes the decimal point omitted.
-    """
-    value_string = str(value).replace('.', '').lower()
-    pos = value_string.find('e')
-    number_value = value_string[:pos]
-    exponent_value = value_string[pos + 1:]
-    total_num_of_zeroes = (int(exponent_value) * -1) - 1
-    decimal_string = '.' + ('0' * total_num_of_zeroes) + number_value
-    return decimal_string
-
-
 def _serialize_bool(ion_event):
     if ion_event.value:
         return b'true'
@@ -193,9 +172,9 @@ def _bytes_datetime(dt):
     else:
         return tz_string + _bytes_utc_offset(dt)
 
-    fractional_precision = getattr(original_dt, TIMESTAMP_FRACTION_PRECISION_FIELD, MICROSECOND_PRECISION)
     fractional_seconds = getattr(original_dt, TIMESTAMP_FRACTIONAL_SECONDS_FIELD, None)
     if fractional_seconds is None:
+        fractional_precision = getattr(original_dt, TIMESTAMP_FRACTION_PRECISION_FIELD, MICROSECOND_PRECISION)
         fractional = dt.strftime('%f')
         assert len(fractional) == MICROSECOND_PRECISION
 
@@ -206,13 +185,13 @@ def _bytes_datetime(dt):
             fractional = fractional[:fractional_precision]
             tz_string += '.' + fractional
 
-    if fractional_seconds == 0:
-        tz_string += '.' + ('0' * fractional_precision)
-    elif fractional_seconds is not None:
-        if 'e' in str(fractional_seconds).lower():
-            tz_string += _scientific_notation_to_decimal_string(fractional_seconds)
-        else:
-            tz_string += str(fractional_seconds)[1:]
+    else:
+        _, digits, exponent = fractional_seconds.as_tuple()
+        leading_zeroes = -exponent - len(digits)
+        tz_string += '.'
+        if leading_zeroes > 0:
+            tz_string += '0' * leading_zeroes
+        tz_string += ''.join(str(x) for x in digits)
     return tz_string + _bytes_utc_offset(dt)
 
 
