@@ -159,6 +159,16 @@ SIMPLE_SCALARS_MAP_TEXT = {
         (_DT(2016, 1, 1, 12, 34, 12, tzinfo=OffsetTZInfo()), b'2016-01-01T12:34:12.000000Z'),
         (_DT(2016, 1, 1, 12, 34, 12, tzinfo=OffsetTZInfo(timedelta(hours=-7))),
             b'2016-01-01T12:34:12.000000-07:00'),
+        (
+            timestamp(2016, 2, 2, 0, 0, 30, precision=TimestampPrecision.SECOND,
+                      fractional_seconds=Decimal('0.000010000')),
+            b'2016-02-02T00:00:30.000010000-00:00'
+        ),
+        (
+            timestamp(2016, 2, 2, 0, 0, 30, precision=TimestampPrecision.SECOND,
+                      fractional_seconds=Decimal('0.7e-500')),
+            b'2016-02-02T00:00:30.' + b'0' * 500 + b'7-00:00'
+        )
     ),
     _IT.SYMBOL: (
         (None, b'null.symbol'),
@@ -288,6 +298,16 @@ SIMPLE_SCALARS_MAP_BINARY = {
                       precision=TimestampPrecision.SECOND, fractional_precision=1),
             b'\x6B\x43\xA4\x0F\xE0\x82\x82\x87\x80\x9E\xC1\x01'
         ),
+        (
+            timestamp(2016, 2, 2, 0, 0, 30, precision=TimestampPrecision.SECOND,
+                      fractional_seconds=Decimal('0.000010000')),
+            b'\x6B\xC0\x0F\xE0\x82\x82\x80\x80\x9E\xC9\x27\x10'
+        ),
+        (
+            timestamp(2016, 2, 2, 0, 0, 30, precision=TimestampPrecision.SECOND,
+                      fractional_seconds=Decimal('0.7e-500')),
+            b'\x6B\xC0\x0F\xE0\x82\x82\x80\x80\x9E\x43\xF5\x07'
+        )
     ),
     _IT.SYMBOL: (
         (None, b'\x7F'),
