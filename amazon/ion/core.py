@@ -104,45 +104,6 @@ class IonEventType(Enum):
         return self < 0
 
 
-def _scale_to_precision(value, fractional_precision):
-    """Scales the ```value``` attribute by -```fractional_precision```.
-
-    If the length of the value is greater than the ```fractional_precision```, it is determined if the extra digits in
-    ```value``` are not significant, i.e. have the value '0'.
-    If a significant digit is found, a ValueError is raised.
-    If no significant digits are not found, the ```value``` is truncated to match that of the```fractional_precision```
-    and the scaling is performed.
-
-    Args:
-        value (int): The numerical value to scale.
-        fractional_precision (int): The negative of this numerical value to scale ```fractional_seconds``` by.
-    Returns:
-        Decimal: The scaled value.
-    """
-    value_string = str(value)
-    if len(value_string) > fractional_precision:
-        for digit in value_string[fractional_precision:]:
-            if digit != '0':
-                raise ValueError('Found timestamp fractional precision of %d digits, '
-                                 'which is less than needed to serialize %d microseconds.'
-                                 % (fractional_precision, value))
-        value_string = value_string[0:fractional_precision]
-        value = int(value_string)
-    return Decimal(value).scaleb(-fractional_precision)
-
-
-def _fractional_seconds_to_microseconds(fractional_seconds):
-    """Scales the ```fractional_seconds``` attribute to microseconds.
-
-    Args:
-        fractional_seconds (Decimal): The numerical value to scale.
-    Returns:
-        int: The scaled value.
-    """
-    integral_fractional_seconds = fractional_seconds * BASE_TEN_MICROSECOND_PRECISION_EXPONENTIATION
-    return int(integral_fractional_seconds)
-
-
 class IonEvent(record(
         'event_type',
         ('ion_type', None),
@@ -514,7 +475,8 @@ class Timestamp(datetime):
             fractional_seconds = Decimal('0e0')
         elif fractional_seconds is not None:
             fractional_precision = min(fractional_seconds.as_tuple().exponent * -1, MICROSECOND_PRECISION)
-            datetime_microseconds = _fractional_seconds_to_microseconds(fractional_seconds)
+            # Scale to microseconds and truncate to an integer.
+            datetime_microseconds = int(fractional_seconds * BASE_TEN_MICROSECOND_PRECISION_EXPONENTIATION)
             lst = list(args)
             lst[microsecond_argument_index] = datetime_microseconds
             args = tuple(lst)
@@ -526,7 +488,7 @@ class Timestamp(datetime):
                     lst[microsecond_argument_index] = datetime_microseconds
                     args = tuple(lst)
             else:
-                fractional_seconds = _scale_to_precision(datetime_microseconds, MICROSECOND_PRECISION)\
+                fractional_seconds = Decimal(datetime_microseconds).scaleb(-MICROSECOND_PRECISION)\
                     .quantize(PRECISION_LIMIT_LOOKUP[fractional_precision], rounding=ROUND_FLOOR)
 
         instance = super(Timestamp, cls).__new__(cls, *args, **kwargs)
