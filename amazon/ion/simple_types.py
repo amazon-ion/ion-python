@@ -104,20 +104,31 @@ class _IonNature(object):
         value.ion_annotations = annotations
         return value
 
-    def to_event(self, event_type, field_name=None, depth=None):
+    def to_event(self, event_type, field_name=None, in_struct=False, depth=None):
         """Constructs an IonEvent from this _IonNature value.
 
         Args:
             event_type (IonEventType): The type of the resulting event.
-            field_name (Optional[text]): The field name associated with this value, if any.
+            field_name (Optional[text]): The field name associated with this value, if any.  When ``None``
+                is specified and ``in_struct`` is ``True``, the returned event's ``field_name`` will
+                represent symbol zero (a ``SymbolToken`` with text=None and sid=0).
+            in_struct (Optional[True|False]): When ``True``, indicates the returned event ``field_name``
+                will be populated.  When ``False``, ``field_name`` will be ``None``.
             depth (Optional[int]): The depth of this value.
 
         Returns:
             An IonEvent with the properties from this value.
         """
         value = self
-        if isinstance(self, IonPyNull):
+        if isinstance(self, IonPyNull) or self.ion_type.is_container:
             value = None
+
+        if in_struct:
+            if not isinstance(field_name, SymbolToken):
+                field_name = SymbolToken(field_name, 0 if field_name is None else None)
+        else:
+            field_name = None
+
         return IonEvent(event_type, ion_type=self.ion_type, value=value, field_name=field_name,
                                   annotations=self.ion_annotations, depth=depth)
 

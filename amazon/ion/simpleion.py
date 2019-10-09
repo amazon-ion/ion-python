@@ -198,7 +198,7 @@ def _ion_type(obj, from_type):
     raise TypeError('Unknown scalar type %r' % (type(obj),))
 
 
-def _dump(obj, writer, from_type, field=None):
+def _dump(obj, writer, from_type, field=None, in_struct=False, depth=0):
     null = is_null(obj)
     try:
         ion_type = obj.ion_type
@@ -208,23 +208,23 @@ def _dump(obj, writer, from_type, field=None):
         ion_nature = False
     if not null and ion_type.is_container:
         if ion_nature:
-            event = obj.to_event(IonEventType.CONTAINER_START, field_name=field)
+            event = obj.to_event(IonEventType.CONTAINER_START, field_name=field, in_struct=in_struct, depth=depth)
         else:
-            event = IonEvent(IonEventType.CONTAINER_START, ion_type, field_name=field)
+            event = IonEvent(IonEventType.CONTAINER_START, ion_type, field_name=field, depth=depth)
         writer.send(event)
         if ion_type is IonType.STRUCT:
             for field, val in six.iteritems(obj):
-                _dump(val, writer, from_type, field)
+                _dump(val, writer, from_type, field, in_struct=True, depth=depth+1)
         else:
             for elem in obj:
-                _dump(elem, writer, from_type)
+                _dump(elem, writer, from_type, depth=depth+1)
         event = _ION_CONTAINER_END_EVENT
     else:
         # obj is a scalar value
         if ion_nature:
-            event = obj.to_event(IonEventType.SCALAR, field_name=field)
+            event = obj.to_event(IonEventType.SCALAR, field_name=field, in_struct=in_struct, depth=depth)
         else:
-            event = IonEvent(IonEventType.SCALAR, ion_type, obj, field_name=field)
+            event = IonEvent(IonEventType.SCALAR, ion_type, obj, field_name=field, depth=depth)
     writer.send(event)
 
 

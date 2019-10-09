@@ -78,7 +78,12 @@ def test_event_types(p):
 
     event_output = p.type.from_event(p.event)
     value_output = p.type.from_value(ion_type, value, p.event.annotations)
-    to_event_output = value_output.to_event(p.event.event_type, p.event.field_name, p.event.depth)
+    to_event_output = value_output.to_event(p.event.event_type, p.event.field_name, in_struct=True, depth=p.event.depth)
+    if p.event.ion_type.is_container:
+        # compensate for abuse of IonEvent.value, which is intended to be None for CONTAINER_START events,
+        # but is populated and relied upon by the logic of this test code
+        assert to_event_output.value is None
+        to_event_output = to_event_output._replace(value=p.event.value)
     assert p.event == to_event_output
 
     if p.type is IonPyNull:
