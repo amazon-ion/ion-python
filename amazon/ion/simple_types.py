@@ -104,7 +104,7 @@ class _IonNature(object):
         value.ion_annotations = annotations
         return value
 
-    def to_event(self, event_type, field_name=None, depth=None):
+    def to_event(self, event_type, field_name=None, in_struct=False, depth=None):
         """Constructs an IonEvent from this _IonNature value.
 
         Args:
@@ -116,8 +116,15 @@ class _IonNature(object):
             An IonEvent with the properties from this value.
         """
         value = self
-        if isinstance(self, IonPyNull):
+        if isinstance(self, IonPyNull) or self.ion_type.is_container:
             value = None
+
+        if in_struct:
+            if not isinstance(field_name, SymbolToken):
+                field_name = SymbolToken(field_name, 0 if field_name is None else None)
+        else:
+            field_name = None
+
         return IonEvent(event_type, ion_type=self.ion_type, value=value, field_name=field_name,
                                   annotations=self.ion_annotations, depth=depth)
 
