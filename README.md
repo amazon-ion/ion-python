@@ -101,3 +101,7 @@ The following build, deployment, or release tasks are required:
 * Improve documentation around setup/development/contribution/getting started.
 * Consider using something like [PyPy.js](https://github.com/pypyjs/pypyjs) to build an interactive shell for playing
   with Ion python and provide a client-side Ion playground.
+  
+## Known Issues
+[tests/test_vectors.py](https://github.com/amzn/ion-python/blob/master/tests/test_vectors.py#L95) defines skipList variables
+referencing test vectors that are not expected to work at this time.
