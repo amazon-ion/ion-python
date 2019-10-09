@@ -109,7 +109,11 @@ class _IonNature(object):
 
         Args:
             event_type (IonEventType): The type of the resulting event.
-            field_name (Optional[text]): The field name associated with this value, if any.
+            field_name (Optional[text]): The field name associated with this value, if any.  When ``None``
+                is specified and ``in_struct`` is ``True``, the returned event's ``field_name`` will
+                represent symbol zero (a ``SymbolToken`` with text=None and sid=0).
+            in_struct (Optional[True|False]): When ``True``, indicates the returned event ``field_name``
+                will be populated.  When ``False``, ``field_name`` will be ``None``.
             depth (Optional[int]): The depth of this value.
 
         Returns:
