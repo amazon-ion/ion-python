@@ -14,200 +14,305 @@
 
 # Python 2/3 compatibility
 from decimal import Decimal
+from functools import partial
 
 import pytest
 
-from amazon.ion.core import Timestamp, TimestampPrecision, record
+from amazon.ion.core import Timestamp, TimestampPrecision, record, TIMESTAMP_MICROSECOND_FIELD
+from amazon.ion.equivalence import ion_equals
 from tests import parametrize, listify
 
 
-class _P(record('timestamps', 'expected_value')):
+class _FractionalCombination:
+
+    def __init__(self, constructor_args,
+                 expected_microsecond, expected_fractional_precision, expected_fractional_seconds):
+        self.expected_microsecond = expected_microsecond
+        self.expected_fractional_precision = expected_fractional_precision
+        self.expected_fractional_seconds = expected_fractional_seconds
+        self.constructor_args = constructor_args
+
+
+class _FractionalCombinationParameter:
+
+    def __init__(self, desc, timestamp, expected_microsecond,
+                 expected_fractional_precision, expected_fractional_seconds):
+        self.desc = desc
+        self.timestamp = timestamp
+        self.expected_microsecond = expected_microsecond
+        self.expected_fractional_precision = expected_fractional_precision
+        self.expected_fractional_seconds = expected_fractional_seconds
+
     def __str__(self):
         return self.desc
 
 
-MISSING_MICROSECOND = [
-    (
-        Timestamp(
-            2011, 1, 1,
-            0, 0, 0, None,
-            precision=TimestampPrecision.SECOND, fractional_seconds=Decimal('0')
-        ),
-        0
-    ),
-    (
-        Timestamp(
-            2011, 1, 1,
-            0, 0, 0, None,
-            precision=TimestampPrecision.SECOND, fractional_seconds=Decimal('0.123456')
-        ),
-        123456
-    ),
-    (
-        Timestamp(
-            2011, 1, 1,
-            0, 0, 0, None,
-            precision=TimestampPrecision.SECOND, fractional_seconds=Decimal('0.123456789')
-        ),
-        123456
-    ),
-    (
-        Timestamp(
-            2011, 1, 1,
-            0, 0, 0, None,
-            precision=TimestampPrecision.SECOND, fractional_seconds=Decimal('0.000123')
-        ),
-        123
-    ),
-    (
-        Timestamp(
-            2011, 1, 1,
-            0, 0, 0, None,
-            precision=TimestampPrecision.SECOND, fractional_seconds=Decimal('0.123000')
-        ),
-        123000
-    )
-]
+# Sometimes the 'microsecond' argument needs to be modified before being passed to the datetime constructor.
+# It is therefore necessary to test that this works correctly regardless of whether 'microsecond' was specified
+# as a positional or a keyword argument.
+def _timestamp_from_kwargs(**kwargs):
+    return str(kwargs),\
+           Timestamp(2011, 1, 1, 0, 0, 0, precision=TimestampPrecision.SECOND, **kwargs)
 
 
-MISSING_FRACTIONAL_SECONDS = [
-    (
-        Timestamp(
-            2011, 1, 1,
-            0, 0, 0, 0,
-            precision=TimestampPrecision.SECOND, fractional_precision=6, fractional_seconds=None
+def _timestamp_from_positional_microsecond(**kwargs):
+    if TIMESTAMP_MICROSECOND_FIELD in kwargs:
+        microsecond = kwargs[TIMESTAMP_MICROSECOND_FIELD]
+        del kwargs[TIMESTAMP_MICROSECOND_FIELD]
+        return '(%s, %s)' % (microsecond, str(kwargs)), \
+               Timestamp(2011, 1, 1, 0, 0, 0, microsecond, precision=TimestampPrecision.SECOND, **kwargs)
+    else:
+        return _timestamp_from_kwargs(**kwargs)
+
+
+def _constructor_args(**kwargs):
+    return kwargs
+
+
+_FRACTIONAL_COMBINATIONS = (
+    _FractionalCombination(
+        _constructor_args(
+            microsecond=None,
+            fractional_precision=None,
+            fractional_seconds=Decimal('0')
         ),
-        Decimal('0')
+        expected_microsecond=0,
+        expected_fractional_precision=0,
+        expected_fractional_seconds=Decimal(0)
     ),
-    (
-        Timestamp(
-            2011, 1, 1,
-            0, 0, 0, 123456,
-            precision=TimestampPrecision.SECOND, fractional_precision=6, fractional_seconds=None
+    _FractionalCombination(
+        _constructor_args(
+            microsecond=None,
+            fractional_precision=None,
+            fractional_seconds=Decimal('0e4')
         ),
-        Decimal('0.123456')
+        expected_microsecond=0,
+        expected_fractional_precision=0,
+        expected_fractional_seconds=Decimal(0)
     ),
-    (
-        Timestamp(
-            2011, 1, 1,
-            0, 0, 0, 123,
-            precision=TimestampPrecision.SECOND, fractional_precision=6, fractional_seconds=None
+    _FractionalCombination(
+        _constructor_args(
+            microsecond=None,
+            fractional_precision=None,
+            fractional_seconds=Decimal('0.123456')
         ),
-        Decimal('0.000123')
+        expected_microsecond=123456,
+        expected_fractional_precision=6,
+        expected_fractional_seconds=Decimal('0.123456')
     ),
-    (
-        Timestamp(
-            2011, 1, 1,
-            0, 0, 0, 123000,
-            precision=TimestampPrecision.SECOND, fractional_precision=6, fractional_seconds=None
+    _FractionalCombination(
+        _constructor_args(
+            microsecond=None,
+            fractional_precision=None,
+            fractional_seconds=Decimal('0.123456789')
         ),
-        Decimal('0.123000')
+        expected_microsecond=123456,
+        expected_fractional_precision=6,
+        expected_fractional_seconds=Decimal('0.123456789')
+    ),
+    _FractionalCombination(
+        _constructor_args(
+            microsecond=None,
+            fractional_precision=None,
+            fractional_seconds=Decimal('0.000123')
+        ),
+        expected_microsecond=123,
+        expected_fractional_precision=6,
+        expected_fractional_seconds=Decimal('0.000123')
+    ),
+    _FractionalCombination(
+        _constructor_args(
+            microsecond=None,
+            fractional_precision=None,
+            fractional_seconds=Decimal('0.123000')
+        ),
+        expected_microsecond=123000,
+        expected_fractional_precision=6,
+        expected_fractional_seconds=Decimal('0.123000')
+    ),
+    _FractionalCombination(
+        _constructor_args(
+            microsecond=None,
+        ),
+        expected_microsecond=0,
+        expected_fractional_precision=0,
+        expected_fractional_seconds=Decimal(0)
+    ),
+    _FractionalCombination(
+        _constructor_args(
+            microsecond=0,
+            fractional_precision=6,
+            fractional_seconds=None
+        ),
+        expected_microsecond=0,
+        expected_fractional_precision=6,
+        expected_fractional_seconds=Decimal('0.000000')
+    ),
+    _FractionalCombination(
+        _constructor_args(
+            microsecond=123456,
+            fractional_precision=6,
+            fractional_seconds=None
+        ),
+        expected_microsecond=123456,
+        expected_fractional_precision=6,
+        expected_fractional_seconds=Decimal('0.123456')
+    ),
+    _FractionalCombination(
+        _constructor_args(
+            microsecond=123,
+            fractional_precision=6,
+            fractional_seconds=None
+        ),
+        expected_microsecond=123,
+        expected_fractional_precision=6,
+        expected_fractional_seconds=Decimal('0.000123')
+    ),
+    _FractionalCombination(
+        _constructor_args(
+            microsecond=123,
+            fractional_precision=None,
+            fractional_seconds=None
+        ),
+        expected_microsecond=123,
+        expected_fractional_precision=6,
+        expected_fractional_seconds=Decimal('0.000123')
+    ),
+    _FractionalCombination(
+        _constructor_args(
+            microsecond=123000,
+            fractional_precision=6,
+            fractional_seconds=None
+        ),
+        expected_microsecond=123000,
+        expected_fractional_precision=6,
+        expected_fractional_seconds=Decimal('0.123000')
+    ),
+    _FractionalCombination(
+        _constructor_args(),
+        expected_microsecond=0,
+        expected_fractional_precision=0,
+        expected_fractional_seconds=Decimal(0)
+    ),
+    _FractionalCombination(
+        _constructor_args(
+            microsecond=0,
+            fractional_precision=0,
+            fractional_seconds=None
+        ),
+        expected_microsecond=0,
+        expected_fractional_precision=0,
+        expected_fractional_seconds=Decimal(0)
     )
-]
+)
 
 
 @listify
-def event_type_parameters(list_name):
-    print(list_name)
-    for timestamp, expected_val in list_name:
-        yield _P(
-            timestamps=timestamp,
-            expected_value=expected_val,
-        )
-
-
-@parametrize(*event_type_parameters(MISSING_MICROSECOND))
-def test_missing_microsecond(item):
-    timestamp = item.timestamps
-    expected_microsecond = item.expected_value
-    assert timestamp.microsecond == expected_microsecond
-
-
-@parametrize(*event_type_parameters(MISSING_FRACTIONAL_SECONDS))
-def test_missing_fractional_seconds(item):
-    timestamp = item.timestamps
-    expected_fractional_second = item.expected_value
-    assert timestamp.fractional_seconds == expected_fractional_second
-
-
-def test_fractional_seconds_when_microseconds_and_fractional_precision_are_0():
-    timestamp = Timestamp(
-            2011, 1, 1,
-            0, 0, 0, 0,
-            precision=TimestampPrecision.SECOND, fractional_precision=0, fractional_seconds=None
+def generate_fractional_combination_parameters():
+    for fractional_combination in _FRACTIONAL_COMBINATIONS:
+        for constructor_variant in (_timestamp_from_kwargs, _timestamp_from_positional_microsecond):
+            yield _FractionalCombinationParameter(
+                *constructor_variant(**fractional_combination.constructor_args),
+                expected_fractional_precision=fractional_combination.expected_fractional_precision,
+                expected_fractional_seconds=fractional_combination.expected_fractional_seconds,
+                expected_microsecond=fractional_combination.expected_microsecond
             )
-    assert timestamp.fractional_seconds == Decimal('0')
 
 
-def test_fractional_precision_with_no_microseconds():
-    with pytest.raises(ValueError):
-        Timestamp(
+@parametrize(*generate_fractional_combination_parameters())
+def test_fractional_combinations(item):
+    assert item.timestamp.microsecond == item.expected_microsecond
+    assert item.timestamp.fractional_precision == item.expected_fractional_precision
+    # Using ion_equals ensures that the Decimals are compared for Ion data model equivalence
+    # (i.e. precision is significant).
+    assert ion_equals(item.timestamp.fractional_seconds, item.expected_fractional_seconds)
+
+
+class _InvalidArgumentsParameter:
+
+    def __init__(self, desc, timestamp_constructor_thunk):
+        self.desc = desc
+        self.timestamp_constructor_thunk = timestamp_constructor_thunk
+
+    def __str__(self):
+        return self.desc
+
+
+_INVALID_ARGUMENTS_PARAMETERS = (
+    _InvalidArgumentsParameter(
+        'fractional_precision without microsecond',
+        lambda: Timestamp(
             2011, 1, 1,
             0, 0, 0, None,
             precision=TimestampPrecision.SECOND, fractional_precision=6
         )
-
-
-def test_fractional_precision_less_than_1():
-    with pytest.raises(ValueError):
-        Timestamp(
+    ),
+    _InvalidArgumentsParameter(
+        'fractional_precision less than 0',
+        lambda: Timestamp(
             2011, 1, 1,
-            0, 0, 0, None,
+            0, 0, 0, 0,
             precision=TimestampPrecision.SECOND, fractional_precision=-1, fractional_seconds=None
         )
-
-
-def test_fractional_precision_greater_than_6():
-    with pytest.raises(ValueError):
-        Timestamp(
+    ),
+    _InvalidArgumentsParameter(
+        'fractional_precision greater than 6',
+        lambda: Timestamp(
             2011, 1, 1,
-            0, 0, 0, None,
+            0, 0, 0, 0,
             precision=TimestampPrecision.SECOND, fractional_precision=7, fractional_seconds=None
         )
-
-
-def test_fractional_seconds_less_than_0():
-    with pytest.raises(ValueError):
-        Timestamp(
+    ),
+    _InvalidArgumentsParameter(
+        'fractional_seconds less than 0',
+        lambda: Timestamp(
             2011, 1, 1,
             0, 0, 0, None,
             precision=TimestampPrecision.SECOND, fractional_precision=None, fractional_seconds=Decimal('-1')
         )
-
-
-def test_fractional_seconds_greater_than_1():
-    with pytest.raises(ValueError):
-        Timestamp(
+    ),
+    _InvalidArgumentsParameter(
+        'fractional_seconds is 1',
+        lambda: Timestamp(
             2011, 1, 1,
             0, 0, 0, None,
-            precision=TimestampPrecision.SECOND, fractional_precision=None, fractional_seconds=Decimal('2')
+            precision=TimestampPrecision.SECOND, fractional_precision=None, fractional_seconds=Decimal('1')
         )
-
-
-def test_fractional_seconds_with_microseconds():
-    with pytest.raises(ValueError):
-        Timestamp(
+    ),
+    _InvalidArgumentsParameter(
+        'fractional_seconds and microseconds both specified',
+        lambda: Timestamp(
             2011, 1, 1,
             0, 0, 0, 1,
             precision=TimestampPrecision.SECOND, fractional_precision=None, fractional_seconds=Decimal('0.123456')
         )
-
-
-def test_fractional_seconds_with_fractional_precision():
-    with pytest.raises(ValueError):
-        Timestamp(
+    ),
+    _InvalidArgumentsParameter(
+        'fractional_seconds and fractional_precision both specified',
+        lambda: Timestamp(
             2011, 1, 1,
             0, 0, 0, None,
             precision=TimestampPrecision.SECOND, fractional_precision=6, fractional_seconds=Decimal('0.123456')
         )
-
-
-def test_microseconds_not_0_when_fractional_precision_is_0():
-    with pytest.raises(ValueError):
-        Timestamp(
+    ),
+    _InvalidArgumentsParameter(
+        'microsecond is not 0 when fractional_precision is 0',
+        lambda: Timestamp(
             2011, 1, 1,
             0, 0, 0, 123456,
             precision=TimestampPrecision.SECOND, fractional_precision=0, fractional_seconds=None
         )
+    ),
+    _InvalidArgumentsParameter(
+        'microsecond requires more than fractional_precision',
+        lambda: Timestamp(
+            1, 1, 1, 1, 1, 1, 123456, precision=TimestampPrecision.SECOND, fractional_precision=3
+        )
+    )
+)
 
 
+@parametrize(*_INVALID_ARGUMENTS_PARAMETERS)
+def test_invalid_constructor_arguments(p):
+    with pytest.raises(ValueError):
+        p.timestamp_constructor_thunk()

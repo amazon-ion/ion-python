@@ -127,14 +127,6 @@ _P_FAILURES = [
             _E(_ET.VERSION_MARKER)
         ],
         expected=TypeError
-    ),
-    _P(
-        desc="INSUFFICIENT TIMESTAMP PRECISION",
-        events=[
-            _E(_ET.SCALAR, _IT.TIMESTAMP,
-               timestamp(1, 1, 1, 1, 1, 1, 123456, precision=TimestampPrecision.SECOND, fractional_precision=3))
-        ],
-        expected=ValueError
     )
 ]
 

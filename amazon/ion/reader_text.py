@@ -874,7 +874,6 @@ def _parse_timestamp(tokens):
         off_hour = tokens[_TimestampState.OFF_HOUR]
         off_minutes = tokens[_TimestampState.OFF_MINUTE]
         fraction = None
-        fraction_digits = None
         if off_hour is not None:
             assert off_minutes is not None
             off_sign = -1 if _MINUS in off_hour else 1
