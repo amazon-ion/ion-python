@@ -159,6 +159,53 @@ SIMPLE_SCALARS_MAP_TEXT = {
         (_DT(2016, 1, 1, 12, 34, 12, tzinfo=OffsetTZInfo()), b'2016-01-01T12:34:12.000000Z'),
         (_DT(2016, 1, 1, 12, 34, 12, tzinfo=OffsetTZInfo(timedelta(hours=-7))),
             b'2016-01-01T12:34:12.000000-07:00'),
+        (timestamp(year=1, month=1, day=1, precision=TimestampPrecision.DAY), b'0001-01-01T'),
+        (timestamp(year=1, month=1, day=1, off_minutes=-1, precision=TimestampPrecision.SECOND),
+         b'0001-01-01T00:00:00-00:01'),
+        (
+            timestamp(year=1, month=1, day=1, hour=0, minute=0, second=0,
+                      microsecond=1, precision=TimestampPrecision.SECOND),
+            b'0001-01-01T00:00:00.000001-00:00'
+        ),
+        (
+            timestamp(year=1, month=1, day=1, hour=0, minute=0, second=0,
+                      microsecond=100000, precision=TimestampPrecision.SECOND, fractional_precision=1),
+            b'0001-01-01T00:00:00.1-00:00'
+        ),
+        (timestamp(2016, precision=TimestampPrecision.YEAR), b'2016T'),
+        (timestamp(2016, off_hours=0, precision=TimestampPrecision.YEAR), b'2016T'),
+        (
+            timestamp(2016, 2, 1, 0, 1, off_minutes=1, precision=TimestampPrecision.MONTH),
+            b'2016-02T'
+        ),
+        (
+            timestamp(2016, 2, 1, 23, 0, off_hours=-1, precision=TimestampPrecision.DAY),
+            b'2016-02-01T'
+        ),
+        (
+            timestamp(2016, 2, 2, 0, 0, off_hours=-7, precision=TimestampPrecision.MINUTE),
+            b'2016-02-02T00:00-07:00'
+        ),
+        (
+           timestamp(2016, 2, 2, 0, 0, 30, off_hours=-7, precision=TimestampPrecision.SECOND),
+           b'2016-02-02T00:00:30-07:00'
+        ),
+        (
+            timestamp(2016, 2, 2, 0, 0, 30, 1000, off_hours=-7,
+                      precision=TimestampPrecision.SECOND),
+            # When fractional_precision not specified, defaults to 6 (same as regular datetime).
+            b'2016-02-02T00:00:30.001000-07:00'
+        ),
+        (
+            timestamp(2016, 2, 2, 0, 0, 30, 1000, off_hours=-7,
+                      precision=TimestampPrecision.SECOND, fractional_precision=3),
+            b'2016-02-02T00:00:30.001-07:00'
+        ),
+        (
+            timestamp(2016, 2, 2, 0, 0, 30, 100000, off_hours=-7,
+                      precision=TimestampPrecision.SECOND, fractional_precision=1),
+            b'2016-02-02T00:00:30.1-07:00'
+        ),
         (
             timestamp(2016, 2, 2, 0, 0, 30, precision=TimestampPrecision.SECOND,
                       fractional_seconds=Decimal('0.000010000')),

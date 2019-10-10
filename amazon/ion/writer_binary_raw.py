@@ -30,7 +30,7 @@ import struct
 from amazon.ion.equivalence import _is_float_negative_zero
 from amazon.ion.symbols import SymbolToken
 from .core import IonEventType, IonType, DataEvent, Transition, TimestampPrecision, TIMESTAMP_FRACTION_PRECISION_FIELD, \
-    MICROSECOND_PRECISION, TIMESTAMP_PRECISION_FIELD, TIMESTAMP_FRACTIONAL_SECONDS_FIELD
+    MICROSECOND_PRECISION, TIMESTAMP_PRECISION_FIELD, TIMESTAMP_FRACTIONAL_SECONDS_FIELD, Timestamp
 from .util import coroutine, total_seconds, Enum
 from .writer import NOOP_WRITER_EVENT, WriteEventType, \
                     writer_trampoline, partial_transition, serialize_scalar, \
@@ -170,10 +170,13 @@ def _write_decimal_value(buf, exponent, coefficient, sign=0):
     return length
 
 
-def _write_decimal_to_buf(buf, value):
+def _write_timestamp_fractional_seconds(buf, value):
     sign, digits, exponent = value.as_tuple()
     coefficient = int(value.scaleb(-exponent).to_integral_value())
-    length = _write_decimal_value(buf, exponent, coefficient, sign)
+    if coefficient == 0 and exponent >= 0:
+        length = 0
+    else:
+        length = _write_decimal_value(buf, exponent, coefficient, sign)
     return length
 
 
@@ -231,19 +234,6 @@ _serialize_blob = partial(_serialize_lob_value, tid=_TypeIds.BLOB)
 _serialize_clob = partial(_serialize_lob_value, tid=_TypeIds.CLOB)
 
 
-_MICROSECOND_DECIMAL_EXPONENT = -6  # There are 1e6 microseconds per second.
-
-_TEN_EXP_MINUS_ONE = (
-    -1,
-    9,
-    99,
-    999,
-    9999,
-    99999,
-    999999,
-)
-
-
 def _serialize_timestamp(ion_event):
     buf = bytearray()
     dt = ion_event.value
@@ -270,30 +260,14 @@ def _serialize_timestamp(ion_event):
         length += _write_varuint(value_buf, dt.minute)
     if precision.includes_second:
         length += _write_varuint(value_buf, dt.second)
-        coefficient_fraction_seconds = getattr(ion_event.value, TIMESTAMP_FRACTIONAL_SECONDS_FIELD, None)
-        fractional_precision = getattr(ion_event.value, TIMESTAMP_FRACTION_PRECISION_FIELD, MICROSECOND_PRECISION)
-        coefficient = dt.microsecond
-        if coefficient is not None and fractional_precision is not None:
-            if coefficient == 0:
-                adjusted_fractional_precision = fractional_precision
-            else:
-                adjusted_fractional_precision = MICROSECOND_PRECISION
-                # This optimizes the size of the fractional encoding when the extra precision is not needed.
-                while adjusted_fractional_precision > fractional_precision and coefficient % 10 == 0:
-                    coefficient //= 10
-                    adjusted_fractional_precision -= 1
-            if adjusted_fractional_precision > fractional_precision or \
-                    coefficient > _TEN_EXP_MINUS_ONE[fractional_precision]:
-                raise ValueError('Error writing event %s. Found timestamp fractional precision of %d digits, '
-                                 'which is less than needed to serialize %d microseconds.'
-                                 % (ion_event, fractional_precision, dt.microsecond))
-            if coefficient_fraction_seconds is None:
-                exponent = -adjusted_fractional_precision
-                if not (coefficient == 0 and exponent >= 0):
-                    length += _write_decimal_value(value_buf, exponent, coefficient)
+        if isinstance(ion_event.value, Timestamp):
+            fractional_seconds = getattr(ion_event.value, TIMESTAMP_FRACTIONAL_SECONDS_FIELD, None)
+            if fractional_seconds is not None:
+                length += _write_timestamp_fractional_seconds(value_buf, fractional_seconds)
+        else:
+            # This must be a normal datetime, which always has a range-validated microsecond value.
+            length += _write_decimal_value(value_buf, -MICROSECOND_PRECISION, dt.microsecond)
 
-        if coefficient_fraction_seconds is not None:
-            length += _write_decimal_to_buf(value_buf, coefficient_fraction_seconds)
     _write_length(buf, length, _TypeIds.TIMESTAMP)
     buf.extend(value_buf)
     return buf
