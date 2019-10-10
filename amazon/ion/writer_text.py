@@ -35,7 +35,8 @@ from . import symbols
 
 from .util import coroutine, unicode_iter
 from .core import DataEvent, Transition, IonEventType, IonType, TIMESTAMP_PRECISION_FIELD, TimestampPrecision, \
-    _ZERO_DELTA, TIMESTAMP_FRACTION_PRECISION_FIELD, MICROSECOND_PRECISION, TIMESTAMP_FRACTIONAL_SECONDS_FIELD
+    _ZERO_DELTA, TIMESTAMP_FRACTION_PRECISION_FIELD, MICROSECOND_PRECISION, TIMESTAMP_FRACTIONAL_SECONDS_FIELD, \
+    Timestamp, DECIMAL_ZERO
 from .writer import partial_transition, writer_trampoline, serialize_scalar, validate_scalar_value, \
     illegal_state_null, NOOP_WRITER_EVENT
 from .writer import WriteEventType
@@ -172,26 +173,19 @@ def _bytes_datetime(dt):
     else:
         return tz_string + _bytes_utc_offset(dt)
 
-    fractional_seconds = getattr(original_dt, TIMESTAMP_FRACTIONAL_SECONDS_FIELD, None)
-    if fractional_seconds is None:
-        fractional_precision = getattr(original_dt, TIMESTAMP_FRACTION_PRECISION_FIELD, MICROSECOND_PRECISION)
-        fractional = dt.strftime('%f')
-        assert len(fractional) == MICROSECOND_PRECISION
-
-        if fractional_precision is not None:
-            if fractional[fractional_precision:] != ('0' * (MICROSECOND_PRECISION - fractional_precision)):
-                raise ValueError('Found timestamp fractional with more than the specified %d digits of precision.'
-                                 % (fractional_precision,))
-            fractional = fractional[:fractional_precision]
-            tz_string += '.' + fractional
-
+    if isinstance(original_dt, Timestamp):
+        fractional_seconds = getattr(original_dt, TIMESTAMP_FRACTIONAL_SECONDS_FIELD, None)
+        if fractional_seconds is not None:
+            _, digits, exponent = fractional_seconds.as_tuple()
+            if not (fractional_seconds == DECIMAL_ZERO and exponent >= 0):
+                leading_zeroes = -exponent - len(digits)
+                tz_string += '.'
+                if leading_zeroes > 0:
+                    tz_string += '0' * leading_zeroes
+                tz_string += ''.join(str(x) for x in digits)
     else:
-        _, digits, exponent = fractional_seconds.as_tuple()
-        leading_zeroes = -exponent - len(digits)
-        tz_string += '.'
-        if leading_zeroes > 0:
-            tz_string += '0' * leading_zeroes
-        tz_string += ''.join(str(x) for x in digits)
+        # This must be a normal datetime, which always has a range-validated microsecond value.
+        tz_string += '.' + dt.strftime('%f')
     return tz_string + _bytes_utc_offset(dt)
 
 

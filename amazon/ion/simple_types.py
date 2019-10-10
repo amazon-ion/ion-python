@@ -164,20 +164,14 @@ class IonPyTimestamp(Timestamp, _IonNature):
 
     @staticmethod
     def _to_constructor_args(ts):
-        try:
-            fractional_precision = getattr(ts, TIMESTAMP_FRACTION_PRECISION_FIELD)
-        except AttributeError:
-            fractional_precision = MICROSECOND_PRECISION
-        fractional_seconds = getattr(ts, TIMESTAMP_FRACTIONAL_SECONDS_FIELD, None)
-        precision = getattr(ts, TIMESTAMP_PRECISION_FIELD, TimestampPrecision.SECOND)
-        if fractional_seconds is not None:
+        if isinstance(ts, Timestamp):
             args = (ts.year, ts.month, ts.day, ts.hour, ts.minute, ts.second, None, ts.tzinfo)
-            fractional_precision = None
+            fractional_seconds = getattr(ts, TIMESTAMP_FRACTIONAL_SECONDS_FIELD, None)
+            precision = getattr(ts, TIMESTAMP_PRECISION_FIELD, TimestampPrecision.SECOND)
+            kwargs = {TIMESTAMP_PRECISION_FIELD: precision, TIMESTAMP_FRACTIONAL_SECONDS_FIELD: fractional_seconds}
         else:
             args = (ts.year, ts.month, ts.day, ts.hour, ts.minute, ts.second, ts.microsecond, ts.tzinfo)
-        kwargs = {TIMESTAMP_PRECISION_FIELD: precision, TIMESTAMP_FRACTION_PRECISION_FIELD: fractional_precision,
-                  TIMESTAMP_FRACTIONAL_SECONDS_FIELD: fractional_seconds}
-
+            kwargs = {TIMESTAMP_PRECISION_FIELD: TimestampPrecision.SECOND}
         return args, kwargs
 
 

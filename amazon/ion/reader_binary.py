@@ -702,9 +702,6 @@ def _timestamp_factory(data):
             fraction = None
         else:
             fraction = _parse_decimal(buf)
-            if fraction < 0 or fraction >= 1:
-                raise IonException(
-                    'Timestamp has a fractional component out of bounds: %s' % fraction)
             fraction_exponent = fraction.as_tuple().exponent
             if fraction == 0 and fraction_exponent > -1:
                 # According to the spec, fractions with coefficients of zero and exponents >= zero are ignored.
