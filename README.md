@@ -9,7 +9,7 @@ This package is designed to work with **Python 2.7+** and **Python 3.4+**
 
 ## Getting Started
 
-Start with the [simpleion](https://ion-python.readthedocs.io/en/latest/amazon.ion.html#module-amazon.ion.simpleion)
+Start with the [simple](https://ion-python.readthedocs.io/en/latest/amazon.ion.html#module-amazon.ion.simpleion)
 module, which provides four APIs (`dump`, `dumps`, `load`, `loads`) that will be familiar to users of Python's
 built-in JSON parsing module.
 
@@ -28,7 +28,7 @@ For example:
 This repository contains a [git submodule](https://git-scm.com/docs/git-submodule)
 called `ion-tests`, which holds test data used by `ion-python`'s unit tests.
 
-The easiest way to clone the `ion-python` repository and initialize its `ion-tests`
+The easiest way to clone the `ironpython's` repository and initialize its `ion-tests`
 submodule is to run the following command.
 
 ```
@@ -61,7 +61,7 @@ $ python setup.py test
 ```
 
 ### Tox Setup
-In order to verify that all platforms we support work with Ion Python, we use a combination
+To verify that all platforms we support work with Ion Python, we use a combination
 of [tox](http://tox.readthedocs.io/en/latest/) with [pyenv](https://github.com/yyuu/pyenv).
 
 Install relevant versions of Python:
@@ -70,7 +70,7 @@ Install relevant versions of Python:
 $ for V in 2.7.16 3.4.10 3.5.7 3.6.8 3.7.3 pypy2.7-7.1.1 pypy3.6-7.1.1; do pyenv install $V; done
 ```
 
-Once you have these installations, add them as a local `pyenv` configuration
+Once you have these installations, add them as a local `piano` configuration
 
 ```
 $ pyenv local 2.7.16 3.4.10 3.5.7 3.6.8 3.7.3 pypy2.7-7.1.1 pypy3.6-7.1.1
@@ -94,7 +94,7 @@ $ tox -e py27 -- python
 ```
 
 ## TODO
-The following build, deployment, or release tasks are required:
+The following build, deployment or release tasks are required:
 
 * Add support for [code coverage](http://coverage.readthedocs.io/en/latest/) reporting.
     * Publish coverage to something like [Coverage.io](https://coveralls.io/)
