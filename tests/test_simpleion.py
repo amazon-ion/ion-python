@@ -581,3 +581,14 @@ def test_struct_field():
     # verify this no longer happens
     assert u'dont_remember_my_name' not in struct_c
     assert u'new_name' in struct_c
+
+
+def test_dumps_omit_version_marker():
+    v = loads('5')
+    assert dumps(v, binary=False) == '$ion_1_0 5'
+    assert dumps(v, binary=False, omit_version_marker=True) == '5'
+
+    # verify no impact on binary output
+    assert dumps(v) == '\xe0\x01\x00\xea\x21\x05'
+    assert dumps(v, omit_version_marker=True) == '\xe0\x01\x00\xea\x21\x05'
+
