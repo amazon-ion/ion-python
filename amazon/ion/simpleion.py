@@ -49,7 +49,7 @@ def dump(obj, fp, imports=None, binary=True, sequence_as_stream=False, skipkeys=
          check_circular=True, allow_nan=True, cls=None, indent=None, separators=None, encoding='utf-8', default=None,
          use_decimal=True, namedtuple_as_object=True, tuple_as_array=True, bigint_as_string=False, sort_keys=False,
          item_sort_key=None, for_json=None, ignore_nan=False, int_as_string_bitcount=None, iterable_as_array=False,
-         tuple_as_sexp=False, **kw):
+         tuple_as_sexp=False, omit_version_marker=False, **kw):
     """Serialize ``obj`` as an Ion-formatted stream to ``fp`` (a file-like object), using the following conversion
     table::
         +-------------------+-------------------+
@@ -138,6 +138,8 @@ def dump(obj, fp, imports=None, binary=True, sequence_as_stream=False, skipkeys=
         iterable_as_array: NOT IMPLEMENTED
         tuple_as_sexp (Optional[True|False]): When True, all tuple values will be written as Ion s-expressions.
             When False, all tuple values will be written as Ion lists. Default: False.
+        omit_version_marker (Optional|True|False): If binary is False and omit_version_marker is True, omits the
+            Ion Version Marker ($ion_1_0) from the output.  Default: False.
         **kw: NOT IMPLEMENTED
 
     """
@@ -145,7 +147,8 @@ def dump(obj, fp, imports=None, binary=True, sequence_as_stream=False, skipkeys=
     raw_writer = binary_writer(imports) if binary else text_writer(indent=indent)
     writer = blocking_writer(raw_writer, fp)
     from_type = _FROM_TYPE_TUPLE_AS_SEXP if tuple_as_sexp else _FROM_TYPE
-    writer.send(ION_VERSION_MARKER_EVENT)  # The IVM is emitted automatically in binary; it's optional in text.
+    if not binary and not omit_version_marker:
+        writer.send(ION_VERSION_MARKER_EVENT)  # The IVM is emitted automatically in binary; it's optional in text.
     if sequence_as_stream and isinstance(obj, (list, tuple)):
         # Treat this top-level sequence as a stream; serialize its elements as top-level values, but don't serialize the
         # sequence itself.
@@ -232,7 +235,7 @@ def dumps(obj, imports=None, binary=True, sequence_as_stream=False, skipkeys=Fal
           allow_nan=True, cls=None, indent=None, separators=None, encoding='utf-8', default=None, use_decimal=True,
           namedtuple_as_object=True, tuple_as_array=True, bigint_as_string=False, sort_keys=False, item_sort_key=None,
           for_json=None, ignore_nan=False, int_as_string_bitcount=None, iterable_as_array=False, tuple_as_sexp=False,
-          **kw):
+          omit_version_marker=False, **kw):
     """Serialize ``obj`` as Python ``string`` or ``bytes`` object, using the conversion table used by ``dump`` (above).
 
     Args:
@@ -267,6 +270,8 @@ def dumps(obj, imports=None, binary=True, sequence_as_stream=False, skipkeys=Fal
         iterable_as_array: NOT IMPLEMENTED
         tuple_as_sexp (Optional[True|False]): When True, all tuple values will be written as Ion s-expressions.
             When False, all tuple values will be written as Ion lists. Default: False.
+        omit_version_marker (Optional|True|False): If binary is False and omit_version_marker is True, omits the
+            Ion Version Marker ($ion_1_0) from the output.  Default: False.
         **kw: NOT IMPLEMENTED
 
     Returns:
@@ -281,7 +286,7 @@ def dumps(obj, imports=None, binary=True, sequence_as_stream=False, skipkeys=Fal
          use_decimal=use_decimal, namedtuple_as_object=namedtuple_as_object, tuple_as_array=tuple_as_array,
          bigint_as_string=bigint_as_string, sort_keys=sort_keys, item_sort_key=item_sort_key, for_json=for_json,
          ignore_nan=ignore_nan, int_as_string_bitcount=int_as_string_bitcount, iterable_as_array=iterable_as_array,
-         tuple_as_sexp=tuple_as_sexp, **kw)
+         tuple_as_sexp=tuple_as_sexp, omit_version_marker=omit_version_marker, **kw)
 
     ret_val = ion_buffer.getvalue()
     ion_buffer.close()
