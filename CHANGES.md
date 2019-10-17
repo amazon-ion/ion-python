@@ -1,5 +1,9 @@
-### 0.4.1 (2019-09-05)
+### 0.5.0 (2019-10-17)
+* Adds option to omit the Ion version marker from text output. (#109)
+* Adds option to write tuples as Ion s-expressions via simpleion dump/dumps. (#101)
+* Adds support for timestamps with arbitrary precision. (#100)
 
+### 0.4.1 (2019-09-05)
 * Remove memoization of events in _IonNature. (#97)
 * Updates Tox/README Python Versions (#92)
 * Adds support for `tuple` in `_FROM_TYPES` mapping. (#91)
