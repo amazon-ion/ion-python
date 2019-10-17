@@ -589,6 +589,6 @@ def test_dumps_omit_version_marker():
     assert dumps(v, binary=False, omit_version_marker=True) == '5'
 
     # verify no impact on binary output
-    assert dumps(v) == '\xe0\x01\x00\xea\x21\x05'
-    assert dumps(v, omit_version_marker=True) == '\xe0\x01\x00\xea\x21\x05'
+    assert dumps(v) == b'\xe0\x01\x00\xea\x21\x05'
+    assert dumps(v, omit_version_marker=True) == b'\xe0\x01\x00\xea\x21\x05'
 
