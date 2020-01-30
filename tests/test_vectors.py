@@ -96,9 +96,25 @@ _SKIP_LIST = (
     # TEXT:
     _good_file(u'subfieldVarUInt.ion'),  # TODO amzn/ion-python#34
     _good_file(u'subfieldVarUInt32bit.ion'),  # TODO amzn/ion-python#34
+    _good_file(u'whitespace.ion'),  # TODO amzn/ion-python#117
+    _good_file(u'symbols.ion'),  # TODO amzn/ion-python#122
+    _bad_file(u'localSymbolTableWithMultipleImportsFields.ion'),  # TODO amzn/ion-python#118
+    _bad_file(u'localSymbolTableWithMultipleSymbolsAndImportsFields.ion'),  # TODO amzn/ion-python#118
+    _bad_file(u'localSymbolTableWithMultipleSymbolsFields.ion'),  # TODO amzn/ion-python#118
+    _equivs_file(u'localSymbolTableNullSlots.ion'),  # TODO amzn/ion-python#
+    _nonequivs_file(u'symbols.ion'),   # TODO amzn/ion-python#122
     _nonequivs_file(u'symbolTablesUnknownText.ion'),  # TODO amzn/ion-python#46
+
     # BINARY:
     _good_file(u'item1.10n'),  # TODO amzn/ion-python#46
+    _good_file(u'nopPadInsideEmptyStructNonZeroSymbolId.10n'),  # TODO amzn/ion-python#120
+    _good_file(u'nopPadInsideStructWithNopPadThenValueNonZeroSymbolId.10n'),  # TODO amzn/ion-python#120
+    _bad_file(u'nopPadWithAnnotations.10n'),  # TODO amzn/ion-python#120
+    _bad_file(u'localSymbolTableWithMultipleImportsFields.10n'),  # TODO amzn/ion-python#118
+    _bad_file(u'localSymbolTableWithMultipleSymbolsAndImportsFields.10n'),  # TODO amzn/ion-python#118
+    _bad_file(u'localSymbolTableWithMultipleSymbolsFields.10n'),  # TODO amzn/ion-python#118
+    _bad_file(u'negativeIntZero.10n'),  # TODO amzn/ion-python#119
+    _equivs_file(u'timestampSuperfluousOffset.10n')  # TODO amzn/ion-python#121
 )
 
 if _PLATFORM_ARCHITECTURE == 32:
@@ -374,4 +390,3 @@ def test_roundtrips(p):
     pairs, so there will necessarily be failures in parameter generation for this test if any good files fail to parse.
     """
     p.test_thunk()
-
