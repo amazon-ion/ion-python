@@ -19,7 +19,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from collections import MutableMapping, MutableSequence
+from collections import MutableMapping, MutableSequence, OrderedDict
 from datetime import datetime, timedelta, tzinfo
 from decimal import Decimal, ROUND_FLOOR, Context, Inexact
 from math import isnan
@@ -609,7 +609,7 @@ class Multimap(MutableMapping):
 
     def __init__(self, *args, **kwargs):
         super(Multimap, self).__init__()
-        self.__store = {}
+        self.__store = OrderedDict()
         if args is not None and len(args) > 0:
             for key, value in six.iteritems(args[0]):
                 self.__store[key] = MultimapValue(value)
