@@ -86,6 +86,9 @@ class Enum(int):
 
     def __new__(cls, name, value):
         return int.__new__(cls, value)
+    
+    def __getnewargs__(self):
+        return (self.name, self.value)
 
     def __init__(self, name, value):
         self.name = name

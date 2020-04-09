@@ -133,26 +133,15 @@ class _IonNature(object):
                                   annotations=self.ion_annotations, depth=depth)
 
 
-def _ion_type_for(name, base_cls):
-    class IonPyValueType(base_cls, _IonNature):
-        def __init__(self, *args, **kwargs):
-            super(IonPyValueType, self).__init__(*args, **kwargs)
-
-    IonPyValueType.__name__ = name
-    return IonPyValueType
-
-
 if six.PY2:
-    IonPyInt = _ion_type_for('IonPyInt', long)
+    IonPyInt = type('IonPyInt', (long,_IonNature), {'__module__':__name__})
 else:
-    IonPyInt = _ion_type_for('IonPyInt', int)
-
-
+    IonPyInt = type('IonPyInt', (int,_IonNature), {'__module__':__name__})
 IonPyBool = IonPyInt
-IonPyFloat = _ion_type_for('IonPyFloat', float)
-IonPyDecimal = _ion_type_for('IonPyDecimal', Decimal)
-IonPyText = _ion_type_for('IonPyText', six.text_type)
-IonPyBytes = _ion_type_for('IonPyBytes', six.binary_type)
+IonPyFloat = type('IonPyFloat', (float,_IonNature), {'__module__':__name__})
+IonPyDecimal = type('IonPyDecimal', (Decimal,_IonNature), {'__module__':__name__})
+IonPyText = type('IonPyText',(six.text_type,_IonNature), {'__module__':__name__})
+IonPyBytes = type('IonPyBytes', (six.binary_type,_IonNature), {'__module__':__name__})
 
 
 class IonPySymbol(SymbolToken, _IonNature):
@@ -213,6 +202,5 @@ def is_null(value):
     return value is None or isinstance(value, IonPyNull)
 
 
-IonPyList = _ion_type_for('IonPyList', list)
-IonPyDict = _ion_type_for('IonPyDict', Multimap)
-
+IonPyList = type('IonPyList', (list, _IonNature), {'__module__':__name__})
+IonPyDict = type('IonPyDict', (Multimap, _IonNature), {'__module__':__name__})
