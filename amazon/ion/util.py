@@ -90,6 +90,9 @@ class Enum(int):
     def __init__(self, name, value):
         self.name = name
         self.value = value
+    
+    def __getnewargs__(self):
+        return (self.name, self.value)
 
     def __str__(self):
         return '<%s.%s: %s>' % (type(self).__name__, self.name, self.value)
