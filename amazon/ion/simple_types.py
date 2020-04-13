@@ -139,6 +139,7 @@ def _ion_type_for(name, base_cls):
             super(IonPyValueType, self).__init__(*args, **kwargs)
 
     IonPyValueType.__name__ = name
+    IonPyValueType.__qualname__ = name
     return IonPyValueType
 
 
