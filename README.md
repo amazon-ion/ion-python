@@ -24,6 +24,8 @@ For example:
 '$ion_1_0 {abc:123}'
 ```
 
+For additional examples, consult the [cookbook](http://amzn.github.io/ion-docs/guides/cookbook.html).
+
 ## Git Setup
 This repository contains a [git submodule](https://git-scm.com/docs/git-submodule)
 called `ion-tests`, which holds test data used by `ion-python`'s unit tests.
@@ -98,7 +100,6 @@ The following build, deployment, or release tasks are required:
 
 * Add support for [code coverage](http://coverage.readthedocs.io/en/latest/) reporting.
     * Publish coverage to something like [Coverage.io](https://coveralls.io/)
-* Improve documentation around setup/development/contribution/getting started.
 * Consider using something like [PyPy.js](https://github.com/pypyjs/pypyjs) to build an interactive shell for playing
   with Ion python and provide a client-side Ion playground.
   
