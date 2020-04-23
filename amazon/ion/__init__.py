@@ -18,7 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 __author__ = 'Amazon.com, Inc.'
-__version__ = '0.5.0'
+__version__ = '0.6.0'
 
 __all__ = [
     'core',

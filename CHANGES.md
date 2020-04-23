@@ -1,3 +1,7 @@
+### 0.6.0 (2020-04-23)
+* Retains the serialized order of struct elements when read via `load/loads`. (#125)
+* Makes IonPy* types picklable. (#128)
+
 ### 0.5.0 (2019-10-17)
 * Adds option to omit the Ion version marker from text output. (#109)
 * Adds option to write tuples as Ion s-expressions via simpleion dump/dumps. (#101)
