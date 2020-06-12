@@ -188,7 +188,7 @@ def _serialize_decimal(ion_event):
     with localcontext() as context:
         # Adjusting precision for taking into account arbitrarily large/small
         # numbers
-        context.prec = len(digits) + abs(exponent)
+        context.prec = len(digits)
         coefficient = int(value.scaleb(-exponent).to_integral_value())
     if not sign and not exponent and not coefficient:
         # The value is 0d0; other forms of zero will fall through.

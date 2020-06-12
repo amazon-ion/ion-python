@@ -198,7 +198,7 @@ def _parse_decimal(buf):
         with localcontext() as context:
             # Adjusting precision for taking into account arbitrarily
             # large/small numbers
-            context.prec = len(str(coefficient)) + abs(exponent)
+            context.prec = len(str(coefficient))
             value = Decimal(coefficient).scaleb(exponent)
 
     return value
