@@ -20,7 +20,7 @@ from __future__ import print_function
 import six
 
 from datetime import timedelta
-from decimal import Decimal
+from decimal import Decimal, localcontext
 from functools import partial
 from io import BytesIO
 from struct import unpack
@@ -186,6 +186,7 @@ def _parse_signed_int_components(buf):
 
 def _parse_decimal(buf):
     """Parses the remainder of a file-like object as a decimal."""
+    from decimal import localcontext
     exponent = _parse_var_int(buf, signed=True)
     sign_bit, coefficient = _parse_signed_int_components(buf)
 
@@ -194,7 +195,11 @@ def _parse_decimal(buf):
         value = Decimal((sign_bit, (0,), exponent))
     else:
         coefficient *= sign_bit and -1 or 1
-        value = Decimal(coefficient).scaleb(exponent)
+        with localcontext() as context:
+            # Adjusting precision for taking into account arbitrarily
+            # large/small numbers
+            context.prec = len(str(coefficient))
+            value = Decimal(coefficient).scaleb(exponent)
 
     return value
 

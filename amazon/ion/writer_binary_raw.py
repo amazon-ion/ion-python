@@ -21,7 +21,7 @@ from __future__ import print_function
 
 
 from datetime import datetime
-from decimal import Decimal
+from decimal import Decimal, localcontext
 from functools import partial
 
 import six
@@ -185,7 +185,11 @@ def _serialize_decimal(ion_event):
     value = ion_event.value
     validate_scalar_value(value, Decimal)
     sign, digits, exponent = value.as_tuple()
-    coefficient = int(value.scaleb(-exponent).to_integral_value())
+    with localcontext() as context:
+        # Adjusting precision for taking into account arbitrarily large/small
+        # numbers
+        context.prec = len(digits)
+        coefficient = int(value.scaleb(-exponent).to_integral_value())
     if not sign and not exponent and not coefficient:
         # The value is 0d0; other forms of zero will fall through.
         buf.append(_Zeros.DECIMAL)
