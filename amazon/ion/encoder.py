@@ -60,4 +60,4 @@ class IonEncoder(JSONExtendedEncoder):
                 return None
             return float(o)
         else:
-            super().default(o)
+            super(IonEncoder, self).default(o)

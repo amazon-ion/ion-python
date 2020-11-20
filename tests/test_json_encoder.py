@@ -18,9 +18,11 @@ from amazon.ion.simple_types import IonPyList, IonPyDict, IonPyNull, IonPyBool, 
     IonPyTimestamp, IonPyText, IonPyBytes, IonPySymbol
 from amazon.ion.symbols import SymbolToken
 from amazon.ion.simpleion import dumps, loads
+from base64 import b64encode
 import datetime
 from decimal import Decimal
 import json
+import six
 
 
 def test_null():
@@ -120,7 +122,7 @@ def test_timestamp():
 
 
 def test_symbol():
-    value = SymbolToken("Symbol", None)
+    value = SymbolToken(six.text_type("Symbol"), None)
     ion_value = loads(dumps(value))
     assert isinstance(ion_value, IonPySymbol) and ion_value.ion_type == IonType.SYMBOL
     json_string = json.dumps(ion_value, cls=IonEncoder)
@@ -128,7 +130,7 @@ def test_symbol():
 
 
 def test_string():
-    value = "String"
+    value = six.text_type("String")
     ion_value = loads(dumps(value))
     assert isinstance(ion_value, IonPyText) and ion_value.ion_type == IonType.STRING
     json_string = json.dumps(ion_value, cls=IonEncoder)
@@ -143,7 +145,7 @@ def test_clob():
 
 
 def test_blob():
-    value = bytes("Ion", "ASCII")
+    value = b64encode("Ion".encode("ASCII")) if six.PY2 else bytes("Ion", "ASCII")
     ion_value = loads(dumps(value))
     assert isinstance(ion_value, IonPyBytes) and ion_value.ion_type == IonType.BLOB
     json_string = json.dumps(ion_value, cls=IonEncoder)
@@ -151,7 +153,7 @@ def test_blob():
 
 
 def test_list():
-    value = ["Ion", 123]
+    value = [six.text_type("Ion"), 123]
     ion_value = loads(dumps(value))
     assert isinstance(ion_value, IonPyList) and ion_value.ion_type == IonType.LIST
     json_string = json.dumps(ion_value, cls=IonEncoder)
@@ -159,7 +161,7 @@ def test_list():
 
 
 def test_sexp():
-    value = ("Ion", 123)
+    value = (six.text_type("Ion"), 123)
     ion_value = loads(dumps(value, tuple_as_sexp=True))
     assert isinstance(ion_value, IonPyList) and ion_value.ion_type == IonType.SEXP
     json_string = json.dumps(ion_value, cls=IonEncoder)
@@ -168,16 +170,19 @@ def test_sexp():
 
 def test_struct():
     value = {
-        "string_value": "Ion",
-        "int_value": 123,
-        "nested_struct": {
-            "nested_value": "Nested Ion"
+        six.text_type("string_value"): six.text_type("Ion"),
+        six.text_type("int_value"): 123,
+        six.text_type("nested_struct"): {
+            six.text_type("nested_value"): six.text_type("Nested Ion")
         }
     }
     ion_value = loads(dumps(value))
     assert isinstance(ion_value, IonPyDict) and ion_value.ion_type == IonType.STRUCT
     json_string = json.dumps(ion_value, cls=IonEncoder)
-    assert json_string == '{"string_value": "Ion", "int_value": 123, "nested_struct": {"nested_value": "Nested Ion"}}'
+    expected_string = '{"string_value": "Ion", "int_value": 123, "nested_struct": {"nested_value": "Nested Ion"}}'
+    if not json_string == expected_string:
+        # Assert as objects to handle different Python versions' JSON string key ordering
+        assert json.loads(json_string) == json.loads(expected_string)
 
 
 def test_annotations():
