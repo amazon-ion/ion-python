@@ -23,149 +23,173 @@ import datetime
 from decimal import Decimal
 import json
 import six
+import sys
+
+
+is_pypy = hasattr(sys, "pypy_version_info")
+
+
+# Handle testing in PyPy: JSON encoding is only supported within IonType.STRUCT
+def initialize_value(value):
+    ion_value = loads(dumps(value))
+    if not is_pypy:
+        return ion_value, ion_value
+    ion_struct = loads(dumps({
+        "value": ion_value
+    }))
+    return ion_struct, ion_struct.get("value")
+
+
+# Handle testing in PyPy: JSON encoding is only supported within IonType.STRUCT
+def assert_value(actual_string, expected_string):
+    if not is_pypy:
+        assert actual_string == expected_string
+    else:
+        json_struct = json.loads(actual_string)
+        value_string = json.dumps(json_struct.get("value"))
+        assert value_string == expected_string
 
 
 def test_null():
-    value = None
-    ion_value = loads(dumps(value))
-    assert isinstance(ion_value, IonPyNull)
-    json_string = json.dumps(ion_value, cls=IonEncoder)
-    assert json_string == 'null'
+    ion_types = [
+        (IonPyNull, IonType.NULL),
+        (IonPyBool, IonType.BOOL),
+        (IonPyInt, IonType.INT),
+        (IonPyFloat, IonType.FLOAT),
+        (IonPyDecimal, IonType.DECIMAL),
+        (IonPyTimestamp, IonType.TIMESTAMP),
+        (IonPyText, IonType.STRING),
+        (IonPySymbol, IonType.SYMBOL),
+        (IonPyBytes, IonType.BLOB),
+        (IonPyBytes, IonType.CLOB),
+        (IonPyDict, IonType.STRUCT),
+        (IonPyList, IonType.LIST),
+        (IonPyList, IonType.SEXP)
+    ]
+    for ion_class, ion_type in ion_types:
+        ion_value = ion_class.from_value(ion_type, None)
+        json_string = json.dumps(ion_value, cls=IonEncoder)
+        assert json_string == 'null'
 
 
 def test_bool():
-    value = False
-    ion_value = loads(dumps(value))
+    container, ion_value = initialize_value(False)
     assert isinstance(ion_value, IonPyBool) and ion_value.ion_type == IonType.BOOL
-    json_string = json.dumps(ion_value, cls=IonEncoder)
-    assert json_string == 'false'
+    json_string = json.dumps(container, cls=IonEncoder)
+    assert_value(json_string, 'false')
 
 
 def test_int():
-    value = -123
-    ion_value = loads(dumps(value))
+    container, ion_value = initialize_value(-123)
     assert isinstance(ion_value, IonPyInt) and ion_value.ion_type == IonType.INT
-    json_string = json.dumps(ion_value, cls=IonEncoder)
-    assert json_string == '-123'
+    json_string = json.dumps(container, cls=IonEncoder)
+    assert_value(json_string, '-123')
 
 
 def test_float():
-    value = float(123.456)
-    ion_value = loads(dumps(value))
+    container, ion_value = initialize_value(float(123.456))
     assert isinstance(ion_value, IonPyFloat) and ion_value.ion_type == IonType.FLOAT
-    json_string = json.dumps(ion_value, cls=IonEncoder)
-    assert json_string == '123.456'
+    json_string = json.dumps(container, cls=IonEncoder)
+    assert_value(json_string, '123.456')
 
 
 def test_float_nan():
-    value = float("NaN")
-    ion_value = loads(dumps(value))
+    container, ion_value = initialize_value(float("NaN"))
     assert isinstance(ion_value, IonPyFloat) and ion_value.ion_type == IonType.FLOAT
-    json_string = json.dumps(ion_value, cls=IonEncoder)
-    assert json_string == 'null'
+    json_string = json.dumps(container, cls=IonEncoder)
+    assert_value(json_string, 'null')
 
 
 def test_float_inf():
-    value = float("Inf")
-    ion_value = loads(dumps(value))
+    container, ion_value = initialize_value(float("Inf"))
     assert isinstance(ion_value, IonPyFloat) and ion_value.ion_type == IonType.FLOAT
-    json_string = json.dumps(ion_value, cls=IonEncoder)
-    assert json_string == 'null'
+    json_string = json.dumps(container, cls=IonEncoder)
+    assert_value(json_string, 'null')
 
 
 def test_decimal():
-    value = Decimal('123.456')
-    ion_value = loads(dumps(value))
+    container, ion_value = initialize_value(Decimal('123.456'))
     assert isinstance(ion_value, IonPyDecimal) and ion_value.ion_type == IonType.DECIMAL
-    json_string = json.dumps(ion_value, cls=IonEncoder)
-    assert json_string == '123.456'
+    json_string = json.dumps(container, cls=IonEncoder)
+    assert_value(json_string, '123.456')
 
 
 def test_decimal_exp():
-    value = Decimal('1.23456e2')
-    ion_value = loads(dumps(value))
+    container, ion_value = initialize_value(Decimal('1.23456e2'))
     assert isinstance(ion_value, IonPyDecimal) and ion_value.ion_type == IonType.DECIMAL
-    json_string = json.dumps(ion_value, cls=IonEncoder)
-    assert json_string == '123.456'
+    json_string = json.dumps(container, cls=IonEncoder)
+    assert_value(json_string, '123.456')
 
 
 def test_decimal_exp_negative():
-    value = Decimal('12345.6e-2')
-    ion_value = loads(dumps(value))
+    container, ion_value = initialize_value(Decimal('12345.6e-2'))
     assert isinstance(ion_value, IonPyDecimal) and ion_value.ion_type == IonType.DECIMAL
-    json_string = json.dumps(ion_value, cls=IonEncoder)
-    assert json_string == '123.456'
+    json_string = json.dumps(container, cls=IonEncoder)
+    assert_value(json_string, '123.456')
 
 
 def test_decimal_exp_large():
-    value = Decimal('123.456e34')
-    ion_value = loads(dumps(value))
+    container, ion_value = initialize_value(Decimal('123.456e34'))
     assert isinstance(ion_value, IonPyDecimal) and ion_value.ion_type == IonType.DECIMAL
-    json_string = json.dumps(ion_value, cls=IonEncoder)
-    assert json_string == '1.23456e+36'
+    json_string = json.dumps(container, cls=IonEncoder)
+    assert_value(json_string, '1.23456e+36')
 
 
 def test_decimal_exp_large_negative():
-    value = Decimal('123.456e-34')
-    ion_value = loads(dumps(value))
+    container, ion_value = initialize_value(Decimal('123.456e-34'))
     assert isinstance(ion_value, IonPyDecimal) and ion_value.ion_type == IonType.DECIMAL
-    json_string = json.dumps(ion_value, cls=IonEncoder)
-    assert json_string == '1.23456e-32'
+    json_string = json.dumps(container, cls=IonEncoder)
+    assert_value(json_string, '1.23456e-32')
 
 
 def test_timestamp():
-    value = datetime.datetime(2010, 6, 15, 3, 30, 45)
-    ion_value = loads(dumps(value))
+    container, ion_value = initialize_value(datetime.datetime(2010, 6, 15, 3, 30, 45))
     assert isinstance(ion_value, IonPyTimestamp) and ion_value.ion_type == IonType.TIMESTAMP
-    json_string = json.dumps(ion_value, cls=IonEncoder)
-    assert json_string == '"2010-06-15 03:30:45"'
+    json_string = json.dumps(container, cls=IonEncoder)
+    assert_value(json_string, '"2010-06-15 03:30:45"')
 
 
 def test_symbol():
-    value = SymbolToken(six.text_type("Symbol"), None)
-    ion_value = loads(dumps(value))
+    container, ion_value = initialize_value(SymbolToken(six.text_type("Symbol"), None))
     assert isinstance(ion_value, IonPySymbol) and ion_value.ion_type == IonType.SYMBOL
-    json_string = json.dumps(ion_value, cls=IonEncoder)
-    assert json_string == '"Symbol"'
+    json_string = json.dumps(container, cls=IonEncoder)
+    assert_value(json_string, '"Symbol"')
 
 
 def test_string():
-    value = six.text_type("String")
-    ion_value = loads(dumps(value))
+    container, ion_value = initialize_value(six.text_type("String"))
     assert isinstance(ion_value, IonPyText) and ion_value.ion_type == IonType.STRING
-    json_string = json.dumps(ion_value, cls=IonEncoder)
-    assert json_string == '"String"'
+    json_string = json.dumps(container, cls=IonEncoder)
+    assert_value(json_string, '"String"')
 
 
 def test_clob():
-    ion_value = IonPyBytes.from_value(IonType.CLOB, b'Ion')
+    container, ion_value = initialize_value(IonPyBytes.from_value(IonType.CLOB, bytearray.fromhex("06 49 6f 6e 06")))
     assert isinstance(ion_value, IonPyBytes) and ion_value.ion_type == IonType.CLOB
-    json_string = json.dumps(ion_value, cls=IonEncoder)
-    assert json_string == '"Ion"'
+    json_string = json.dumps(container, cls=IonEncoder)
+    assert_value(json_string, '"\\u0006Ion\\u0006"')
 
 
 def test_blob():
-    value = b64encode("Ion".encode("ASCII")) if six.PY2 else bytes("Ion", "ASCII")
-    ion_value = loads(dumps(value))
+    container, ion_value = initialize_value(b64encode("Ion".encode("ASCII")) if six.PY2 else bytes("Ion", "ASCII"))
     assert isinstance(ion_value, IonPyBytes) and ion_value.ion_type == IonType.BLOB
-    json_string = json.dumps(ion_value, cls=IonEncoder)
-    assert json_string == '"SW9u"'
+    json_string = json.dumps(container, cls=IonEncoder)
+    assert_value(json_string, '"SW9u"')
 
 
 def test_list():
-    value = [six.text_type("Ion"), 123]
-    ion_value = loads(dumps(value))
+    container, ion_value = initialize_value([six.text_type("Ion"), 123])
     assert isinstance(ion_value, IonPyList) and ion_value.ion_type == IonType.LIST
-    json_string = json.dumps(ion_value, cls=IonEncoder)
-    assert json_string == '["Ion", 123]'
+    json_string = json.dumps(container, cls=IonEncoder)
+    assert_value(json_string, '["Ion", 123]')
 
 
 def test_sexp():
     value = (six.text_type("Ion"), 123)
-    ion_value = loads(dumps(value, tuple_as_sexp=True))
+    container, ion_value = initialize_value(loads(dumps(value, tuple_as_sexp=True)))
     assert isinstance(ion_value, IonPyList) and ion_value.ion_type == IonType.SEXP
-    json_string = json.dumps(ion_value, cls=IonEncoder)
-    assert json_string == '["Ion", 123]'
+    json_string = json.dumps(container, cls=IonEncoder)
+    assert_value(json_string, '["Ion", 123]')
 
 
 def test_struct():
@@ -185,8 +209,8 @@ def test_struct():
         assert json.loads(json_string) == json.loads(expected_string)
 
 
-def test_annotations():
-    ion_value = IonPyInt.from_value(IonType.INT, 123, "Annotation")
+def test_annotation_suppression():
+    container, ion_value = initialize_value(IonPyInt.from_value(IonType.INT, 123, six.text_type("Annotation")))
     assert isinstance(ion_value, IonPyInt) and ion_value.ion_type == IonType.INT
-    json_string = json.dumps(ion_value, cls=IonEncoder)
-    assert json_string == '123'
+    json_string = json.dumps(container, cls=IonEncoder)
+    assert_value(json_string, '123')

@@ -16,27 +16,37 @@ from .core import IonType
 from .simple_types import IonPyList, IonPyDict, IonPyNull, IonPyBool, IonPyInt, IonPyFloat, IonPyDecimal, \
     IonPyTimestamp, IonPyText, IonPyBytes, IonPySymbol
 from base64 import standard_b64encode
-from jsonconversion.encoder import JSONExtendedEncoder
+from six import text_type
+import sys
+import warnings
+if hasattr(sys, "pypy_version_info"):
+    warnings.warn("PyPy detected. IonEncoder will only support encoding of IonType.STRUCT.")
+    from json import JSONEncoder as BaseEncoder
+else:
+    from jsonconversion.encoder import JSONExtendedEncoder as BaseEncoder
 
 
-class IonEncoder(JSONExtendedEncoder):
+class IonEncoder(BaseEncoder):
+    """JSON Encoder for Ion value types. Used in the json.dumps method as the cls parameter to support JSON encoding of
+    Python Ion types: json.dumps(obj, cls=IonEncoder)
+
+    Notes:
+        If using PyPy, only encoding of IonType.STRUCT is supported.
+    """
 
     def isinstance(self, obj, cls):
-        if isinstance(obj, (IonPyList, IonPyNull, IonPyBool, IonPyInt, IonPyFloat, IonPyDecimal,
-                            IonPyTimestamp, IonPyText, IonPyBytes, IonPySymbol)):
+        if (not hasattr(sys, "pypy_version_info")) and \
+                isinstance(obj, (IonPyList, IonPyNull, IonPyBool, IonPyInt, IonPyFloat, IonPyDecimal, IonPyTimestamp,
+                                 IonPyText, IonPyBytes, IonPySymbol)):
             return False
         return isinstance(obj, cls)
 
     def default(self, o):
         if (isinstance(o, IonPyInt) or isinstance(o, IonPyBool)) and o.ion_type == IonType.BOOL:
-            # Convert BOOL to JSON True/False
             return True if o == 1 else False
         elif isinstance(o, IonPyInt) and o.ion_type == IonType.INT:
-            # Arbitrary precision integers are printed as JSON number with precision preserved
             return int(o)
         elif isinstance(o, IonPyList) and (o.ion_type == IonType.LIST or o.ion_type == IonType.SEXP):
-            # Lists are printed as JSON array
-            # S-expressions are printed as JSON array
             return list(map(self.default, o))
         elif isinstance(o, IonPyDict) and o.ion_type == IonType.STRUCT:
             return {key: self.default(o[key]) for key in o.keys()}
@@ -45,7 +55,7 @@ class IonEncoder(JSONExtendedEncoder):
         elif isinstance(o, IonPyBytes) and o.ion_type == IonType.BLOB:
             return standard_b64encode(o).decode("utf-8")
         elif isinstance(o, IonPyBytes) and o.ion_type == IonType.CLOB:
-            return o.decode("utf-8")
+            return text_type("").join(chr(b) for b in o)
         elif isinstance(o, IonPyDecimal) and o.ion_type == IonType.DECIMAL:
             return float(o)
         elif isinstance(o, IonPySymbol) and o.ion_type == IonType.SYMBOL:
@@ -55,7 +65,6 @@ class IonEncoder(JSONExtendedEncoder):
         elif isinstance(o, IonPyText) and o.ion_type == IonType.STRING:
             return str(o)
         elif isinstance(o, IonPyFloat) and o.ion_type == IonType.FLOAT:
-            # Floats are printed as JSON number with nan and +-inf converted to JSON null
             if "inf" in str(o) or "nan" in str(o):
                 return None
             return float(o)
