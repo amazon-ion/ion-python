@@ -18,20 +18,17 @@ from .simple_types import IonPyList, IonPyDict, IonPyNull, IonPyBool, IonPyInt, 
 from base64 import standard_b64encode
 from six import text_type
 import sys
-import warnings
 if hasattr(sys, "pypy_version_info"):
-    warnings.warn("PyPy detected. IonEncoder will only support encoding of IonType.STRUCT.")
-    from json import JSONEncoder as BaseEncoder
-else:
-    from jsonconversion.encoder import JSONExtendedEncoder as BaseEncoder
+    raise ImportError("The json_encoder module is not supported for use with PyPy.")
+from jsonconversion.encoder import JSONExtendedEncoder
 
 
-class IonEncoder(BaseEncoder):
+class IonToJSONEncoder(JSONExtendedEncoder):
     """JSON Encoder for Ion value types. Used in the json.dumps method as the cls parameter to support JSON encoding of
-    Python Ion types: json.dumps(obj, cls=IonEncoder)
+    Python Ion types: json.dumps(obj, cls=IonToJSONEncoder)
 
     Notes:
-        If using PyPy, only encoding of IonType.STRUCT is supported.
+        The json_encoder module is not supported for use with PyPy.
     """
 
     def isinstance(self, obj, cls):
@@ -69,4 +66,4 @@ class IonEncoder(BaseEncoder):
                 return None
             return float(o)
         else:
-            super(IonEncoder, self).default(o)
+            super(IonToJSONEncoder, self).default(o)
