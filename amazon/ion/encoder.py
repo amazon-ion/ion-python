@@ -36,8 +36,8 @@ class IonEncoder(BaseEncoder):
 
     def isinstance(self, obj, cls):
         if (not hasattr(sys, "pypy_version_info")) and \
-                isinstance(obj, (IonPyList, IonPyNull, IonPyBool, IonPyInt, IonPyFloat, IonPyDecimal, IonPyTimestamp,
-                                 IonPyText, IonPyBytes, IonPySymbol)):
+                isinstance(obj, (IonPyList, IonPyDict, IonPyNull, IonPyBool, IonPyInt, IonPyFloat, IonPyDecimal,
+                                 IonPyTimestamp, IonPyText, IonPyBytes, IonPySymbol)):
             return False
         return isinstance(obj, cls)
 
