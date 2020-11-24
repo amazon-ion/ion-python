@@ -21,19 +21,22 @@ from base64 import b64encode
 import datetime
 from decimal import Decimal
 import json
+import pytest
 import six
 import sys
 
-
 is_pypy = hasattr(sys, "pypy_version_info")
+
+if is_pypy:
+    # PyPy is not supported. Expect an ImportError.
+    with pytest.raises(ImportError):
+        from amazon.ion.json_encoder import IonToJSONEncoder
+else:
+    from amazon.ion.json_encoder import IonToJSONEncoder
 
 
 def test_null():
-    try:
-        from amazon.ion.json_encoder import IonToJSONEncoder
-    except ImportError:
-        # PyPy is not supported
-        assert is_pypy
+    if is_pypy:
         return
 
     ion_types = [
@@ -58,11 +61,7 @@ def test_null():
 
 
 def test_bool():
-    try:
-        from amazon.ion.json_encoder import IonToJSONEncoder
-    except ImportError:
-        # PyPy is not supported
-        assert is_pypy
+    if is_pypy:
         return
 
     ion_value = loads(dumps(False))
@@ -72,11 +71,7 @@ def test_bool():
 
 
 def test_int():
-    try:
-        from amazon.ion.json_encoder import IonToJSONEncoder
-    except ImportError:
-        # PyPy is not supported
-        assert is_pypy
+    if is_pypy:
         return
 
     ion_value = loads(dumps(-123))
@@ -86,11 +81,7 @@ def test_int():
 
 
 def test_float():
-    try:
-        from amazon.ion.json_encoder import IonToJSONEncoder
-    except ImportError:
-        # PyPy is not supported
-        assert is_pypy
+    if is_pypy:
         return
 
     ion_value = loads(dumps(float(123.456)))
@@ -100,11 +91,7 @@ def test_float():
 
 
 def test_float_nan():
-    try:
-        from amazon.ion.json_encoder import IonToJSONEncoder
-    except ImportError:
-        # PyPy is not supported
-        assert is_pypy
+    if is_pypy:
         return
 
     ion_value = loads(dumps(float("NaN")))
@@ -114,11 +101,7 @@ def test_float_nan():
 
 
 def test_float_inf():
-    try:
-        from amazon.ion.json_encoder import IonToJSONEncoder
-    except ImportError:
-        # PyPy is not supported
-        assert is_pypy
+    if is_pypy:
         return
 
     ion_value = loads(dumps(float("Inf")))
@@ -128,11 +111,7 @@ def test_float_inf():
 
 
 def test_decimal():
-    try:
-        from amazon.ion.json_encoder import IonToJSONEncoder
-    except ImportError:
-        # PyPy is not supported
-        assert is_pypy
+    if is_pypy:
         return
 
     ion_value = loads(dumps(Decimal('123.456')))
@@ -142,11 +121,7 @@ def test_decimal():
 
 
 def test_decimal_exp():
-    try:
-        from amazon.ion.json_encoder import IonToJSONEncoder
-    except ImportError:
-        # PyPy is not supported
-        assert is_pypy
+    if is_pypy:
         return
 
     ion_value = loads(dumps(Decimal('1.23456e2')))
@@ -156,11 +131,7 @@ def test_decimal_exp():
 
 
 def test_decimal_exp_negative():
-    try:
-        from amazon.ion.json_encoder import IonToJSONEncoder
-    except ImportError:
-        # PyPy is not supported
-        assert is_pypy
+    if is_pypy:
         return
 
     ion_value = loads(dumps(Decimal('12345.6e-2')))
@@ -170,11 +141,7 @@ def test_decimal_exp_negative():
 
 
 def test_decimal_exp_large():
-    try:
-        from amazon.ion.json_encoder import IonToJSONEncoder
-    except ImportError:
-        # PyPy is not supported
-        assert is_pypy
+    if is_pypy:
         return
 
     ion_value = loads(dumps(Decimal('123.456e34')))
@@ -184,11 +151,7 @@ def test_decimal_exp_large():
 
 
 def test_decimal_exp_large_negative():
-    try:
-        from amazon.ion.json_encoder import IonToJSONEncoder
-    except ImportError:
-        # PyPy is not supported
-        assert is_pypy
+    if is_pypy:
         return
 
     ion_value = loads(dumps(Decimal('123.456e-34')))
@@ -198,11 +161,7 @@ def test_decimal_exp_large_negative():
 
 
 def test_timestamp():
-    try:
-        from amazon.ion.json_encoder import IonToJSONEncoder
-    except ImportError:
-        # PyPy is not supported
-        assert is_pypy
+    if is_pypy:
         return
 
     ion_value = loads(dumps(datetime.datetime(2010, 6, 15, 3, 30, 45)))
@@ -212,11 +171,7 @@ def test_timestamp():
 
 
 def test_symbol():
-    try:
-        from amazon.ion.json_encoder import IonToJSONEncoder
-    except ImportError:
-        # PyPy is not supported
-        assert is_pypy
+    if is_pypy:
         return
 
     ion_value = loads(dumps(SymbolToken(six.text_type("Symbol"), None)))
@@ -226,11 +181,7 @@ def test_symbol():
 
 
 def test_string():
-    try:
-        from amazon.ion.json_encoder import IonToJSONEncoder
-    except ImportError:
-        # PyPy is not supported
-        assert is_pypy
+    if is_pypy:
         return
 
     ion_value = loads(dumps(six.text_type("String")))
@@ -240,11 +191,7 @@ def test_string():
 
 
 def test_clob():
-    try:
-        from amazon.ion.json_encoder import IonToJSONEncoder
-    except ImportError:
-        # PyPy is not supported
-        assert is_pypy
+    if is_pypy:
         return
 
     ion_value = loads(dumps(IonPyBytes.from_value(IonType.CLOB, bytearray.fromhex("06 49 6f 6e 06"))))
@@ -254,11 +201,7 @@ def test_clob():
 
 
 def test_blob():
-    try:
-        from amazon.ion.json_encoder import IonToJSONEncoder
-    except ImportError:
-        # PyPy is not supported
-        assert is_pypy
+    if is_pypy:
         return
 
     ion_value = loads(dumps(b64encode("Ion".encode("ASCII")) if six.PY2 else bytes("Ion", "ASCII")))
@@ -268,11 +211,7 @@ def test_blob():
 
 
 def test_list():
-    try:
-        from amazon.ion.json_encoder import IonToJSONEncoder
-    except ImportError:
-        # PyPy is not supported
-        assert is_pypy
+    if is_pypy:
         return
 
     ion_value = loads(dumps([six.text_type("Ion"), 123]))
@@ -282,11 +221,7 @@ def test_list():
 
 
 def test_sexp():
-    try:
-        from amazon.ion.json_encoder import IonToJSONEncoder
-    except ImportError:
-        # PyPy is not supported
-        assert is_pypy
+    if is_pypy:
         return
 
     value = (six.text_type("Ion"), 123)
@@ -297,11 +232,7 @@ def test_sexp():
 
 
 def test_struct():
-    try:
-        from amazon.ion.json_encoder import IonToJSONEncoder
-    except ImportError:
-        # PyPy is not supported
-        assert is_pypy
+    if is_pypy:
         return
 
     value = {
@@ -321,11 +252,7 @@ def test_struct():
 
 
 def test_annotation_suppression():
-    try:
-        from amazon.ion.json_encoder import IonToJSONEncoder
-    except ImportError:
-        # PyPy is not supported
-        assert is_pypy
+    if is_pypy:
         return
 
     ion_value = loads(dumps(IonPyInt.from_value(IonType.INT, 123, six.text_type("Annotation"))))
