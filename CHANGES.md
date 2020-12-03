@@ -1,3 +1,7 @@
+### 0.7.0 (2020-12-02)
+* Uses localcontext support decimals of any precision (#132).
+* Adds IonToJSONEncoder to allow Ion data to be down-converted to JSON (#107).
+
 ### 0.6.0 (2020-04-23)
 * Retains the serialized order of struct elements when read via `load/loads`. (#125)
 * Makes IonPy* types picklable. (#128)
