@@ -210,7 +210,7 @@ def _dump(obj, writer, from_type, field=None, in_struct=False, depth=0):
         ion_type = _ion_type(obj, from_type)
         ion_nature = False
     if ion_type is None:
-        raise IonException('ion_type \'None\' is not allowed in value: \"%s\", depth: %d, field: %s' % (repr(obj), depth, field))
+        raise IonException('Value must have a non-None ion_type: %s, depth: %d, field: %s' % (repr(obj), depth, field))
     if not null and ion_type.is_container:
         if ion_nature:
             event = obj.to_event(IonEventType.CONTAINER_START, field_name=field, in_struct=in_struct, depth=depth)
