@@ -130,6 +130,18 @@ _SIMPLE_CONTAINER_MAP = {
             _Expected(b'\xD0', b'{}')
         ),
         (
+            [{u'': u''}, ],
+            _Expected(
+                bytes_of([
+                    0xDE,  # The lower nibble may vary. It does not indicate actual length unless it's 0.
+                    VARUINT_END_BYTE | 2,  # Field name 10 and value 0 each fit in 1 byte.
+                    VARUINT_END_BYTE | 10,
+                    0x80    # Empty string
+                ]),
+                b"{'':\"\"}"
+            )
+        ),
+        (
             [{u'foo': 0}, ],
             _Expected(
                 bytes_of([
