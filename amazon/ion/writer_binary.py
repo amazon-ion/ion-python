@@ -168,7 +168,7 @@ def _managed_binary_writer_coroutine(imports):
     def intern_symbols(event):
         field_name = event.field_name
         annotations = event.annotations
-        if field_name:
+        if field_name or field_name == '':
             event = event.derive_field_name(intern_symbol(field_name))
         if annotations:
             event = event.derive_annotations(
