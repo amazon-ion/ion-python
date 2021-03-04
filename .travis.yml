@@ -12,7 +12,6 @@ matrix:
     # pypy3 < 6.0.0 fails due to discrepancies with decimal...
     #- python: "pypy3"
 install:
-  - "pip install --upgrade pip"
-  - "pip install -r requirements.txt"
+  - "sudo pip install -r requirements.txt"
   - "pip install ."
 script: py.test
