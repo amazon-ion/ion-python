@@ -19,6 +19,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import sys
 from collections import MutableMapping, MutableSequence, OrderedDict
 from datetime import datetime, timedelta, tzinfo
 from decimal import Decimal, ROUND_FLOOR, Context, Inexact
@@ -28,6 +29,8 @@ import six
 
 from .util import Enum
 from .util import record
+
+_PY_VERSION = sys.version_info[0]
 
 
 class IonType(Enum):
@@ -629,6 +632,15 @@ class Multimap(MutableMapping):
     def __iter__(self):
         for key in six.iterkeys(self.__store):
             yield key
+
+    if _PY_VERSION >= 3:
+        def __str__(self):
+            str_repr = '{'
+            for key in six.iterkeys(self.__store):
+                str_repr += '\'%s\': %s, ' % (key, self.__store[key][0].__repr__())
+            str_repr = str_repr[:str_repr.__len__() - 2] + '}'
+            return str_repr
+
 
     def add_item(self, key, value):
         if key in self.__store:
