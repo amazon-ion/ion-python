@@ -631,7 +631,6 @@ class Multimap(MutableMapping):
         for key in six.iterkeys(self.__store):
             yield key
 
-
     def __str__(self):
         str_repr = '{'
         for key in six.iterkeys(self.__store):
@@ -639,6 +638,8 @@ class Multimap(MutableMapping):
         str_repr = str_repr[:len(str_repr) - 2] + '}'
         return str_repr
 
+    def __repr__(self):
+        return str(self)
 
     def add_item(self, key, value):
         if key in self.__store:
