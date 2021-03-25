@@ -30,8 +30,6 @@ import six
 from .util import Enum
 from .util import record
 
-_PY_VERSION = sys.version_info[0]
-
 
 class IonType(Enum):
     """Enumeration of the Ion data types."""
@@ -598,6 +596,7 @@ def timestamp(year, month=1, day=1,
     )
 
 
+@six.python_2_unicode_compatible
 class Multimap(MutableMapping):
     """
     Dictionary that can hold multiple values for the same key
@@ -633,13 +632,13 @@ class Multimap(MutableMapping):
         for key in six.iterkeys(self.__store):
             yield key
 
-    if _PY_VERSION >= 3:
-        def __str__(self):
-            str_repr = '{'
-            for key in six.iterkeys(self.__store):
-                str_repr += '\'%s\': %s, ' % (key, self.__store[key][0].__repr__())
-            str_repr = str_repr[:str_repr.__len__() - 2] + '}'
-            return str_repr
+
+    def __str__(self):
+        str_repr = '{'
+        for key in six.iterkeys(self.__store):
+            str_repr += '\'%s\': %s, ' % (key, str(self.__store[key][0]))
+        str_repr = str_repr[:len(str_repr) - 2] + '}'
+        return str_repr
 
 
     def add_item(self, key, value):
