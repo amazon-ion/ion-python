@@ -596,29 +596,7 @@ def timestamp(year, month=1, day=1,
     )
 
 
-PY2 = sys.version_info[0] == 2
-
-
-def python_2_repr_compatible(klass):
-    """
-        A class decorator that defines __unicode__ and __str__ methods under Python 2.
-        Under Python 3 it does nothing.
-
-        To support Python 2 and 3 with a single code base, define a __str__ method
-        returning text and apply this decorator to the class.
-        """
-    if PY2:
-        if '__repr__' not in klass.__dict__:
-            raise ValueError("@python_2_unicode_compatible cannot be applied "
-                             "to %s because it doesn't define __repr__()." %
-                             klass.__name__)
-        klass.__unicode__ = klass.__repr__
-        klass.__repr__ = lambda self: self.__unicode__().encode('utf-8')
-    return klass
-
-
 @six.python_2_unicode_compatible
-@python_2_repr_compatible
 class Multimap(MutableMapping):
     """
     Dictionary that can hold multiple values for the same key
