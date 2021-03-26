@@ -662,11 +662,7 @@ class Multimap(MutableMapping):
         return str_repr
 
     def __repr__(self):
-        str_repr = '{'
-        for key, value in self.items():
-            str_repr += '{}: {}, '.format(key, value)
-        str_repr = str_repr[:len(str_repr) - 2] + '}'
-        return str_repr
+        return str(self)
 
     def add_item(self, key, value):
         if key in self.__store:
