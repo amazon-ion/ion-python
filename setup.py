@@ -34,6 +34,7 @@ setup(
 
     install_requires=[
         'six',
+        'jsonconversion'
     ],
 
     setup_requires=[
