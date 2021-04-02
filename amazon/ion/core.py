@@ -595,7 +595,6 @@ def timestamp(year, month=1, day=1,
     )
 
 
-@six.python_2_unicode_compatible
 class Multimap(MutableMapping):
     """
     Dictionary that can hold multiple values for the same key
@@ -632,14 +631,14 @@ class Multimap(MutableMapping):
             yield key
 
     def __str__(self):
-        str_repr = '{'
-        for key, value in self.items():
-            str_repr += '{}: {}, '.format(key, value)
-        str_repr = str_repr[:len(str_repr) - 2] + '}'
-        return str_repr
+        return repr(self)
 
     def __repr__(self):
-        return str(self)
+        str_repr = '{'
+        for key, value in self.items():
+            str_repr += '%r: %r, ' % (key, value)
+        str_repr = str_repr[:len(str_repr) - 2] + '}'
+        return six.ensure_binary(str_repr) if six.PY2 else str_repr
 
     def add_item(self, key, value):
         if key in self.__store:
