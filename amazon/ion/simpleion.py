@@ -39,13 +39,20 @@ from .symbols import SymbolToken
 from .writer import blocking_writer
 from .writer_binary import binary_writer
 
+# Using C extension as default, and original python implementation if C extension doesn't exist.
+c_ext = True
+try:
+    import amazon.ion.ionc as ionc
+except ModuleNotFoundError:
+    c_ext = False
+
 
 _ION_CONTAINER_END_EVENT = IonEvent(IonEventType.CONTAINER_END)
 _IVM = b'\xe0\x01\x00\xea'
 _TEXT_TYPES = (TextIOBase, six.StringIO)
 
 
-def dump(obj, fp, imports=None, binary=True, sequence_as_stream=False, skipkeys=False, ensure_ascii=True,
+def dump_original(obj, fp, imports=None, binary=True, sequence_as_stream=False, skipkeys=False, ensure_ascii=True,
          check_circular=True, allow_nan=True, cls=None, indent=None, separators=None, encoding='utf-8', default=None,
          use_decimal=True, namedtuple_as_object=True, tuple_as_array=True, bigint_as_string=False, sort_keys=False,
          item_sort_key=None, for_json=None, ignore_nan=False, int_as_string_bitcount=None, iterable_as_array=False,
@@ -143,7 +150,6 @@ def dump(obj, fp, imports=None, binary=True, sequence_as_stream=False, skipkeys=
         **kw: NOT IMPLEMENTED
 
     """
-
     raw_writer = binary_writer(imports) if binary else text_writer(indent=indent)
     writer = blocking_writer(raw_writer, fp)
     from_type = _FROM_TYPE_TUPLE_AS_SEXP if tuple_as_sexp else _FROM_TYPE
@@ -297,7 +303,7 @@ def dumps(obj, imports=None, binary=True, sequence_as_stream=False, skipkeys=Fal
     return ret_val
 
 
-def load(fp, catalog=None, single_value=True, encoding='utf-8', cls=None, object_hook=None, parse_float=None,
+def load_original(fp, catalog=None, single_value=True, encoding='utf-8', cls=None, object_hook=None, parse_float=None,
          parse_int=None, parse_constant=None, object_pairs_hook=None, use_decimal=None, **kw):
     """Deserialize ``fp`` (a file-like object), which contains a text or binary Ion stream, to a Python object using the
     following conversion table::
@@ -453,3 +459,64 @@ def loads(ion_str, catalog=None, single_value=True, encoding='utf-8', cls=None, 
     return load(ion_buffer, catalog=catalog, single_value=single_value, encoding=encoding, cls=cls,
                 object_hook=object_hook, parse_float=parse_float, parse_int=parse_int, parse_constant=parse_constant,
                 object_pairs_hook=object_pairs_hook, use_decimal=use_decimal)
+
+
+def dump_extension(obj, fp, binary=True, sequence_as_stream=False, tuple_as_sexp=False, omit_version_marker=False):
+    res = ionc.ionc_write(obj, binary, sequence_as_stream, tuple_as_sexp)
+
+    # TODO support "omit_version_marker" rather than hacking.
+    if not binary and not omit_version_marker:
+        res = b'$ion_1_0 ' + res
+    fp.write(res)
+
+
+def load_extension(fp, single_value=True, encoding='utf-8'):
+    data = fp.read()
+    data = data if isinstance(data, bytes) else bytes(data, encoding)
+    return ionc.ionc_read(data, single_value, False)
+
+
+def dump(obj, fp, imports=None, binary=True, sequence_as_stream=False, skipkeys=False, ensure_ascii=True,
+         check_circular=True, allow_nan=True, cls=None, indent=None, separators=None, encoding='utf-8', default=None,
+         use_decimal=True, namedtuple_as_object=True, tuple_as_array=True, bigint_as_string=False, sort_keys=False,
+         item_sort_key=None, for_json=None, ignore_nan=False, int_as_string_bitcount=None, iterable_as_array=False,
+         tuple_as_sexp=False, omit_version_marker=False, **kw):
+    if c_ext and imports is None:
+        try:
+            return dump_extension(obj, fp, binary=binary, sequence_as_stream=sequence_as_stream,
+                              tuple_as_sexp=tuple_as_sexp, omit_version_marker=omit_version_marker)
+        except:
+            return dump_original(obj, fp, imports=imports, binary=binary, sequence_as_stream=sequence_as_stream,
+                                 skipkeys=skipkeys, ensure_ascii=ensure_ascii, check_circular=check_circular,
+                                 allow_nan=allow_nan, cls=cls, indent=indent, separators=separators, encoding=encoding,
+                                 default=default, use_decimal=use_decimal, namedtuple_as_object=namedtuple_as_object,
+                                 tuple_as_array=tuple_as_array, bigint_as_string=bigint_as_string, sort_keys=sort_keys,
+                                 item_sort_key=item_sort_key, for_json=for_json, ignore_nan=ignore_nan,
+                                 int_as_string_bitcount=int_as_string_bitcount, iterable_as_array=iterable_as_array,
+                                 tuple_as_sexp=tuple_as_sexp, omit_version_marker=omit_version_marker, **kw)
+    else:
+        return dump_original(obj, fp, imports=imports, binary=binary, sequence_as_stream=sequence_as_stream,
+                             skipkeys=skipkeys, ensure_ascii=ensure_ascii,check_circular=check_circular,
+                             allow_nan=allow_nan, cls=cls, indent=indent, separators=separators, encoding=encoding,
+                             default=default, use_decimal=use_decimal, namedtuple_as_object=namedtuple_as_object,
+                             tuple_as_array=tuple_as_array, bigint_as_string=bigint_as_string, sort_keys=sort_keys,
+                             item_sort_key=item_sort_key, for_json=for_json, ignore_nan=ignore_nan,
+                             int_as_string_bitcount=int_as_string_bitcount, iterable_as_array=iterable_as_array,
+                             tuple_as_sexp=tuple_as_sexp, omit_version_marker=omit_version_marker, **kw)
+
+
+def load(fp, catalog=None, single_value=True, encoding='utf-8', cls=None, object_hook=None, parse_float=None,
+         parse_int=None, parse_constant=None, object_pairs_hook=None, use_decimal=None, **kw):
+    if c_ext and catalog is None:
+        try:
+            return load_extension(fp, single_value=single_value, encoding=encoding)
+        except:
+            return load_original(fp, catalog=catalog, single_value=single_value, encoding=encoding, cls=cls,
+                                 object_hook=object_hook, parse_float=parse_float, parse_int=parse_int,
+                                 parse_constant=parse_constant, object_pairs_hook=object_pairs_hook,
+                                 use_decimal=use_decimal, **kw)
+    else:
+        return load_original(fp, catalog=catalog, single_value=single_value, encoding=encoding, cls=cls,
+                             object_hook=object_hook, parse_float=parse_float, parse_int=parse_int,
+                             parse_constant=parse_constant, object_pairs_hook=object_pairs_hook,
+                             use_decimal=use_decimal, **kw)

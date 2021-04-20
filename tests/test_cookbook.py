@@ -35,6 +35,7 @@ from amazon.ion.symbols import shared_symbol_table, SymbolTableCatalog
 from amazon.ion.writer import WriteEventType, blocking_writer
 from amazon.ion.writer_binary import binary_writer
 from amazon.ion.writer_text import text_writer
+from amazon.ion.simpleion import c_ext
 
 # Tests for the Python examples in the cookbook (http://amzn.github.io/ion-docs/guides/cookbook.html).
 # Changes to these tests should only be made in conjunction with changes to the cookbook examples.
@@ -234,7 +235,10 @@ def test_write_numeric_with_annotation_simpleion():
     # http://amzn.github.io/ion-docs/guides/cookbook.html#reading-numeric-types
     value = IonPyFloat.from_value(IonType.FLOAT, 123, (u'abc',))
     data = simpleion.dumps(value, binary=False)
-    assert u'$ion_1_0 abc::123.0e0' == data
+    if c_ext:
+        assert u'$ion_1_0 abc::123e+0' == data
+    else:
+        assert u'$ion_1_0 abc::123.0e0' == data
 
 
 def test_read_numerics_events():
