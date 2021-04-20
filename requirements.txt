@@ -1,5 +1,5 @@
 jsonconversion==0.2.12
-py==1.4.31
+py==1.10.0
 pytest==2.9.2
 pytest-runner==2.8
 six==1.15.0
