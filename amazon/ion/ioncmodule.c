@@ -41,6 +41,8 @@ static char _err_msg[ERR_MSG_MAX_LEN];
     #define offset_seconds(x) offset_seconds_26(x)
 #endif
 
+static PyObject* _math_module;
+
 static PyObject* _decimal_module;
 static PyObject* _decimal_constructor;
 static PyObject* _py_timestamp_constructor;
@@ -458,16 +460,80 @@ fail:
  */
 static iERR ionc_write_big_int(hWRITER writer, PyObject *obj) {
     iENTER;
-    PyObject* int_str = PyObject_CallMethod(obj, "__str__", NULL);
-    ION_STRING string_value;
-    ion_string_from_py(int_str, &string_value);
-    ION_INT ion_int_value;
 
+    PyObject* ion_int_base = PyLong_FromLong(II_MASK + 1);
+    PyObject* temp = Py_BuildValue("O", obj);
+    PyObject * pow_value, *size, *res, *py_digit, *py_reminder = NULL;
+
+    ION_INT ion_int_value;
     IONCHECK(ion_int_init(&ion_int_value, NULL));
-    IONCHECK(ion_int_from_string(&ion_int_value, &string_value));
+
+    // Determine sign
+    if (PyObject_RichCompareBool(temp, PyLong_FromLong(0), Py_LT) == 1) {
+        ion_int_value._signum = -1;
+        temp = PyNumber_Negative(temp);
+    } else if (PyObject_RichCompareBool(temp, PyLong_FromLong(0), Py_GT) == 1) {
+        ion_int_value._signum = 1;
+    }
+
+    // Determine ion_int digits length
+    if (PyObject_RichCompareBool(temp, PyLong_FromLong(0), Py_EQ) == 1) {
+        size = PyLong_FromLong(1);
+    } else {
+        size = PyNumber_Add(
+                        PyNumber_Long(PyObject_CallMethodObjArgs(
+                                        _math_module, PyUnicode_FromString("log"), temp, ion_int_base, NULL)),
+                        PyLong_FromLong(1));
+    }
+
+    int c_size = PyLong_AsLong(size);
+    IONCHECK(_ion_int_extend_digits(&ion_int_value, c_size, TRUE));
+
+    int base = c_size;
+    while(--base > 0) {
+        // Python equivalence:  pow_value = int(pow(2^31, base))
+        pow_value = PyNumber_Long(PyNumber_Power(ion_int_base, PyLong_FromLong(base), Py_None));
+
+        if (pow_value == Py_None) {
+            // pow(2^31, base) should be calculated correctly.
+            _FAILWITHMSG(IERR_INTERNAL_ERROR, "Calculation failure: 2^31 .");
+        }
+
+        // Python equivalence: digit = temp / 2^31, temp = temp % 2^31
+        res = PyNumber_Divmod(temp, pow_value);
+        py_digit = PyNumber_Long(PyTuple_GetItem(res, 0));
+        py_reminder = PyTuple_GetItem(res, 1);
+
+        Py_INCREF(res);
+        Py_INCREF(py_digit);
+        Py_INCREF(py_reminder);
+
+        II_DIGIT digit = PyLong_AsLong(py_digit);
+        temp = Py_BuildValue("O", py_reminder);
+
+        int index = c_size - base - 1;
+        *(ion_int_value._digits + index) = digit;
+
+        Py_DECREF(py_digit);
+        Py_DECREF(res);
+        Py_DECREF(py_reminder);
+
+        pow_value = NULL;
+        py_digit = NULL;
+        py_reminder = NULL;
+        res = NULL;
+    }
+
+    *(ion_int_value._digits + c_size - 1) = PyLong_AsLong(temp);
     IONCHECK(ion_writer_write_ion_int(writer, &ion_int_value));
+    Py_XDECREF(ion_int_base);
+    Py_XDECREF(size);
+    Py_XDECREF(temp);
+    Py_XDECREF(pow_value);
 fail:
-    Py_XDECREF(int_str);
+    Py_XDECREF(res);
+    Py_XDECREF(py_digit);
+    Py_XDECREF(py_reminder);
     cRETURN;
 }
 
@@ -1017,22 +1083,29 @@ iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BOOL in_s
             ION_INT ion_int_value;
             IONCHECK(ion_int_init(&ion_int_value, hreader));
             IONCHECK(ion_reader_read_ion_int(hreader, &ion_int_value));
-            SIZE int_char_len, int_char_written;
-            IONCHECK(ion_int_char_length(&ion_int_value, &int_char_len));
-            char* ion_int_str = (char*)PyMem_Malloc(int_char_len + 1); // Leave room for \0
-            err = ion_int_to_char(&ion_int_value, (BYTE*)ion_int_str, int_char_len, &int_char_written);
-            if (err) {
-                PyMem_Free(ion_int_str);
-                IONCHECK(err);
+
+            PyObject* ion_int_base = PyLong_FromLong(II_MASK + 1);
+            int c_size = ion_int_value._len;
+            py_value = PyLong_FromLong(0);
+
+            int i = 0;
+            for (i; i < c_size; i++) {
+                int base = c_size - 1 - i;
+                // Python equivalence:  pow_value = int(pow(2^31, base))
+                PyObject* pow_value = PyNumber_Long(PyNumber_Power(ion_int_base, PyLong_FromLong(base), Py_None));
+
+                // Python equivalence: py_value += pow_value * _digits[i]
+                py_value = PyNumber_Add(py_value, PyNumber_Multiply(pow_value, PyLong_FromLong(*(ion_int_value._digits + i))));
+
+                Py_DECREF(pow_value);
             }
-            if (int_char_len < int_char_written) {
-                PyMem_Free(ion_int_str);
-                _FAILWITHMSG(IERR_BUFFER_TOO_SMALL, "Not enough space given to represent int as string.");
+
+            if (ion_int_value._signum < 0) {
+                py_value = PyNumber_Negative(py_value);
             }
-            py_value = PyLong_FromString(ion_int_str, NULL, 10);
-            PyMem_Free(ion_int_str);
 
             ion_nature_constructor = _ionpyint_fromvalue;
+            Py_DECREF(ion_int_base);
             break;
         }
         case tid_FLOAT_INT:
@@ -1270,6 +1343,8 @@ PyObject* ionc_init_module(void) {
 #endif
 
     // TODO is there a destructor for modules? These should be decreffed there
+     _math_module               = PyImport_ImportModule("math");
+
     _decimal_module             = PyImport_ImportModule("decimal");
     _decimal_constructor        = PyObject_GetAttrString(_decimal_module, "Decimal");
     _simpletypes_module         = PyImport_ImportModule("amazon.ion.simple_types");

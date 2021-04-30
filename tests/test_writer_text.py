@@ -86,10 +86,19 @@ _SIMPLE_ANNOTATIONS_ENCODED = br"$4::'\x00'::'\uff4e'::'\U0001f4a9'::"
 def _generate_annotated_values():
     for value_p in chain(_generate_simple_scalars(), _generate_empty_containers()):
         events = (value_p.events[0].derive_annotations(_SIMPLE_ANNOTATIONS),) + value_p.events[1:]
+
+        if isinstance(value_p.expected, (tuple, list)):
+            expecteds = value_p.expected
+        else:
+            expecteds = (value_p.expected,)
+        final_expecteds = ()
+        for expected in expecteds:
+            final_expected = _SIMPLE_ANNOTATIONS_ENCODED + expected
+            final_expecteds += (final_expected, )
         yield _P(
             desc='ANN %s' % value_p.desc,
             events=events,
-            expected=_SIMPLE_ANNOTATIONS_ENCODED + value_p.expected,
+            expected=final_expecteds,
         )
 
 
@@ -115,7 +124,10 @@ def _generate_simple_containers(*generators, **opts):
                 b_end = empty_p.expected[-1:]
 
                 value_event = value_p.events[0]
-                value_expected = value_p.expected
+                if isinstance(value_p.expected, (tuple, list)):
+                    value_expected = value_p.expected[0]
+                else:
+                    value_expected = value_p.expected
                 if field_name is not None:
                     value_event = value_event.derive_field_name(field_name)
                     if isinstance(field_name, SymbolToken):
