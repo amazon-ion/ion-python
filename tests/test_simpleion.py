@@ -269,10 +269,20 @@ def generate_annotated_values_binary(scalars_map, container_map):
             VARUINT_END_BYTE | 10,
             VARUINT_END_BYTE | 11
         ])
+
+        final_expected = ()
+        if isinstance(value_p.expected, (list, tuple)):
+            expecteds = value_p.expected
+        else:
+            expecteds = (value_p.expected, )
+        for one_expected in expecteds:
+            exp = bytearray(wrapper) + one_expected
+            final_expected += (exp, )
+
         yield _Parameter(
             desc='ANNOTATED %s' % value_p.desc,
             obj=obj,
-            expected=bytearray(wrapper) + value_p.expected,
+            expected=final_expected,
             has_symbols=True,
             stream=value_p.stream
         )

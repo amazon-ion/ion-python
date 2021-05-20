@@ -14,7 +14,6 @@
 
 #define ERR_MSG_MAX_LEN 100
 #define FIELD_NAME_MAX_LEN 100
-#define DEC_NUMBER_MAX_LEN 300
 
 static char _err_msg[ERR_MSG_MAX_LEN];
 
@@ -463,27 +462,29 @@ static iERR ionc_write_big_int(hWRITER writer, PyObject *obj) {
 
     PyObject* ion_int_base = PyLong_FromLong(II_MASK + 1);
     PyObject* temp = Py_BuildValue("O", obj);
-    PyObject * pow_value, *size, *res, *py_digit, *py_reminder = NULL;
+    PyObject * pow_value, *size, *res, *py_digit, *py_remainder = NULL;
+    PyObject* py_zero = PyLong_FromLong(0);
+    PyObject* py_one = PyLong_FromLong(1);
 
     ION_INT ion_int_value;
     IONCHECK(ion_int_init(&ion_int_value, NULL));
 
     // Determine sign
-    if (PyObject_RichCompareBool(temp, PyLong_FromLong(0), Py_LT) == 1) {
+    if (PyObject_RichCompareBool(temp, py_zero, Py_LT) == 1) {
         ion_int_value._signum = -1;
         temp = PyNumber_Negative(temp);
-    } else if (PyObject_RichCompareBool(temp, PyLong_FromLong(0), Py_GT) == 1) {
+    } else if (PyObject_RichCompareBool(temp, py_zero, Py_GT) == 1) {
         ion_int_value._signum = 1;
     }
 
     // Determine ion_int digits length
-    if (PyObject_RichCompareBool(temp, PyLong_FromLong(0), Py_EQ) == 1) {
-        size = PyLong_FromLong(1);
+    if (PyObject_RichCompareBool(temp, py_zero, Py_EQ) == 1) {
+        size = py_one;
     } else {
         size = PyNumber_Add(
                         PyNumber_Long(PyObject_CallMethodObjArgs(
                                         _math_module, PyUnicode_FromString("log"), temp, ion_int_base, NULL)),
-                        PyLong_FromLong(1));
+                        py_one);
     }
 
     int c_size = PyLong_AsLong(size);
@@ -496,36 +497,38 @@ static iERR ionc_write_big_int(hWRITER writer, PyObject *obj) {
 
         if (pow_value == Py_None) {
             // pow(2^31, base) should be calculated correctly.
-            _FAILWITHMSG(IERR_INTERNAL_ERROR, "Calculation failure: 2^31 .");
+            _FAILWITHMSG(IERR_INTERNAL_ERROR, "Calculation failure: 2^31.");
         }
 
-        // Python equivalence: digit = temp / 2^31, temp = temp % 2^31
+        // Python equivalence: digit = temp / pow_value, temp = temp % pow_value
         res = PyNumber_Divmod(temp, pow_value);
         py_digit = PyNumber_Long(PyTuple_GetItem(res, 0));
-        py_reminder = PyTuple_GetItem(res, 1);
+        py_remainder = PyTuple_GetItem(res, 1);
 
         Py_INCREF(res);
         Py_INCREF(py_digit);
-        Py_INCREF(py_reminder);
+        Py_INCREF(py_remainder);
 
         II_DIGIT digit = PyLong_AsLong(py_digit);
-        temp = Py_BuildValue("O", py_reminder);
+        temp = Py_BuildValue("O", py_remainder);
 
         int index = c_size - base - 1;
         *(ion_int_value._digits + index) = digit;
 
         Py_DECREF(py_digit);
         Py_DECREF(res);
-        Py_DECREF(py_reminder);
+        Py_DECREF(py_remainder);
 
         pow_value = NULL;
         py_digit = NULL;
-        py_reminder = NULL;
+        py_remainder = NULL;
         res = NULL;
     }
 
     *(ion_int_value._digits + c_size - 1) = PyLong_AsLong(temp);
     IONCHECK(ion_writer_write_ion_int(writer, &ion_int_value));
+    Py_XDECREF(py_zero);
+    Py_XDECREF(py_one);
     Py_XDECREF(ion_int_base);
     Py_XDECREF(size);
     Py_XDECREF(temp);
@@ -533,7 +536,7 @@ static iERR ionc_write_big_int(hWRITER writer, PyObject *obj) {
 fail:
     Py_XDECREF(res);
     Py_XDECREF(py_digit);
-    Py_XDECREF(py_reminder);
+    Py_XDECREF(py_remainder);
     cRETURN;
 }
 
@@ -626,14 +629,69 @@ iERR ionc_write_value(hWRITER writer, PyObject* obj, PyObject* tuple_as_sexp) {
             _FAILWITHMSG(IERR_INVALID_ARG, "Found Decimal; expected DECIMAL Ion type.");
         }
 
-        PyObject* decimal_str = PyObject_CallMethod(obj, "__str__", NULL); // TODO converting every decimal to string is slow.
-        char* decimal_c_str = NULL;
-        Py_ssize_t decimal_c_str_len;
-        IONCHECK(c_string_from_py(decimal_str, &decimal_c_str, &decimal_c_str_len));
-
         ION_DECIMAL decimal_value;
-        IONCHECK(ion_decimal_from_string(&decimal_value, decimal_c_str, &dec_context));
-        Py_DECREF(decimal_str);
+        decQuad decQuad_value;
+        decNumber decNumber_value;
+        decimal_value.type = ION_DECIMAL_TYPE_QUAD;
+
+        // Get decimal tuple from the python object.
+        PyObject* py_decimal_tuple;
+        py_decimal_tuple = PyObject_CallMethod(obj, "as_tuple", NULL);
+
+        // Determine exponent.
+        PyObject* py_exponent = PyObject_GetAttrString(py_decimal_tuple, "exponent");
+        // Ion specification doesn't accept following values: Nan, Inf and -Inf.
+        // py_exponent is 'n' for NaN and 'F' for +/- Inf.
+        if (!PyLong_Check(py_exponent)) {
+            Py_DECREF(py_exponent);
+            _FAILWITHMSG(IERR_INVALID_ARG, "Ion decimal doesn't support Nan and Inf.");
+        }
+        decNumber_value.exponent = PyLong_AsLong(py_exponent);
+        Py_DECREF(py_exponent);
+
+        // Determine digits.
+        PyObject* py_digits = PyObject_GetAttrString(py_decimal_tuple, "digits");
+        int32_t digits_len = PyLong_AsLong(PyObject_CallMethod(py_digits, "__len__", NULL));
+        decNumber_value.digits = digits_len;
+        if (digits_len > DECNUMDIGITS) {
+            Py_DECREF(py_digits);
+            _FAILWITHMSG(IERR_NUMERIC_OVERFLOW,
+                         "Too much decimal digits, please try again with pure python implementation.");
+        }
+
+        // Determine sign. 1=negative, 0=positive or zero.
+        PyObject* py_sign = PyObject_GetAttrString(py_decimal_tuple, "sign");
+        decNumber_value.bits = 0;
+        if (PyLong_AsLong(py_sign) == 1) {
+            decNumber_value.bits = DECNEG;
+        }
+
+        // Determine lsu.
+        int lsu_array[digits_len];
+        for (int i=0; i<digits_len; i++) {
+            PyObject* digit = PyTuple_GetItem(py_digits, i);
+            Py_INCREF(digit);
+            lsu_array[i] = PyLong_AsLong(digit);
+            Py_DECREF(digit);
+        }
+        Py_XDECREF(py_digits);
+
+        int index = 0;
+        int count = digits_len - 1;
+        while (count >= 0) {
+            decNumberUnit per_digit = 0;
+            int op_count = count + 1 < DECDPUN ? count + 1 : DECDPUN;
+            for (int i = 0; i < op_count; i++) {
+                per_digit += pow(10, i) * lsu_array[count--];
+            }
+            decNumber_value.lsu[index++] = per_digit;
+        }
+
+        decQuadFromNumber(&decQuad_value, &decNumber_value, &dec_context);
+        decimal_value.value.quad_value = decQuad_value;
+
+        Py_DECREF(py_decimal_tuple);
+        Py_DECREF(py_sign);
 
         IONCHECK(ion_writer_write_ion_decimal(writer, &decimal_value));
     }
@@ -1120,10 +1178,54 @@ iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BOOL in_s
         {
             ION_DECIMAL decimal_value;
             IONCHECK(ion_reader_read_ion_decimal(hreader, &decimal_value));
-            char dec_str[DEC_NUMBER_MAX_LEN]; // DECQUAD_String is only 43, which fails some tests.
-            IONCHECK(ion_decimal_to_string(&decimal_value, dec_str));
-            c_decstr_to_py_decstr(&dec_str);
-            py_value = PyObject_CallFunction(_decimal_constructor, "s", dec_str);
+            decNumber read_number;
+            decQuad read_quad;
+
+            // Determine ion decimal type.
+            if (decimal_value.type == ION_DECIMAL_TYPE_QUAD) {
+                read_quad = decimal_value.value.quad_value;
+                decQuadToNumber(&read_quad, &read_number);
+            } else if (decimal_value.type == ION_DECIMAL_TYPE_NUMBER
+                        || decimal_value.type == ION_DECIMAL_TYPE_NUMBER_OWNED) {
+                read_number = *(decimal_value.value.num_value);
+            } else {
+                _FAILWITHMSG(IERR_INVALID_ARG, "Unknown type of Ion Decimal.")
+            }
+
+            int read_number_digits = read_number.digits;
+            int read_number_bits =  read_number.bits;
+            int read_number_exponent = read_number.exponent;
+            int sign = ((DECNEG & read_number.bits) == DECNEG) ? 1 : 0;
+            // No need to release below PyObject* since PyTuple "steals" its reference.
+            PyObject* digits_tuple = PyTuple_New(read_number_digits);
+
+            // Returns a decimal tuple to avoid losing precision.
+            // Decimal tuple format: (sign, (digits tuple), exponent).
+            py_value = PyTuple_New(3);
+            PyTuple_SetItem(py_value, 0, PyLong_FromLong(sign));
+            PyTuple_SetItem(py_value, 1, digits_tuple);
+            PyTuple_SetItem(py_value, 2, PyLong_FromLong(read_number_exponent));
+
+            int count = (read_number_digits + DECDPUN - 1) / DECDPUN;
+            int index = 0;
+            int remainder = read_number_digits % DECDPUN;
+
+            // "i" represents the index of a decNumberUnit in lsu array.
+            for (int i = count - 1; i >= 0; i--) {
+                int cur_digits = read_number.lsu[i];
+                int end_index = (i == count - 1 && remainder > 0) ? remainder : DECDPUN;
+
+                // "j" represents the j-th digit of a decNumberUnit we are going to convert.
+                for (int j = 0; j < end_index; j++) {
+                    int cur_digit = cur_digits % 10;
+                    cur_digits = cur_digits / 10;
+                    int write_index = (i == count - 1 && remainder > 0)
+                                        ? remainder - index - 1 : index + DECDPUN - 2 * j - 1;
+                    PyTuple_SetItem(digits_tuple, write_index, PyLong_FromLong(cur_digit));
+                    index++;
+                }
+            }
+
             ion_nature_constructor = _ionpydecimal_fromvalue;
             break;
         }
@@ -1421,7 +1523,6 @@ PyObject* ionc_init_module(void) {
     _ion_exception_cls  = PyObject_GetAttrString(_exception_module, "IonException");
 
     decContextDefault(&dec_context, DEC_INIT_DECQUAD);  //The writer already had one of these, but it's private.
-    dec_context.digits=DEC_NUMBER_MAX_LEN;
     return m;
 }
 
