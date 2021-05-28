@@ -68,21 +68,21 @@ def _library_exists_helper(name):
 
 def _download_ionc():
     try:
-        # Create a directory to store build output
+        # Create a directory to store build output.
         if not isdir(_C_EXT_DEPENDENCY_DIR):
             os.mkdir(_C_EXT_DEPENDENCY_DIR)
             os.mkdir(_C_EXT_DEPENDENCY_LIB_LOCATION)
             os.mkdir(_C_EXT_DEPENDENCY_INCLUDES_LOCATIONS)
 
-        # Install ion-c
+        # Install ion-c.
         if not isdir('./ion-c'):
             check_call(['git', 'clone', '--recurse-submodules', _IONC_REPO_URL, 'ion-c'])
         os.chdir('ion-c/')
 
-        # Initialize submodule
+        # Initialize submodule.
         check_call(['git', 'submodule', 'update', '--init'])
 
-        # Build ion-c
+        # Build ion-c.
         _build_ionc()
 
         os.chdir('../')
@@ -94,6 +94,13 @@ def _download_ionc():
             shutil.rmtree(_IONC_DIR)
         print('ionc build error: Unable to build ion-c library.')
         return False
+    finally:
+        # Clean up work.
+        temp_ionc_dir = "./ion-c-build"
+        if isdir(temp_ionc_dir):
+            shutil.rmtree(temp_ionc_dir)
+        if isdir(_IONC_DIR):
+            shutil.rmtree(_IONC_DIR)
 
 
 def _build_ionc():
@@ -108,14 +115,14 @@ def _build_ionc_win():
     check_call('cmake -G \"Visual Studio 16 2019\"')
     check_call('cmake --build . --config Release')
 
-    # move ion-c to output dir
+    # move ion-c to output dir.
     _move_lib_win('ionc')
     _move_lib_win('decNumber')
 
 
 def _move_lib_win(name):
     """
-    Move library and its include files to ion-c-build/lib and ion-c-build/include respectively
+    Move library and its include files to ion-c-build/lib and ion-c-build/include respectively.
     """
     shutil.move(_IONC_INCLUDES_LOCATIONS[name], _C_EXT_DEPENDENCY_INCLUDES_LOCATIONS)
 
@@ -125,17 +132,17 @@ def _move_lib_win(name):
 
 
 def _build_ionc_mac_and_linux():
-    # build ion-c
+    # build ion-c.
     check_call(['./build-release.sh'])
 
-    # move ion-c to output dir
+    # move ion-c to output dir.
     _move_lib_mac_and_linux('ionc')
     _move_lib_mac_and_linux('decNumber')
 
 
 def _move_lib_mac_and_linux(name):
     """
-    Move library and its include files to ion-c-build/lib and ion-c-build/include respectively
+    Move library and its include files to ion-c-build/lib and ion-c-build/include respectively.
     """
     shutil.move(_IONC_INCLUDES_LOCATIONS[name], _C_EXT_DEPENDENCY_INCLUDES_LOCATIONS)
 
@@ -151,7 +158,7 @@ def _move_lib_mac_and_linux(name):
 
 
 def move_build_lib_for_distribution():
-    # move ion-c-build to amazon/ion for distribution
+    # move ion-c-build to amazon/ion for distribution.
     target_path = abspath(join(dirname(os.path.abspath(__file__)), 'amazon/ion/ion-c-build'))
     print('build files are moved to %s.' % target_path)
     if os.path.isdir(target_path):
@@ -163,7 +170,7 @@ def _check_dependencies():
     try:
         check_call(['git', '--version'])
         check_call(['cmake', '--version'])
-        # TODO add more dependency check here
+        # TODO add more dependency check here.
     except:
         print('ion-c build error: Missing dependencies.')
         return False

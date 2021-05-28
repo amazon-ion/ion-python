@@ -17,13 +17,25 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from os.path import abspath, dirname, join, exists
+
 from setuptools import setup, find_packages, Extension
 
+from install import _install_ionc
+
 C_EXT = True
+c_ext_dir = abspath(join(dirname(__file__), 'amazon/ion/ion-c-build'))
+
+
+def c_ext_exist():
+    return exists(c_ext_dir) and exists(join(c_ext_dir, "lib")) and exists(join(c_ext_dir, "include"))
 
 
 def run_setup():
     if C_EXT:
+        if not c_ext_exist():
+            print('Initialize C extension...')
+            _install_ionc()
         print('C extension is enabled!')
         kw = dict(
             ext_modules=[
