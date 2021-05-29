@@ -17,31 +17,75 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from setuptools import setup, find_packages
+from os.path import abspath, dirname, join, exists
+
+from setuptools import setup, find_packages, Extension
+
+from install import _install_ionc
+
+C_EXT = True
+c_ext_dir = abspath(join(dirname(__file__), 'amazon/ion/ion-c-build'))
 
 
-setup(
-    name='amazon.ion',
-    version='0.7.0',
-    description='A Python implementation of Amazon Ion.',
-    url='http://github.com/amzn/ion-python',
-    author='Amazon Ion Team',
-    author_email='ion-team@amazon.com',
-    license='Apache License 2.0',
+def c_ext_exist():
+    return exists(c_ext_dir) and exists(join(c_ext_dir, "lib")) and exists(join(c_ext_dir, "include"))
 
-    packages=find_packages(exclude=['tests*']),
-    namespace_packages=['amazon'],
 
-    install_requires=[
-        'six',
-        'jsonconversion'
-    ],
+def run_setup():
+    if C_EXT:
+        if not c_ext_exist():
+            print('Initialize C extension...')
+            _install_ionc()
+        print('C extension is enabled!')
+        kw = dict(
+            ext_modules=[
+                Extension(
+                    'amazon.ion.ionc',
+                    sources=['amazon/ion/ioncmodule.c'],
+                    include_dirs=['amazon/ion/ion-c-build/include',
+                                  'amazon/ion/ion-c-build/include/ionc',
+                                  'amazon/ion/ion-c-build/include/decNumber'],
+                    libraries=['ionc', 'decNumber'],
+                    library_dirs=['amazon/ion/ion-c-build/lib'],
+                    extra_link_args=['-Wl,-rpath,%s' % '$ORIGIN/ion-c-build/lib',  # LINUX
+                                     '-Wl,-rpath,%s' % '@loader_path/ion-c-build/lib'  # MAC
+                                     ],
+                ),
+            ],
+        )
+    else:
+        print('Using pure python implementation.')
+        kw = dict()
 
-    setup_requires=[
-        'pytest-runner',
-    ],
 
-    tests_require=[
-        'pytest',
-    ],
-)
+    setup(
+        name='amazon.ion',
+        version='0.7.98',
+        description='A Python implementation of Amazon Ion.',
+        url='http://github.com/amzn/ion-python',
+        author='Amazon Ion Team',
+        author_email='ion-team@amazon.com',
+        license='Apache License 2.0',
+
+
+        packages=find_packages(exclude=['tests*']),
+        include_package_data=True,
+        namespace_packages=['amazon'],
+
+        install_requires=[
+            'six',
+            'jsonconversion'
+        ],
+
+        setup_requires=[
+            'pytest-runner',
+        ],
+
+        tests_require=[
+            'pytest',
+        ],
+        **kw
+    )
+
+
+run_setup()
