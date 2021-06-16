@@ -1,16 +1,12 @@
 language: python
-dist: xenial
+dist: bionic
 matrix:
   include:
-    - python: "2.7"
-    - python: "3.4"
-    - python: "3.5"
     - python: "3.6"
     - python: "3.7"
-    - python: "pypy"
-    # https://github.com/travis-ci/travis-ci/issues/9542
-    # pypy3 < 6.0.0 fails due to discrepancies with decimal...
-    #- python: "pypy3"
+    - python: "3.8"
+    - python: "3.9"
+    - python: "pypy3"
 install:
   - "pip install --upgrade setuptools"
   - "pip install -r requirements.txt"
