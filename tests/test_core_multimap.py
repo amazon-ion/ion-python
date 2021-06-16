@@ -6,7 +6,7 @@ from tests import parametrize
 
 class _P(record('pairs', 'expected_all_values', 'expected_single_value', 'expected_total_len')):
     def __str__(self):
-        return self.desc
+        return '{name}'.format(name=self.pairs)
 
 
 ALL_DATA = _P(
