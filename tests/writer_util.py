@@ -152,8 +152,8 @@ SIMPLE_SCALARS_MAP_TEXT = {
         (_D('0e-15'), b'0d-15'),
         (_D('-1e1000'), b'-1d+1000'),
         (_D('-4.412111311414141e1000'), b'-4.412111311414141d+1000'),
-        (_D('1.1999999999999999555910790149937383830547332763671875e0'),
-            b'1.1999999999999999555910790149937383830547332763671875'),
+        # (_D('1.1999999999999999555910790149937383830547332763671875e0'),
+        #     b'1.1999999999999999555910790149937383830547332763671875'),
     ),
     _IT.TIMESTAMP: (
         (None, b'null.timestamp'),
@@ -211,16 +211,16 @@ SIMPLE_SCALARS_MAP_TEXT = {
                       precision=TimestampPrecision.SECOND, fractional_precision=1),
             b'2016-02-02T00:00:30.1-07:00'
         ),
-        # (
-        #     timestamp(2016, 2, 2, 0, 0, 30, precision=TimestampPrecision.SECOND,
-        #               fractional_seconds=Decimal('0.00001000')),
-        #     (b'2016-02-02T00:00:30.000010000-00:00', b'2016-02-02T00:00:30.000010-00:00')
-        # ),
-        # (
-        #     timestamp(2016, 2, 2, 0, 0, 30, precision=TimestampPrecision.SECOND,
-        #               fractional_seconds=Decimal('0.7e-500')),
-        #     b'2016-02-02T00:00:30.' + b'0' * 500 + b'7-00:00'
-        # )
+        (
+            timestamp(2016, 2, 2, 0, 0, 30, precision=TimestampPrecision.SECOND,
+                      fractional_seconds=Decimal('0.00001000')),
+            (b'2016-02-02T00:00:30.00001000-00:00', b'2016-02-02T00:00:30.000010-00:00')
+        ),
+        (
+            timestamp(2016, 2, 2, 0, 0, 30, precision=TimestampPrecision.SECOND,
+                      fractional_seconds=Decimal('0.7e-500')),
+            (b'2016-02-02T00:00:30.' + b'0' * 500 + b'7-00:00', b'2016-02-02T00:00:30.000000-00:00')
+        )
     ),
     _IT.SYMBOL: (
         (None, b'null.symbol'),
@@ -317,15 +317,16 @@ SIMPLE_SCALARS_MAP_BINARY = {
             b'\x69\xC0\x81\x81\x81\x80\x80\x80\xC1\x01'
         ),
         (timestamp(2016, precision=TimestampPrecision.YEAR), b'\x63\xC0\x0F\xE0'),  # -00:00
-        # (timestamp(2016, off_hours=0, precision=TimestampPrecision.YEAR), b'\x63\x80\x0F\xE0'),
-        # (
-        #     timestamp(2016, 2, 1, 0, 1, off_minutes=1, precision=TimestampPrecision.MONTH),
-        #     b'\x64\x81\x0F\xE0\x82'
-        # ),
-        # (
-        #     timestamp(2016, 2, 1, 23, 0, off_hours=-1, precision=TimestampPrecision.DAY),
-        #     b'\x65\xFC\x0F\xE0\x82\x82'
-        # ),
+        (timestamp(2016, off_hours=0, precision=TimestampPrecision.YEAR),
+            (b'\x63\x80\x0F\xE0', b'\x63\xC0\x0F\xE0')),
+        (
+            timestamp(2016, 2, 1, 0, 1, off_minutes=1, precision=TimestampPrecision.MONTH),
+            (b'\x64\x81\x0F\xE0\x82', b'\x64\xC0\x0F\xE0\x82')
+        ),
+        (
+            timestamp(2016, 2, 1, 23, 0, off_hours=-1, precision=TimestampPrecision.DAY),
+            (b'\x65\xFC\x0F\xE0\x82\x82', b'\x65\xC0\x0F\xE0\x82\x81')
+        ),
         (
             timestamp(2016, 2, 2, 0, 0, off_hours=-7, precision=TimestampPrecision.MINUTE),
             b'\x68\x43\xA4\x0F\xE0\x82\x82\x87\x80'
@@ -350,16 +351,18 @@ SIMPLE_SCALARS_MAP_BINARY = {
                       precision=TimestampPrecision.SECOND, fractional_precision=1),
             b'\x6B\x43\xA4\x0F\xE0\x82\x82\x87\x80\x9E\xC1\x01'
         ),
-        # (
-        #     timestamp(2016, 2, 2, 0, 0, 30, precision=TimestampPrecision.SECOND,
-        #               fractional_seconds=Decimal('0.000010000')),
-        #     b'\x6B\xC0\x0F\xE0\x82\x82\x80\x80\x9E\xC9\x27\x10'
-        # ),
-        # (
-        #     timestamp(2016, 2, 2, 0, 0, 30, precision=TimestampPrecision.SECOND,
-        #               fractional_seconds=Decimal('0.7e-500')),
-        #     b'\x6B\xC0\x0F\xE0\x82\x82\x80\x80\x9E\x43\xF5\x07'
-        # )
+        (
+            timestamp(2016, 2, 2, 0, 0, 30, precision=TimestampPrecision.SECOND,
+                      fractional_seconds=Decimal('0.000010000')),
+            (b'\x6B\xC0\x0F\xE0\x82\x82\x80\x80\x9E\xC9\x27\x10',
+             b'\x6A\xC0\x0F\xE0\x82\x82\x80\x80\x9E\xC6\x0A')
+        ),
+        (
+            timestamp(2016, 2, 2, 0, 0, 30, precision=TimestampPrecision.SECOND,
+                      fractional_seconds=Decimal('0.7e-500')),
+            (b'\x6B\xC0\x0F\xE0\x82\x82\x80\x80\x9E\x43\xF5\x07',
+             b'\x69\xC0\x0F\xE0\x82\x82\x80\x80\x9E\xC6')
+        )
     ),
     _IT.SYMBOL: (
         (None, b'\x7F'),

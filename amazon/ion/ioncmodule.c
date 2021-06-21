@@ -13,7 +13,7 @@
 #define MICROSECOND_DIGITS 6
 
 #define ERR_MSG_MAX_LEN 100
-#define FIELD_NAME_MAX_LEN 100
+#define FIELD_NAME_MAX_LEN 1000
 
 static char _err_msg[ERR_MSG_MAX_LEN];
 
@@ -667,11 +667,11 @@ iERR ionc_write_value(hWRITER writer, PyObject* obj, PyObject* tuple_as_sexp) {
         }
 
         // Determine lsu.
-        int lsu_array[digits_len];
-        for (int i=0; i<digits_len; i++) {
+        int c_digits_array[digits_len];
+        for (int i = 0; i < digits_len; i++) {
             PyObject* digit = PyTuple_GetItem(py_digits, i);
             Py_INCREF(digit);
-            lsu_array[i] = PyLong_AsLong(digit);
+            c_digits_array[i] = PyLong_AsLong(digit);
             Py_DECREF(digit);
         }
         Py_XDECREF(py_digits);
@@ -682,7 +682,7 @@ iERR ionc_write_value(hWRITER writer, PyObject* obj, PyObject* tuple_as_sexp) {
             decNumberUnit per_digit = 0;
             int op_count = count + 1 < DECDPUN ? count + 1 : DECDPUN;
             for (int i = 0; i < op_count; i++) {
-                per_digit += pow(10, i) * lsu_array[count--];
+                per_digit += pow(10, i) * c_digits_array[count--];
             }
             decNumber_value.lsu[index++] = per_digit;
         }
@@ -998,7 +998,7 @@ static iERR ionc_read_timestamp(hREADER hreader, PyObject** timestamp_out) {
             decQuadScaleB(&fraction, &fraction, decQuadFromInt32(&tmp, MICROSECOND_DIGITS), &dec_context);
             int32_t microsecond = decQuadToInt32Exact(&fraction, &dec_context, DEC_ROUND_DOWN);
             if (fractional_precision > MICROSECOND_DIGITS) {
-                // Python only supports up to microsecond precision
+                // C extension only supports up to microsecond precision.
                 fractional_precision = MICROSECOND_DIGITS;
             }
 
@@ -1078,6 +1078,10 @@ iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BOOL in_s
     if (in_struct) {
         IONCHECK(ion_reader_get_field_name(hreader, &field_name));
         field_name_len = field_name.length;
+        if (field_name_len > FIELD_NAME_MAX_LEN) {
+            _FAILWITHMSG(IERR_INVALID_ARG,
+                "Filed name overflow, please try again with pure python.");
+        }
         if (field_name.value != NULL) {
             None_field_name = FALSE;
             strcpy(field_name_value, field_name.value);
@@ -1312,21 +1316,25 @@ iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BOOL in_s
         default:
             FAILWITH(IERR_INVALID_STATE);
         }
+
+    PyObject* temp = py_value;
     if (!emit_bare_values) {
-        py_value = PyObject_CallFunctionObjArgs(
+        temp = PyObject_CallFunctionObjArgs(
             ion_nature_constructor,
             py_ion_type_table[ion_type >> 8],
             py_value,
             py_annotations,
             NULL
         );
+        Py_XDECREF(py_value);
+        Py_XDECREF(py_annotations);
     }
 
     if (in_struct && !None_field_name) {
         ION_STRING_INIT(&field_name);
         ion_string_assign_cstr(&field_name, field_name_value, field_name_len);
     }
-    ionc_add_to_container(container, py_value, in_struct, &field_name);
+    ionc_add_to_container(container, temp, in_struct, &field_name);
 
 fail:
     if (err) {
