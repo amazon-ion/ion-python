@@ -266,12 +266,15 @@ static PyObject* ion_string_to_py_symboltoken(ION_STRING* string_value) {
         py_string_value = Py_None;
         py_sid = PyLong_FromLong(0);
     }
-    return PyObject_CallFunctionObjArgs(
+    PyObject* return_value = PyObject_CallFunctionObjArgs(
         _py_symboltoken_constructor,
         py_string_value,
         py_sid,
         NULL
     );
+    Py_DECREF(py_string_value);
+    Py_DECREF(py_sid);
+    return return_value;
 }
 
 
@@ -1317,9 +1320,9 @@ iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BOOL in_s
             FAILWITH(IERR_INVALID_STATE);
         }
 
-    PyObject* temp = py_value;
+    PyObject* final_py_value = py_value;
     if (!emit_bare_values) {
-        temp = PyObject_CallFunctionObjArgs(
+        final_py_value = PyObject_CallFunctionObjArgs(
             ion_nature_constructor,
             py_ion_type_table[ion_type >> 8],
             py_value,
@@ -1327,14 +1330,14 @@ iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BOOL in_s
             NULL
         );
         Py_XDECREF(py_value);
-        Py_XDECREF(py_annotations);
     }
+    Py_XDECREF(py_annotations);
 
     if (in_struct && !None_field_name) {
         ION_STRING_INIT(&field_name);
         ion_string_assign_cstr(&field_name, field_name_value, field_name_len);
     }
-    ionc_add_to_container(container, temp, in_struct, &field_name);
+    ionc_add_to_container(container, final_py_value, in_struct, &field_name);
 
 fail:
     if (err) {
