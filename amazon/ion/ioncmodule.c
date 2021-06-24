@@ -216,13 +216,17 @@ static PyObject* ion_build_py_string(ION_STRING* string_value) {
  */
 static void ionc_add_to_container(PyObject* pyContainer, PyObject* element, BOOL in_struct, ION_STRING* field_name) {
     if (in_struct) {
+        PyObject* py_attr = PyString_FromString("add_item");
+        PyObject* py_field_name = ion_build_py_string(field_name);
         PyObject_CallMethodObjArgs(
             pyContainer,
-            PyString_FromString("add_item"),
-            ion_build_py_string(field_name),
+            py_attr,
+            py_field_name,
             (PyObject*)element,
             NULL
         );
+        Py_DECREF(py_attr);
+        Py_DECREF(py_field_name);
     }
     else {
         PyList_Append(pyContainer, (PyObject*)element);
@@ -1292,12 +1296,14 @@ iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BOOL in_s
             break;
         }
         case tid_STRUCT_INT:
+        {
             ion_nature_constructor = _ionpydict_fromvalue;
             //Init a IonPyDict
+            PyObject* new_dict = PyDict_New();
             py_value = PyObject_CallFunctionObjArgs(
                 ion_nature_constructor,
                 py_ion_type_table[ion_type >> 8],
-                PyDict_New(),
+                new_dict,
                 py_annotations,
                 NULL
             );
@@ -1305,16 +1311,19 @@ iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BOOL in_s
             IONCHECK(ionc_read_into_container(hreader, py_value, /*is_struct=*/TRUE, emit_bare_values));
             emit_bare_values = TRUE;
             break;
+        }
         case tid_SEXP_INT:
         {
             emit_bare_values = FALSE; // Sexp values must always be emitted as IonNature because of ambiguity with list.
             // intentional fall-through
         }
         case tid_LIST_INT:
+        {
             py_value = PyList_New(0);
             IONCHECK(ionc_read_into_container(hreader, py_value, /*is_struct=*/FALSE, emit_bare_values));
             ion_nature_constructor = _ionpylist_fromvalue;
             break;
+        }
         case tid_DATAGRAM_INT:
         default:
             FAILWITH(IERR_INVALID_STATE);
