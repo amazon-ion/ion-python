@@ -488,10 +488,15 @@ static iERR ionc_write_big_int(hWRITER writer, PyObject *obj) {
     if (PyObject_RichCompareBool(temp, py_zero, Py_EQ) == 1) {
         size = py_one;
     } else {
-        size = PyNumber_Add(
-                        PyNumber_Long(PyObject_CallMethodObjArgs(
-                                        _math_module, PyUnicode_FromString("log"), temp, ion_int_base, NULL)),
-                        py_one);
+        PyObject* py_op_string = PyUnicode_FromString("log");
+        PyObject* log_value = PyObject_CallMethodObjArgs(_math_module, py_op_string, temp, ion_int_base, NULL);
+        PyObject* log_value_long = PyNumber_Long(log_value);
+
+        size = PyNumber_Add(log_value_long, py_one);
+
+        Py_DECREF(py_op_string);
+        Py_DECREF(log_value);
+        Py_DECREF(log_value_long);
     }
 
     int c_size = PyLong_AsLong(size);
