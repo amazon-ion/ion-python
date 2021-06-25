@@ -985,15 +985,18 @@ static iERR ionc_read_timestamp(hREADER hreader, PyObject** timestamp_out) {
     PyDict_SetItemString(timestamp_args, "precision", py_precision);
     BOOL has_local_offset;
     IONCHECK(ion_timestamp_has_local_offset(&timestamp_value, &has_local_offset));
-
     if (has_local_offset) {
         int off_minutes, off_hours;
         IONCHECK(ion_timestamp_get_local_offset(&timestamp_value, &off_minutes));
         off_hours = off_minutes / 60;
         off_minutes = off_minutes % 60;
+        PyObject* py_off_hours = PyInt_FromLong(off_hours);
+        PyObject* py_off_minutes = PyInt_FromLong(off_minutes);
         // Bounds checking is performed in python.
-        PyDict_SetItemString(timestamp_args, "off_hours", PyInt_FromLong(off_hours));
-        PyDict_SetItemString(timestamp_args, "off_minutes", PyInt_FromLong(off_minutes));
+        PyDict_SetItemString(timestamp_args, "off_hours", py_off_hours);
+        PyDict_SetItemString(timestamp_args, "off_minutes", py_off_minutes);
+        Py_DECREF(py_off_hours);
+        Py_DECREF(py_off_minutes);
     }
 
     switch (precision) {
@@ -1018,22 +1021,50 @@ static iERR ionc_read_timestamp(hREADER hreader, PyObject** timestamp_out) {
                 // This means the fractional component is not [0, 1) or has more than microsecond precision.
                 decContextClearStatus(&dec_context, DEC_Inexact);
             }
-            PyDict_SetItemString(timestamp_args, "fractional_precision", PyInt_FromLong(fractional_precision));
-            PyDict_SetItemString(timestamp_args, "microsecond", PyInt_FromLong(microsecond));
+            PyObject* py_fractional_precision = PyInt_FromLong(fractional_precision);
+            PyObject* py_microsecond = PyInt_FromLong(microsecond);
+            PyDict_SetItemString(timestamp_args, "fractional_precision", py_fractional_precision);
+            PyDict_SetItemString(timestamp_args, "microsecond", py_microsecond);
+            Py_DECREF(py_fractional_precision);
+            Py_DECREF(py_microsecond);
+
         }
         case ION_TS_SEC:
-            PyDict_SetItemString(timestamp_args, "second", PyInt_FromLong(timestamp_value.seconds));
+        {
+            PyObject* temp_seconds = PyLong_FromLong(timestamp_value.seconds);
+            PyDict_SetItemString(timestamp_args, "second", temp_seconds);
+            Py_DECREF(temp_seconds);
+        }
         case ION_TS_MIN:
-            PyDict_SetItemString(timestamp_args, "minute", PyInt_FromLong(timestamp_value.minutes));
-            PyDict_SetItemString(timestamp_args, "hour", PyInt_FromLong(timestamp_value.hours));
+        {
+            PyObject* temp_minutes = PyInt_FromLong(timestamp_value.minutes);
+            PyObject* temp_hours = PyInt_FromLong(timestamp_value.hours);
+
+            PyDict_SetItemString(timestamp_args, "minute", temp_minutes);
+            PyDict_SetItemString(timestamp_args, "hour",  temp_hours);
+
+            Py_DECREF(temp_minutes);
+            Py_DECREF(temp_hours);
+        }
         case ION_TS_DAY:
-            PyDict_SetItemString(timestamp_args, "day", PyInt_FromLong(timestamp_value.day));
+        {
+            PyObject* temp_day = PyInt_FromLong(timestamp_value.day);
+            PyDict_SetItemString(timestamp_args, "day", temp_day);
+            Py_DECREF(temp_day);
+        }
         case ION_TS_MONTH:
-            PyDict_SetItemString(timestamp_args, "month", PyInt_FromLong(timestamp_value.month));
+        {   PyObject* temp_month = PyInt_FromLong(timestamp_value.month);
+            PyDict_SetItemString(timestamp_args, "month", temp_month);
+            Py_DECREF(temp_month);
+        }
         case ION_TS_YEAR:
-            PyDict_SetItemString(timestamp_args, "year", PyInt_FromLong(timestamp_value.year));
+        {
+            PyObject* temp_year = PyInt_FromLong(timestamp_value.year);
+            PyDict_SetItemString(timestamp_args, "year", temp_year);
+            Py_DECREF(temp_year);
             break;
         }
+    }
     *timestamp_out = PyObject_Call(_py_timestamp_constructor, PyTuple_New(0), timestamp_args);
 
 fail:
@@ -1344,7 +1375,7 @@ iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BOOL in_s
             py_annotations,
             NULL
         );
-        Py_XDECREF(py_value);
+        if (py_value != Py_None) Py_XDECREF(py_value);
     }
     Py_XDECREF(py_annotations);
 
