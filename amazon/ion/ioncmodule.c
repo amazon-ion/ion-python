@@ -276,8 +276,8 @@ static PyObject* ion_string_to_py_symboltoken(ION_STRING* string_value) {
         py_sid,
         NULL
     );
-    Py_DECREF(py_string_value);
-    Py_DECREF(py_sid);
+    Py_XDECREF(py_string_value);
+    Py_XDECREF(py_sid);
     return return_value;
 }
 
@@ -1312,6 +1312,7 @@ iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BOOL in_s
                 py_annotations,
                 NULL
             );
+            Py_XDECREF(new_dict);
 
             IONCHECK(ionc_read_into_container(hreader, py_value, /*is_struct=*/TRUE, emit_bare_values));
             emit_bare_values = TRUE;
