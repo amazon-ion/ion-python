@@ -260,8 +260,7 @@ static void c_decstr_to_py_decstr(char* dec_str) {
  *      A python symbol token
  */
 static PyObject* ion_string_to_py_symboltoken(ION_STRING* string_value) {
-    PyObject* py_string_value;
-    PyObject* py_sid;
+    PyObject* py_string_value, *py_sid, *return_value;
     if (string_value->value) {
         py_string_value = ion_build_py_string(string_value);
         py_sid = Py_None;
@@ -270,14 +269,14 @@ static PyObject* ion_string_to_py_symboltoken(ION_STRING* string_value) {
         py_string_value = Py_None;
         py_sid = PyLong_FromLong(0);
     }
-    PyObject* return_value = PyObject_CallFunctionObjArgs(
+    return_value = PyObject_CallFunctionObjArgs(
         _py_symboltoken_constructor,
         py_string_value,
         py_sid,
         NULL
     );
-    Py_XDECREF(py_string_value);
-    Py_XDECREF(py_sid);
+    if (py_sid != Py_None) Py_DECREF(py_sid);
+    if (py_string_value != Py_None) Py_DECREF(py_string_value);
     return return_value;
 }
 
