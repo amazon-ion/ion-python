@@ -468,7 +468,7 @@ static iERR ionc_write_big_int(hWRITER writer, PyObject *obj) {
     iENTER;
 
     PyObject* ion_int_base = PyLong_FromLong(II_MASK + 1);
-    PyObject* temp = Py_BuildValue("O", obj);
+    PyObject* temp = obj;
     PyObject * pow_value, *size, *res, *py_digit, *py_remainder = NULL;
     PyObject* py_zero = PyLong_FromLong(0);
     PyObject* py_one = PyLong_FromLong(1);
@@ -1195,13 +1195,23 @@ iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BOOL in_s
 
             int i = 0;
             for (i; i < c_size; i++) {
-                int base = c_size - 1 - i;
+                int exp = c_size - 1 - i;
                 // Python equivalence:  pow_value = int(pow(2^31, base))
-                PyObject* pow_value = PyNumber_Long(PyNumber_Power(ion_int_base, PyLong_FromLong(base), Py_None));
+                PyObject* py_exp = PyLong_FromLong(exp);
+                PyObject* py_pow = PyNumber_Power(ion_int_base, py_exp, Py_None);
+                PyObject* pow_value = PyNumber_Long(py_pow);
 
                 // Python equivalence: py_value += pow_value * _digits[i]
-                py_value = PyNumber_Add(py_value, PyNumber_Multiply(pow_value, PyLong_FromLong(*(ion_int_value._digits + i))));
+                PyObject* py_ion_int_digits = PyLong_FromLong(*(ion_int_value._digits + i));
+                PyObject* py_multi_value = PyNumber_Multiply(pow_value, py_ion_int_digits);
+                PyObject* temp_py_value = py_value;
+                py_value = PyNumber_Add(temp_py_value, py_multi_value);
 
+                Py_DECREF(py_exp);
+                Py_DECREF(py_pow);
+                Py_DECREF(py_multi_value);
+                Py_DECREF(temp_py_value);
+                Py_DECREF(py_ion_int_digits);
                 Py_DECREF(pow_value);
             }
 
