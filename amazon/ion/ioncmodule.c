@@ -467,7 +467,7 @@ static iERR ionc_write_big_int(hWRITER writer, PyObject *obj) {
     iENTER;
 
     PyObject* ion_int_base = PyLong_FromLong(II_MASK + 1);
-    PyObject* temp = obj;
+    PyObject* temp = Py_BuildValue("O", obj);
     PyObject * pow_value, *size, *res, *py_digit, *py_remainder = NULL;
     PyObject* py_zero = PyLong_FromLong(0);
     PyObject* py_one = PyLong_FromLong(1);
