@@ -538,8 +538,6 @@ static iERR ionc_write_big_int(hWRITER writer, PyObject *obj) {
 
     *(ion_int_value._digits + c_size - 1) = PyLong_AsLong(temp);
     IONCHECK(ion_writer_write_ion_int(writer, &ion_int_value));
-    Py_XDECREF(py_zero);
-    Py_XDECREF(py_one);
     Py_XDECREF(ion_int_base);
     Py_XDECREF(size);
     Py_XDECREF(temp);
