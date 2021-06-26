@@ -468,7 +468,6 @@ static iERR ionc_write_big_int(hWRITER writer, PyObject *obj) {
 
     PyObject* ion_int_base = PyLong_FromLong(II_MASK + 1);
     PyObject* temp = Py_BuildValue("O", obj);
-    PyObject * pow_value, *size, *res, *py_digit, *py_remainder = NULL;
     PyObject* py_zero = PyLong_FromLong(0);
     PyObject* py_one = PyLong_FromLong(1);
 
@@ -484,27 +483,32 @@ static iERR ionc_write_big_int(hWRITER writer, PyObject *obj) {
     }
 
     // Determine ion_int digits length
+    int c_size;
     if (PyObject_RichCompareBool(temp, py_zero, Py_EQ) == 1) {
-        size = py_one;
+        c_size = 1;
     } else {
         PyObject* py_op_string = PyUnicode_FromString("log");
         PyObject* log_value = PyObject_CallMethodObjArgs(_math_module, py_op_string, temp, ion_int_base, NULL);
         PyObject* log_value_long = PyNumber_Long(log_value);
 
-        size = PyNumber_Add(log_value_long, py_one);
+        c_size = PyLong_AsLong(log_value_long) + 1;
 
         Py_DECREF(py_op_string);
         Py_DECREF(log_value);
         Py_DECREF(log_value_long);
     }
 
-    int c_size = PyLong_AsLong(size);
     IONCHECK(_ion_int_extend_digits(&ion_int_value, c_size, TRUE));
 
     int base = c_size;
     while(--base > 0) {
         // Python equivalence:  pow_value = int(pow(2^31, base))
-        pow_value = PyNumber_Long(PyNumber_Power(ion_int_base, PyLong_FromLong(base), Py_None));
+        PyObject* py_base = PyLong_FromLong(base);
+        PyObject* py_pow = PyNumber_Power(ion_int_base, py_base, Py_None);
+        PyObject* pow_value = PyNumber_Long(py_pow);
+
+        Py_DECREF(py_base);
+        Py_DECREF(py_pow);
 
         if (pow_value == Py_None) {
             // pow(2^31, base) should be calculated correctly.
@@ -512,16 +516,14 @@ static iERR ionc_write_big_int(hWRITER writer, PyObject *obj) {
         }
 
         // Python equivalence: digit = temp / pow_value, temp = temp % pow_value
-        res = PyNumber_Divmod(temp, pow_value);
-        py_digit = PyNumber_Long(PyTuple_GetItem(res, 0));
-        py_remainder = PyTuple_GetItem(res, 1);
-
-        Py_INCREF(res);
-        Py_INCREF(py_digit);
+        PyObject* res = PyNumber_Divmod(temp, pow_value);
+        PyObject* py_digit = PyNumber_Long(PyTuple_GetItem(res, 0));
+        PyObject* py_remainder = PyTuple_GetItem(res, 1);
         Py_INCREF(py_remainder);
 
         II_DIGIT digit = PyLong_AsLong(py_digit);
-        temp = Py_BuildValue("O", py_remainder);
+//        temp = Py_BuildValue("O", py_remainder);
+        temp = PyLong_FromLong(122);
 
         int index = c_size - base - 1;
         *(ion_int_value._digits + index) = digit;
@@ -529,23 +531,15 @@ static iERR ionc_write_big_int(hWRITER writer, PyObject *obj) {
         Py_DECREF(py_digit);
         Py_DECREF(res);
         Py_DECREF(py_remainder);
-
-        pow_value = NULL;
-        py_digit = NULL;
-        py_remainder = NULL;
-        res = NULL;
+        Py_DECREF(pow_value);
     }
 
     *(ion_int_value._digits + c_size - 1) = PyLong_AsLong(temp);
+
     IONCHECK(ion_writer_write_ion_int(writer, &ion_int_value));
     Py_XDECREF(ion_int_base);
-    Py_XDECREF(size);
     Py_XDECREF(temp);
-    Py_XDECREF(pow_value);
 fail:
-    Py_XDECREF(res);
-    Py_XDECREF(py_digit);
-    Py_XDECREF(py_remainder);
     cRETURN;
 }
 
