@@ -515,15 +515,15 @@ static iERR ionc_write_big_int(hWRITER writer, PyObject *obj) {
             _FAILWITHMSG(IERR_INTERNAL_ERROR, "Calculation failure: 2^31.");
         }
 
-        // Python equivalence: digit = temp / pow_value, temp = temp % pow_value
+        // Python equivalence: py_digit = temp / pow_value, py_remainder = temp % pow_value
         PyObject* res = PyNumber_Divmod(temp, pow_value);
         PyObject* py_digit = PyNumber_Long(PyTuple_GetItem(res, 0));
         PyObject* py_remainder = PyTuple_GetItem(res, 1);
         Py_INCREF(py_remainder);
 
         II_DIGIT digit = PyLong_AsLong(py_digit);
-//        temp = Py_BuildValue("O", py_remainder);
-        temp = PyLong_FromLong(122);
+        Py_DECREF(temp);
+        temp = Py_BuildValue("O", py_remainder);
 
         int index = c_size - base - 1;
         *(ion_int_value._digits + index) = digit;
@@ -537,8 +537,8 @@ static iERR ionc_write_big_int(hWRITER writer, PyObject *obj) {
     *(ion_int_value._digits + c_size - 1) = PyLong_AsLong(temp);
 
     IONCHECK(ion_writer_write_ion_int(writer, &ion_int_value));
-    Py_XDECREF(ion_int_base);
-    Py_XDECREF(temp);
+    Py_DECREF(ion_int_base);
+    Py_DECREF(temp);
 fail:
     cRETURN;
 }
