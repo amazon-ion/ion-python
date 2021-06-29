@@ -216,13 +216,17 @@ static PyObject* ion_build_py_string(ION_STRING* string_value) {
  */
 static void ionc_add_to_container(PyObject* pyContainer, PyObject* element, BOOL in_struct, ION_STRING* field_name) {
     if (in_struct) {
+        PyObject* py_attr = PyString_FromString("add_item");
+        PyObject* py_field_name = ion_build_py_string(field_name);
         PyObject_CallMethodObjArgs(
             pyContainer,
-            PyString_FromString("add_item"),
-            ion_build_py_string(field_name),
+            py_attr,
+            py_field_name,
             (PyObject*)element,
             NULL
         );
+        Py_DECREF(py_attr);
+        Py_DECREF(py_field_name);
     }
     else {
         PyList_Append(pyContainer, (PyObject*)element);
@@ -256,8 +260,7 @@ static void c_decstr_to_py_decstr(char* dec_str) {
  *      A python symbol token
  */
 static PyObject* ion_string_to_py_symboltoken(ION_STRING* string_value) {
-    PyObject* py_string_value;
-    PyObject* py_sid;
+    PyObject* py_string_value, *py_sid, *return_value;
     if (string_value->value) {
         py_string_value = ion_build_py_string(string_value);
         py_sid = Py_None;
@@ -266,12 +269,15 @@ static PyObject* ion_string_to_py_symboltoken(ION_STRING* string_value) {
         py_string_value = Py_None;
         py_sid = PyLong_FromLong(0);
     }
-    return PyObject_CallFunctionObjArgs(
+    return_value = PyObject_CallFunctionObjArgs(
         _py_symboltoken_constructor,
         py_string_value,
         py_sid,
         NULL
     );
+    if (py_sid != Py_None) Py_DECREF(py_sid);
+    if (py_string_value != Py_None) Py_DECREF(py_string_value);
+    return return_value;
 }
 
 
@@ -462,7 +468,6 @@ static iERR ionc_write_big_int(hWRITER writer, PyObject *obj) {
 
     PyObject* ion_int_base = PyLong_FromLong(II_MASK + 1);
     PyObject* temp = Py_BuildValue("O", obj);
-    PyObject * pow_value, *size, *res, *py_digit, *py_remainder = NULL;
     PyObject* py_zero = PyLong_FromLong(0);
     PyObject* py_one = PyLong_FromLong(1);
 
@@ -478,38 +483,46 @@ static iERR ionc_write_big_int(hWRITER writer, PyObject *obj) {
     }
 
     // Determine ion_int digits length
+    int c_size;
     if (PyObject_RichCompareBool(temp, py_zero, Py_EQ) == 1) {
-        size = py_one;
+        c_size = 1;
     } else {
-        size = PyNumber_Add(
-                        PyNumber_Long(PyObject_CallMethodObjArgs(
-                                        _math_module, PyUnicode_FromString("log"), temp, ion_int_base, NULL)),
-                        py_one);
+        PyObject* py_op_string = PyUnicode_FromString("log");
+        PyObject* log_value = PyObject_CallMethodObjArgs(_math_module, py_op_string, temp, ion_int_base, NULL);
+        PyObject* log_value_long = PyNumber_Long(log_value);
+
+        c_size = PyLong_AsLong(log_value_long) + 1;
+
+        Py_DECREF(py_op_string);
+        Py_DECREF(log_value);
+        Py_DECREF(log_value_long);
     }
 
-    int c_size = PyLong_AsLong(size);
     IONCHECK(_ion_int_extend_digits(&ion_int_value, c_size, TRUE));
 
     int base = c_size;
     while(--base > 0) {
         // Python equivalence:  pow_value = int(pow(2^31, base))
-        pow_value = PyNumber_Long(PyNumber_Power(ion_int_base, PyLong_FromLong(base), Py_None));
+        PyObject* py_base = PyLong_FromLong(base);
+        PyObject* py_pow = PyNumber_Power(ion_int_base, py_base, Py_None);
+        PyObject* pow_value = PyNumber_Long(py_pow);
+
+        Py_DECREF(py_base);
+        Py_DECREF(py_pow);
 
         if (pow_value == Py_None) {
             // pow(2^31, base) should be calculated correctly.
             _FAILWITHMSG(IERR_INTERNAL_ERROR, "Calculation failure: 2^31.");
         }
 
-        // Python equivalence: digit = temp / pow_value, temp = temp % pow_value
-        res = PyNumber_Divmod(temp, pow_value);
-        py_digit = PyNumber_Long(PyTuple_GetItem(res, 0));
-        py_remainder = PyTuple_GetItem(res, 1);
-
-        Py_INCREF(res);
-        Py_INCREF(py_digit);
+        // Python equivalence: py_digit = temp / pow_value, py_remainder = temp % pow_value
+        PyObject* res = PyNumber_Divmod(temp, pow_value);
+        PyObject* py_digit = PyNumber_Long(PyTuple_GetItem(res, 0));
+        PyObject* py_remainder = PyTuple_GetItem(res, 1);
         Py_INCREF(py_remainder);
 
         II_DIGIT digit = PyLong_AsLong(py_digit);
+        Py_DECREF(temp);
         temp = Py_BuildValue("O", py_remainder);
 
         int index = c_size - base - 1;
@@ -518,25 +531,15 @@ static iERR ionc_write_big_int(hWRITER writer, PyObject *obj) {
         Py_DECREF(py_digit);
         Py_DECREF(res);
         Py_DECREF(py_remainder);
-
-        pow_value = NULL;
-        py_digit = NULL;
-        py_remainder = NULL;
-        res = NULL;
+        Py_DECREF(pow_value);
     }
 
     *(ion_int_value._digits + c_size - 1) = PyLong_AsLong(temp);
+
     IONCHECK(ion_writer_write_ion_int(writer, &ion_int_value));
-    Py_XDECREF(py_zero);
-    Py_XDECREF(py_one);
-    Py_XDECREF(ion_int_base);
-    Py_XDECREF(size);
-    Py_XDECREF(temp);
-    Py_XDECREF(pow_value);
+    Py_DECREF(ion_int_base);
+    Py_DECREF(temp);
 fail:
-    Py_XDECREF(res);
-    Py_XDECREF(py_digit);
-    Py_XDECREF(py_remainder);
     cRETURN;
 }
 
@@ -973,15 +976,18 @@ static iERR ionc_read_timestamp(hREADER hreader, PyObject** timestamp_out) {
     PyDict_SetItemString(timestamp_args, "precision", py_precision);
     BOOL has_local_offset;
     IONCHECK(ion_timestamp_has_local_offset(&timestamp_value, &has_local_offset));
-
     if (has_local_offset) {
         int off_minutes, off_hours;
         IONCHECK(ion_timestamp_get_local_offset(&timestamp_value, &off_minutes));
         off_hours = off_minutes / 60;
         off_minutes = off_minutes % 60;
+        PyObject* py_off_hours = PyInt_FromLong(off_hours);
+        PyObject* py_off_minutes = PyInt_FromLong(off_minutes);
         // Bounds checking is performed in python.
-        PyDict_SetItemString(timestamp_args, "off_hours", PyInt_FromLong(off_hours));
-        PyDict_SetItemString(timestamp_args, "off_minutes", PyInt_FromLong(off_minutes));
+        PyDict_SetItemString(timestamp_args, "off_hours", py_off_hours);
+        PyDict_SetItemString(timestamp_args, "off_minutes", py_off_minutes);
+        Py_DECREF(py_off_hours);
+        Py_DECREF(py_off_minutes);
     }
 
     switch (precision) {
@@ -1006,22 +1012,50 @@ static iERR ionc_read_timestamp(hREADER hreader, PyObject** timestamp_out) {
                 // This means the fractional component is not [0, 1) or has more than microsecond precision.
                 decContextClearStatus(&dec_context, DEC_Inexact);
             }
-            PyDict_SetItemString(timestamp_args, "fractional_precision", PyInt_FromLong(fractional_precision));
-            PyDict_SetItemString(timestamp_args, "microsecond", PyInt_FromLong(microsecond));
+            PyObject* py_fractional_precision = PyInt_FromLong(fractional_precision);
+            PyObject* py_microsecond = PyInt_FromLong(microsecond);
+            PyDict_SetItemString(timestamp_args, "fractional_precision", py_fractional_precision);
+            PyDict_SetItemString(timestamp_args, "microsecond", py_microsecond);
+            Py_DECREF(py_fractional_precision);
+            Py_DECREF(py_microsecond);
+
         }
         case ION_TS_SEC:
-            PyDict_SetItemString(timestamp_args, "second", PyInt_FromLong(timestamp_value.seconds));
+        {
+            PyObject* temp_seconds = PyLong_FromLong(timestamp_value.seconds);
+            PyDict_SetItemString(timestamp_args, "second", temp_seconds);
+            Py_DECREF(temp_seconds);
+        }
         case ION_TS_MIN:
-            PyDict_SetItemString(timestamp_args, "minute", PyInt_FromLong(timestamp_value.minutes));
-            PyDict_SetItemString(timestamp_args, "hour", PyInt_FromLong(timestamp_value.hours));
+        {
+            PyObject* temp_minutes = PyInt_FromLong(timestamp_value.minutes);
+            PyObject* temp_hours = PyInt_FromLong(timestamp_value.hours);
+
+            PyDict_SetItemString(timestamp_args, "minute", temp_minutes);
+            PyDict_SetItemString(timestamp_args, "hour",  temp_hours);
+
+            Py_DECREF(temp_minutes);
+            Py_DECREF(temp_hours);
+        }
         case ION_TS_DAY:
-            PyDict_SetItemString(timestamp_args, "day", PyInt_FromLong(timestamp_value.day));
+        {
+            PyObject* temp_day = PyInt_FromLong(timestamp_value.day);
+            PyDict_SetItemString(timestamp_args, "day", temp_day);
+            Py_DECREF(temp_day);
+        }
         case ION_TS_MONTH:
-            PyDict_SetItemString(timestamp_args, "month", PyInt_FromLong(timestamp_value.month));
+        {   PyObject* temp_month = PyInt_FromLong(timestamp_value.month);
+            PyDict_SetItemString(timestamp_args, "month", temp_month);
+            Py_DECREF(temp_month);
+        }
         case ION_TS_YEAR:
-            PyDict_SetItemString(timestamp_args, "year", PyInt_FromLong(timestamp_value.year));
+        {
+            PyObject* temp_year = PyInt_FromLong(timestamp_value.year);
+            PyDict_SetItemString(timestamp_args, "year", temp_year);
+            Py_DECREF(temp_year);
             break;
         }
+    }
     *timestamp_out = PyObject_Call(_py_timestamp_constructor, PyTuple_New(0), timestamp_args);
 
 fail:
@@ -1152,13 +1186,23 @@ iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BOOL in_s
 
             int i = 0;
             for (i; i < c_size; i++) {
-                int base = c_size - 1 - i;
+                int exp = c_size - 1 - i;
                 // Python equivalence:  pow_value = int(pow(2^31, base))
-                PyObject* pow_value = PyNumber_Long(PyNumber_Power(ion_int_base, PyLong_FromLong(base), Py_None));
+                PyObject* py_exp = PyLong_FromLong(exp);
+                PyObject* py_pow = PyNumber_Power(ion_int_base, py_exp, Py_None);
+                PyObject* pow_value = PyNumber_Long(py_pow);
 
                 // Python equivalence: py_value += pow_value * _digits[i]
-                py_value = PyNumber_Add(py_value, PyNumber_Multiply(pow_value, PyLong_FromLong(*(ion_int_value._digits + i))));
+                PyObject* py_ion_int_digits = PyLong_FromLong(*(ion_int_value._digits + i));
+                PyObject* py_multi_value = PyNumber_Multiply(pow_value, py_ion_int_digits);
+                PyObject* temp_py_value = py_value;
+                py_value = PyNumber_Add(temp_py_value, py_multi_value);
 
+                Py_DECREF(py_exp);
+                Py_DECREF(py_pow);
+                Py_DECREF(py_multi_value);
+                Py_DECREF(temp_py_value);
+                Py_DECREF(py_ion_int_digits);
                 Py_DECREF(pow_value);
             }
 
@@ -1289,52 +1333,58 @@ iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BOOL in_s
             break;
         }
         case tid_STRUCT_INT:
+        {
             ion_nature_constructor = _ionpydict_fromvalue;
             //Init a IonPyDict
+            PyObject* new_dict = PyDict_New();
             py_value = PyObject_CallFunctionObjArgs(
                 ion_nature_constructor,
                 py_ion_type_table[ion_type >> 8],
-                PyDict_New(),
+                new_dict,
                 py_annotations,
                 NULL
             );
+            Py_XDECREF(new_dict);
 
             IONCHECK(ionc_read_into_container(hreader, py_value, /*is_struct=*/TRUE, emit_bare_values));
             emit_bare_values = TRUE;
             break;
+        }
         case tid_SEXP_INT:
         {
             emit_bare_values = FALSE; // Sexp values must always be emitted as IonNature because of ambiguity with list.
             // intentional fall-through
         }
         case tid_LIST_INT:
+        {
             py_value = PyList_New(0);
             IONCHECK(ionc_read_into_container(hreader, py_value, /*is_struct=*/FALSE, emit_bare_values));
             ion_nature_constructor = _ionpylist_fromvalue;
             break;
+        }
         case tid_DATAGRAM_INT:
         default:
             FAILWITH(IERR_INVALID_STATE);
         }
 
-    PyObject* temp = py_value;
+    PyObject* final_py_value = py_value;
     if (!emit_bare_values) {
-        temp = PyObject_CallFunctionObjArgs(
+        final_py_value = PyObject_CallFunctionObjArgs(
             ion_nature_constructor,
             py_ion_type_table[ion_type >> 8],
             py_value,
             py_annotations,
             NULL
         );
-        Py_XDECREF(py_value);
-        Py_XDECREF(py_annotations);
+        if (py_value != Py_None) Py_XDECREF(py_value);
     }
+    Py_XDECREF(py_annotations);
 
     if (in_struct && !None_field_name) {
         ION_STRING_INIT(&field_name);
         ion_string_assign_cstr(&field_name, field_name_value, field_name_len);
     }
-    ionc_add_to_container(container, temp, in_struct, &field_name);
+    ionc_add_to_container(container, final_py_value, in_struct, &field_name);
 
 fail:
     if (err) {
