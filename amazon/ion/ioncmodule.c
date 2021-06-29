@@ -984,8 +984,8 @@ static iERR ionc_read_timestamp(hREADER hreader, PyObject** timestamp_out) {
         PyObject* py_off_hours = PyInt_FromLong(off_hours);
         PyObject* py_off_minutes = PyInt_FromLong(off_minutes);
         // Bounds checking is performed in python.
-        PyDict_SetItemString(timestamp_args, "off_hours", PyLong_FromLong(off_hours));
-        PyDict_SetItemString(timestamp_args, "off_minutes", PyLong_FromLong(off_minutes));
+        PyDict_SetItemString(timestamp_args, "off_hours", py_off_hours);
+        PyDict_SetItemString(timestamp_args, "off_minutes", py_off_minutes);
         Py_DECREF(py_off_hours);
         Py_DECREF(py_off_minutes);
     }
