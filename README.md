@@ -5,7 +5,7 @@ for Python.
 [![Build Status](https://travis-ci.org/amzn/ion-python.svg?branch=master)](https://travis-ci.org/amzn/ion-python)
 [![Documentation Status](https://readthedocs.org/projects/ion-python/badge/?version=latest)](https://ion-python.readthedocs.io/en/latest/?badge=latest)
 
-This package is designed to work with **Python 2.7+** and **Python 3.4+**
+This package is designed to work with **Python 3.6+**
 
 ## Getting Started
 
@@ -52,6 +52,8 @@ It is recommended to use `venv` to create a clean environment to build/test Ion 
 $ python3 -m venv ./venv
 ...
 $ . venv/bin/activate
+$ pip install -U pip
+$ pip install -U setuptools
 $ pip install -r requirements.txt
 $ pip install -e .
 ```
@@ -66,16 +68,19 @@ $ python setup.py test
 In order to verify that all platforms we support work with Ion Python, we use a combination
 of [tox](http://tox.readthedocs.io/en/latest/) with [pyenv](https://github.com/yyuu/pyenv).
 
+We recommend that you use tox within a virtual environment to isolate from whatever is in the system
+installed Python (`requirements.txt` installs `tox`).
+
 Install relevant versions of Python:
 
 ```
-$ for V in 2.7.16 3.4.10 3.5.7 3.6.8 3.7.3 pypy2.7-7.1.1 pypy3.6-7.1.1; do pyenv install $V; done
+$ for V in 3.6.13 3.7.10 3.8.10 3.9.5 pypy3.7-7.3.5; do pyenv install $V; done
 ```
 
 Once you have these installations, add them as a local `pyenv` configuration
 
 ```
-$ pyenv local 2.7.16 3.4.10 3.5.7 3.6.8 3.7.3 pypy2.7-7.1.1 pypy3.6-7.1.1
+$ pyenv local 3.6.13 3.7.10 3.8.10 3.9.5 pypy3.7-7.3.5
 ```
 
 Assuming you have `pyenv` properly set up (making sure `pyenv init` is evaluated into your shell),
@@ -85,14 +90,14 @@ you can now run `tox`:
 # Run tox for all versions of python which executes py.test.
 $ tox
 
-# Run tox for just Python 2.7 and 3.5.
-$ tox -e py27,py35
+# Run tox for just Python 3.8 and 3.9.
+$ tox -e py38,py39
 
 # Run tox for a specific version and run py.test with high verbosity
-$ tox -e py27 -- py.test -vv
+$ tox -e py39 -- py.test -vv
 
 # Run tox for a specific version and just the virtual env REPL.
-$ tox -e py27 -- python
+$ tox -e py39 -- python
 ```
 
 ## TODO
