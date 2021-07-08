@@ -11,7 +11,7 @@ This package is designed to work with **Python 3.6+**
 
 Start with the [simpleion](https://ion-python.readthedocs.io/en/latest/amazon.ion.html#module-amazon.ion.simpleion)
 module, which provides four APIs (`dump`, `dumps`, `load`, `loads`) that will be familiar to users of Python's
-built-in JSON parsing module.
+built-in JSON parsing module. Simpleion module's performance is improved by an optional [C extension](https://github.com/amzn/ion-python/blob/c-extension-beta/C_extension.md).
 
 For example:
 
@@ -27,8 +27,8 @@ For example:
 For additional examples, consult the [cookbook](http://amzn.github.io/ion-docs/guides/cookbook.html).
 
 ## Git Setup
-This repository contains a [git submodule](https://git-scm.com/docs/git-submodule)
-called `ion-tests`, which holds test data used by `ion-python`'s unit tests.
+This repository contains two [git submodules](https://git-scm.com/docs/git-submodule).
+`ion-tests` holds test data used by `ion-python`'s unit tests and `ion-c` speeds up `ion-python`'s simpleion module.
 
 The easiest way to clone the `ion-python` repository and initialize its `ion-tests`
 submodule is to run the following command.
