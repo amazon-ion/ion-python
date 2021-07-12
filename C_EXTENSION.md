@@ -41,7 +41,7 @@ We use `timeit` module to measure the execution time.
 ```.py
 setup = "from amazon.ion import simpleion"
 code = '''
-with open(file_name, "br") as fp:
+with open("file_name", "br") as fp:
     simpleion.dumps(simpleion.load(fp, single_value=False))
 '''
 print(timeit.timeit(setup=setup, stmt=code, number=1))
