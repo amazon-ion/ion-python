@@ -124,7 +124,6 @@ ion Python        \xee\x99\x81\x83  \xde\x95  \x87\xbe\x92 \x86annot1\x86annot2\
 2. More performance improvement.
 3. Support more simpleion options such as `imports`, `catalog`, `omit_version_marker`. (Ion Python uses pure python implementation to handle unsupported options currently)
 4. Support pretty print.
-5. Support arbitrary decimal digits (34 currently).
 
 ## Deploy
 
