@@ -140,7 +140,7 @@ Building different wheels requires specific platforms and python versions, which
 
 **GitHub Actions** has a lot of advantages such as integrating perfectly with GitHub (no installation request, all on cloud), fast growth with a large community, compatibility with any environment (no need to run docker), common actions are easily re-used (shared by GitHub Marketplace), asynchronous CI/CD workflow and so on.
 
-**CodePipeline** is an AWS software with custom actions, one of the most important benefits is that CodePipeline uses an IAM role to manage authentication that we trust artifacts build on it. 
+**CodePipeline** is an AWS software with custom actions. It can be triggered by multiple input sources such as GitHub, AWS CodeCommit and Amazon S3. In addition, CodePipeline uses an IAM role to manage authentication that we trust artifacts build on it. 
 
 **Other pipeline technologies** have a similar functionality but GitHub Actions and CodePipeline come with the above benefits.
 
