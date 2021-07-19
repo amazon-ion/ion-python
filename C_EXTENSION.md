@@ -1,6 +1,6 @@
 # Ion Python C Extension Beta
 
-### ***This package is considered experimental, in Beta stage.***
+### ***This feature is considered experimental, in Beta stage.***
 
 1. [Overall](#overall)
 2. [Motivation](#motivation)
