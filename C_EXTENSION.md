@@ -13,7 +13,6 @@
 7. [TODO](#todo)
 8. [Deploy](#deploy)<br>
    8.1 &nbsp;[Distribution](#1-distribution)<br>
-   8.2 &nbsp;[Release Automation](#2-release-automation)<br>
 
 ## Overall
 Ion Python C extension utilizes Ion C to access files that close the performance gap between the Ion Python simpleion module and other Ion implementations.
