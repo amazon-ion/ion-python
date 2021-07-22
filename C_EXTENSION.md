@@ -130,27 +130,7 @@ ion Python        \xee\x99\x81\x83  \xde\x95  \x87\xbe\x92 \x86annot1\x86annot2\
 ### 1. Distribution
 PYPI supports two ways of distribution: [Source Code Distribution](https://packaging.python.org/guides/distributing-packages-using-setuptools/#source-distributions) and [Wheel Distribution](https://packaging.python.org/guides/distributing-packages-using-setuptools/#wheels). This Beta version uses source code distribution to build Ion C locally automatically after installation of the package. **No extra action needed for releasing**.<br/>
 
-We will add wheel distribution in the future release after [release automation](#2-release-automation) is done because of the following benefits:
+We will add wheel distribution in the future release because of the following benefits:
 1. Pre-compiling Ion C library avoids potential build/compile issues and does not require a C compiler to be present on the user's machine.
 2. Installation of wheels is faster and more efficient.
 
-
-### 2. Release Automation
-Building different wheels requires specific platforms and python versions, which can be accomplished by cloud pipeline. There are multiple options: 
-
-**GitHub Actions** has a lot of advantages such as integrating perfectly with GitHub (no installation request, all on cloud), fast growth with a large community, compatibility with any environment (no need to run docker), common actions are easily re-used (shared by GitHub Marketplace), asynchronous CI/CD workflow and so on.
-
-**CodePipeline** is an AWS software with custom actions. It can be triggered by multiple input sources such as GitHub, AWS CodeCommit and Amazon S3. In addition, CodePipeline uses an IAM role to manage authentication that we trust artifacts build on it. 
-
-**Other pipeline technologies** have a similar functionality but GitHub Actions and CodePipeline come with the above benefits.
-
-Below are trade offs between GitHub Actions and CodePipeline:
-||GitHub Actions|Code Pipeline|
-|---|---|---|
-|Platforms|Mac,Win,Linux|Linux,Win,Mac(require Jenkins)|
-|Default Dependency|Includes software we need|Does not have Cmake and Python version less than 3.6|
-|Setup|Simple|Need to setup IAM role, Jenkins and Docker|
-|Security|Pending review|Trusted|
-|Price|Free|Cheap|
-
-We decide to use GitHub Actions eventually due to above benefits.
