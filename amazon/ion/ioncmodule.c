@@ -12,6 +12,8 @@
 
 #define MICROSECOND_DIGITS 6
 
+#define MAX_TIMESTAMP_PRECISION 9
+
 #define ERR_MSG_MAX_LEN 100
 #define FIELD_NAME_MAX_LEN 1000
 
@@ -722,20 +724,39 @@ iERR ionc_write_value(hWRITER writer, PyObject* obj, PyObject* tuple_as_sexp) {
         if (tid_TIMESTAMP_INT != ion_type) {
             _FAILWITHMSG(IERR_INVALID_ARG, "Found datetime; expected TIMESTAMP Ion type.");
         }
+
         ION_TIMESTAMP timestamp_value;
+        PyObject* fractional_seconds, *fractional_decimal_tuple, *py_exponent;
         int year, month, day, hour, minute, second;
         short precision, fractional_precision;
-
+        short final_fractional_precision, final_fractional_seconds;
         if (PyObject_HasAttrString(obj, "precision")) {
             // This is a Timestamp.
             precision = int_attr_by_name(obj, "precision");
             fractional_precision = int_attr_by_name(obj, "fractional_precision");
+
+            fractional_seconds = PyObject_GetAttrString(obj, "fractional_seconds");
+            fractional_decimal_tuple = PyObject_CallMethod(fractional_seconds, "as_tuple", NULL);
+            py_exponent = PyObject_GetAttrString(fractional_decimal_tuple, "exponent");
+            int exp = PyLong_AsLong(py_exponent) * -1;
+            if (exp > MAX_TIMESTAMP_PRECISION) {
+                final_fractional_precision = MAX_TIMESTAMP_PRECISION;
+            } else {
+                final_fractional_precision = exp;
+            }
+            printf("final_fractional_precision is: %d\n", final_fractional_precision);
+
         }
         else {
             // This is a naive datetime. It always has maximum precision.
             precision = SECOND_PRECISION;
             fractional_precision = MICROSECOND_DIGITS;
+            final_fractional_precision = fractional_precision;
         }
+
+        Py_DECREF(fractional_seconds);
+        Py_DECREF(fractional_decimal_tuple);
+        Py_DECREF(py_exponent);
 
         year = int_attr_by_name(obj, "year");
         if (precision == SECOND_PRECISION) {
