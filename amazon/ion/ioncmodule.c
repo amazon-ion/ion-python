@@ -726,10 +726,10 @@ iERR ionc_write_value(hWRITER writer, PyObject* obj, PyObject* tuple_as_sexp) {
         }
 
         ION_TIMESTAMP timestamp_value;
-        PyObject* fractional_seconds, *fractional_decimal_tuple, *py_exponent;
+        PyObject *fractional_seconds, *fractional_decimal_tuple, *py_exponent, *py_digits;
         int year, month, day, hour, minute, second;
         short precision, fractional_precision;
-        short final_fractional_precision, final_fractional_seconds;
+        int final_fractional_precision, final_fractional_seconds;
         if (PyObject_HasAttrString(obj, "precision")) {
             // This is a Timestamp.
             precision = int_attr_by_name(obj, "precision");
@@ -738,13 +738,23 @@ iERR ionc_write_value(hWRITER writer, PyObject* obj, PyObject* tuple_as_sexp) {
             fractional_seconds = PyObject_GetAttrString(obj, "fractional_seconds");
             fractional_decimal_tuple = PyObject_CallMethod(fractional_seconds, "as_tuple", NULL);
             py_exponent = PyObject_GetAttrString(fractional_decimal_tuple, "exponent");
+            py_digits = PyObject_GetAttrString(fractional_decimal_tuple, "digits");
             int exp = PyLong_AsLong(py_exponent) * -1;
             if (exp > MAX_TIMESTAMP_PRECISION) {
                 final_fractional_precision = MAX_TIMESTAMP_PRECISION;
             } else {
                 final_fractional_precision = exp;
             }
-            printf("final_fractional_precision is: %d\n", final_fractional_precision);
+
+            int keep = exp - final_fractional_precision;
+            int digits_len = PyLong_AsLong(PyObject_CallMethod(py_digits, "__len__", NULL));
+            final_fractional_seconds = 0;
+            for (int i = 0; i < digits_len - keep; i++) {
+                PyObject* digit = PyTuple_GetItem(py_digits, i);
+                Py_INCREF(digit);
+                final_fractional_seconds = final_fractional_seconds * 10 + PyLong_AsLong(digit);
+                Py_DECREF(digit);
+            }
 
         }
         else {
@@ -752,11 +762,8 @@ iERR ionc_write_value(hWRITER writer, PyObject* obj, PyObject* tuple_as_sexp) {
             precision = SECOND_PRECISION;
             fractional_precision = MICROSECOND_DIGITS;
             final_fractional_precision = fractional_precision;
+            final_fractional_seconds = int_attr_by_name(obj, "microsecond");
         }
-
-        Py_DECREF(fractional_seconds);
-        Py_DECREF(fractional_decimal_tuple);
-        Py_DECREF(py_exponent);
 
         year = int_attr_by_name(obj, "year");
         if (precision == SECOND_PRECISION) {
@@ -766,15 +773,15 @@ iERR ionc_write_value(hWRITER writer, PyObject* obj, PyObject* tuple_as_sexp) {
             minute = int_attr_by_name(obj, "minute");
             second = int_attr_by_name(obj, "second");
             int microsecond = int_attr_by_name(obj, "microsecond");
-            if (fractional_precision > 0) {
+            if (final_fractional_precision > 0) {
                 decQuad fraction;
                 decNumber helper, dec_number_precision;
-                decQuadFromInt32(&fraction, (int32_t)microsecond);
+                decQuadFromInt32(&fraction, (int32_t)final_fractional_seconds);
                 decQuad tmp;
-                decQuadScaleB(&fraction, &fraction, decQuadFromInt32(&tmp, -MICROSECOND_DIGITS), &dec_context);
+                decQuadScaleB(&fraction, &fraction, decQuadFromInt32(&tmp, -final_fractional_precision), &dec_context);
                 decQuadToNumber(&fraction, &helper);
                 decContextClearStatus(&dec_context, DEC_Inexact); // TODO consider saving, clearing, and resetting the status flag
-                decNumberRescale(&helper, &helper, decNumberFromInt32(&dec_number_precision, -fractional_precision), &dec_context);
+                decNumberRescale(&helper, &helper, decNumberFromInt32(&dec_number_precision, -final_fractional_precision), &dec_context);
                 if (decContextTestStatus(&dec_context, DEC_Inexact)) {
                     // This means the fractional component is not [0, 1) or has more than microsecond precision.
                     decContextClearStatus(&dec_context, DEC_Inexact);
@@ -821,6 +828,11 @@ iERR ionc_write_value(hWRITER writer, PyObject* obj, PyObject* tuple_as_sexp) {
             Py_DECREF(offset_timedelta);
             IONCHECK(err);
         }
+
+        Py_DECREF(fractional_seconds);
+        Py_DECREF(fractional_decimal_tuple);
+        Py_DECREF(py_exponent);
+        Py_DECREF(py_digits);
 
         IONCHECK(ion_writer_write_timestamp(writer, &timestamp_value));
     }
