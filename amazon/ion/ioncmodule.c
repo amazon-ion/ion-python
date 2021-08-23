@@ -734,28 +734,36 @@ iERR ionc_write_value(hWRITER writer, PyObject* obj, PyObject* tuple_as_sexp) {
             // This is a Timestamp.
             precision = int_attr_by_name(obj, "precision");
             fractional_precision = int_attr_by_name(obj, "fractional_precision");
+            if (PyObject_HasAttrString(obj, "fractional_precision")) {
+                fractional_seconds = PyObject_GetAttrString(obj, "fractional_seconds");
+                fractional_decimal_tuple = PyObject_CallMethod(fractional_seconds, "as_tuple", NULL);
+                py_exponent = PyObject_GetAttrString(fractional_decimal_tuple, "exponent");
+                py_digits = PyObject_GetAttrString(fractional_decimal_tuple, "digits");
+                int exp = PyLong_AsLong(py_exponent) * -1;
+                if (exp > MAX_TIMESTAMP_PRECISION) {
+                    final_fractional_precision = MAX_TIMESTAMP_PRECISION;
+                } else {
+                    final_fractional_precision = exp;
+                }
 
-            fractional_seconds = PyObject_GetAttrString(obj, "fractional_seconds");
-            fractional_decimal_tuple = PyObject_CallMethod(fractional_seconds, "as_tuple", NULL);
-            py_exponent = PyObject_GetAttrString(fractional_decimal_tuple, "exponent");
-            py_digits = PyObject_GetAttrString(fractional_decimal_tuple, "digits");
-            int exp = PyLong_AsLong(py_exponent) * -1;
-            if (exp > MAX_TIMESTAMP_PRECISION) {
-                final_fractional_precision = MAX_TIMESTAMP_PRECISION;
+                int keep = exp - final_fractional_precision;
+                int digits_len = PyLong_AsLong(PyObject_CallMethod(py_digits, "__len__", NULL));
+                final_fractional_seconds = 0;
+                for (int i = 0; i < digits_len - keep; i++) {
+                    PyObject* digit = PyTuple_GetItem(py_digits, i);
+                    Py_INCREF(digit);
+                    final_fractional_seconds = final_fractional_seconds * 10 + PyLong_AsLong(digit);
+                    Py_DECREF(digit);
+                }
+
+                Py_DECREF(fractional_seconds);
+                Py_DECREF(fractional_decimal_tuple);
+                Py_DECREF(py_exponent);
+                Py_DECREF(py_digits);
             } else {
-                final_fractional_precision = exp;
+                final_fractional_precision = fractional_precision;
+                final_fractional_seconds = int_attr_by_name(obj, "microsecond");
             }
-
-            int keep = exp - final_fractional_precision;
-            int digits_len = PyLong_AsLong(PyObject_CallMethod(py_digits, "__len__", NULL));
-            final_fractional_seconds = 0;
-            for (int i = 0; i < digits_len - keep; i++) {
-                PyObject* digit = PyTuple_GetItem(py_digits, i);
-                Py_INCREF(digit);
-                final_fractional_seconds = final_fractional_seconds * 10 + PyLong_AsLong(digit);
-                Py_DECREF(digit);
-            }
-
         }
         else {
             // This is a naive datetime. It always has maximum precision.
@@ -829,12 +837,12 @@ iERR ionc_write_value(hWRITER writer, PyObject* obj, PyObject* tuple_as_sexp) {
             IONCHECK(err);
         }
 
-        Py_DECREF(fractional_seconds);
-        Py_DECREF(fractional_decimal_tuple);
-        Py_DECREF(py_exponent);
-        Py_DECREF(py_digits);
+
 
         IONCHECK(ion_writer_write_timestamp(writer, &timestamp_value));
+
+
+
     }
     else if (PyDict_Check(obj) || PyObject_IsInstance(obj, _ionpydict_cls)) {
         if (ion_type == tid_none_INT) {
