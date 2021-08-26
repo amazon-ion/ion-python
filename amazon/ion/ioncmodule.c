@@ -1039,7 +1039,6 @@ static iERR ionc_read_timestamp(hREADER hreader, PyObject** timestamp_out) {
             decNumber tmp_number;
 
             int32_t fractional_precision = decQuadGetExponent(&fraction);
-            printf("In C fractional_precision is: %d\n", fractional_precision);
             if (fractional_precision > 0) {
                 _FAILWITHMSG(IERR_INVALID_TIMESTAMP, "Timestamp fractional precision cannot be a positive number.");
             }
@@ -1051,7 +1050,6 @@ static iERR ionc_read_timestamp(hREADER hreader, PyObject** timestamp_out) {
                 decQuadScaleB(&fraction, &fraction, decQuadFromInt32(&tmp, fractional_precision), &dec_context);
                 int dec = decQuadToInt32Exact(&fraction, &dec_context, DEC_ROUND_DOWN);
                 if (fractional_precision > MAX_TIMESTAMP_PRECISION) fractional_precision = MAX_TIMESTAMP_PRECISION;
-                printf("fractional_precision: %d\n", fractional_precision);
 
                 char* dec_num = malloc(fractional_precision+2);
                 dec_num[0] = '\0';
