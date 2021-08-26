@@ -107,6 +107,14 @@ static int int_attr_by_name(PyObject* obj, char* attr_name) {
     return c_int;
 }
 
+char* string_concatenation(int len1, int len2, char* str1, char* str2) {
+    char* res_str = malloc(len1+len2);
+    res_str[0] = '\0';
+    strcat(res_str, str1);
+    strcat(res_str, str2);
+    return res_str;
+}
+
 // TODO compare performance of these offset_seconds* methods. The _26 version will work with all versions, so if it is
 // as fast, should be used for all.
 static int offset_seconds_26(PyObject* timedelta) {
@@ -836,6 +844,7 @@ iERR ionc_write_value(hWRITER writer, PyObject* obj, PyObject* tuple_as_sexp) {
             Py_DECREF(offset_timedelta);
             IONCHECK(err);
         }
+
         IONCHECK(ion_writer_write_timestamp(writer, &timestamp_value));
     }
     else if (PyDict_Check(obj) || PyObject_IsInstance(obj, _ionpydict_cls)) {
@@ -1011,7 +1020,6 @@ static iERR ionc_read_timestamp(hREADER hreader, PyObject** timestamp_out) {
     PyDict_SetItemString(timestamp_args, "precision", py_precision);
     BOOL has_local_offset;
     IONCHECK(ion_timestamp_has_local_offset(&timestamp_value, &has_local_offset));
-
     if (has_local_offset) {
         int off_minutes, off_hours;
         IONCHECK(ion_timestamp_get_local_offset(&timestamp_value, &off_minutes));
@@ -1032,7 +1040,6 @@ static iERR ionc_read_timestamp(hREADER hreader, PyObject** timestamp_out) {
             decQuad fraction = timestamp_value.fraction;
             decQuad tmp;
 
-
             int32_t fractional_precision = decQuadGetExponent(&fraction);
             if (fractional_precision > 0) {
                 _FAILWITHMSG(IERR_INVALID_TIMESTAMP, "Timestamp fractional precision cannot be a positive number.");
@@ -1043,22 +1050,29 @@ static iERR ionc_read_timestamp(hREADER hreader, PyObject** timestamp_out) {
                 decQuadScaleB(&fraction, &fraction, decQuadFromInt32(&tmp, fractional_precision), &dec_context);
                 int dec = decQuadToInt32Exact(&fraction, &dec_context, DEC_ROUND_DOWN);
                 if (fractional_precision > MAX_TIMESTAMP_PRECISION) fractional_precision = MAX_TIMESTAMP_PRECISION;
+                if (decContextTestStatus(&dec_context, DEC_Inexact)) {
+                    // This means the fractional component is not [0, 1) or has more than microsecond precision.
+                    decContextClearStatus(&dec_context, DEC_Inexact);
+                }
 
-                char* dec_num = malloc(fractional_precision+2);
-                dec_num[0] = '\0';
                 char* front = "0.";
                 char decimal[fractional_precision];
                 sprintf(decimal, "%d", dec);
-                strcat(dec_num, front);
-                strcat(dec_num, decimal);
+                char* dec_num = string_concatenation(2, fractional_precision, front, decimal);
+//                char* dec_num = malloc(fractional_precision+2);
+//                dec_num[0] = '\0';
+//                char* front = "0.";
+//                char decimal[fractional_precision];
+//                sprintf(decimal, "%d", dec);
+//                strcat(dec_num, front);
+//                strcat(dec_num, decimal);
 
+                PyObject* py_dec_str = PyUnicode_FromString(dec_num);
                 PyObject* py_fractional_seconds =
-                    PyObject_CallFunctionObjArgs(_decimal_constructor, PyUnicode_FromString(dec_num), NULL);
-
+                    PyObject_CallFunctionObjArgs(_decimal_constructor, py_dec_str, NULL);
                 PyDict_SetItemString(timestamp_args, "fractional_seconds", py_fractional_seconds);
-
                 Py_DECREF(py_fractional_seconds);
-
+                Py_DECREF(py_dec_str);
             } else {
                 decQuadScaleB(&fraction, &fraction, decQuadFromInt32(&tmp, MICROSECOND_DIGITS), &dec_context);
                 int32_t microsecond = decQuadToInt32Exact(&fraction, &dec_context, DEC_ROUND_DOWN);

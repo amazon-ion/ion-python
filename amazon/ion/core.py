@@ -479,7 +479,6 @@ class Timestamp(datetime):
             del kwargs[TIMESTAMP_FRACTIONAL_SECONDS_FIELD]
 
         if fractional_seconds is not None and (fractional_precision is not None or datetime_microseconds is not None):
-            print("In python fractional_seconds is %d" % fractional_seconds)
             raise ValueError('fractional_seconds cannot be specified '
                              'when fractional_precision or microseconds are not None.')
 
