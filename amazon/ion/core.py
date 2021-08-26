@@ -401,7 +401,7 @@ class Timestamp(datetime):
             * The ``precision`` field is passed as a keyword argument of the same name.
 
             * The ``fractional_precision`` field is passed as a keyword argument of the same name.
-              This field only relates to to the ``microseconds`` field and can be thought of
+              This field only relates to the ``microseconds`` field and can be thought of
               as the number of decimal digits that are significant.  This is an integer that
               that is in the closed interval ``[0, 6]``.  If ``0``, ``microseconds`` must be
               ``0`` indicating no precision below seconds.  This argument is optional and only valid
@@ -479,6 +479,7 @@ class Timestamp(datetime):
             del kwargs[TIMESTAMP_FRACTIONAL_SECONDS_FIELD]
 
         if fractional_seconds is not None and (fractional_precision is not None or datetime_microseconds is not None):
+            print("In python fractional_seconds is %d" % fractional_seconds)
             raise ValueError('fractional_seconds cannot be specified '
                              'when fractional_precision or microseconds are not None.')
 

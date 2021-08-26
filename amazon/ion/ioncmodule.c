@@ -836,13 +836,7 @@ iERR ionc_write_value(hWRITER writer, PyObject* obj, PyObject* tuple_as_sexp) {
             Py_DECREF(offset_timedelta);
             IONCHECK(err);
         }
-
-
-
         IONCHECK(ion_writer_write_timestamp(writer, &timestamp_value));
-
-
-
     }
     else if (PyDict_Check(obj) || PyObject_IsInstance(obj, _ionpydict_cls)) {
         if (ion_type == tid_none_INT) {
@@ -1036,7 +1030,8 @@ static iERR ionc_read_timestamp(hREADER hreader, PyObject** timestamp_out) {
         case ION_TS_FRAC:
         {
             decQuad fraction = timestamp_value.fraction;
-            decNumber tmp_number;
+            decQuad tmp;
+
 
             int32_t fractional_precision = decQuadGetExponent(&fraction);
             if (fractional_precision > 0) {
@@ -1044,9 +1039,7 @@ static iERR ionc_read_timestamp(hREADER hreader, PyObject** timestamp_out) {
             }
             fractional_precision = fractional_precision * -1;
 
-
             if (fractional_precision > MICROSECOND_DIGITS) {
-                decQuad tmp;
                 decQuadScaleB(&fraction, &fraction, decQuadFromInt32(&tmp, fractional_precision), &dec_context);
                 int dec = decQuadToInt32Exact(&fraction, &dec_context, DEC_ROUND_DOWN);
                 if (fractional_precision > MAX_TIMESTAMP_PRECISION) fractional_precision = MAX_TIMESTAMP_PRECISION;
@@ -1067,7 +1060,6 @@ static iERR ionc_read_timestamp(hREADER hreader, PyObject** timestamp_out) {
                 Py_DECREF(py_fractional_seconds);
 
             } else {
-                decQuad tmp;
                 decQuadScaleB(&fraction, &fraction, decQuadFromInt32(&tmp, MICROSECOND_DIGITS), &dec_context);
                 int32_t microsecond = decQuadToInt32Exact(&fraction, &dec_context, DEC_ROUND_DOWN);
 
