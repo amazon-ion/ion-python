@@ -1344,7 +1344,6 @@ iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BOOL in_s
         {
             IONCHECK(ionc_read_timestamp(hreader, &py_value));
             ion_nature_constructor = _ionpytimestamp_fromvalue;
-
             break;
         }
         case tid_SYMBOL_INT:
@@ -1448,7 +1447,6 @@ iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BOOL in_s
         ION_STRING_INIT(&field_name);
         ion_string_assign_cstr(&field_name, field_name_value, field_name_len);
     }
-
     ionc_add_to_container(container, final_py_value, in_struct, &field_name);
 
 fail:
