@@ -1059,13 +1059,6 @@ static iERR ionc_read_timestamp(hREADER hreader, PyObject** timestamp_out) {
                 char decimal[fractional_precision];
                 sprintf(decimal, "%d", dec);
                 char* dec_num = string_concatenation(2, fractional_precision, front, decimal);
-//                char* dec_num = malloc(fractional_precision+2);
-//                dec_num[0] = '\0';
-//                char* front = "0.";
-//                char decimal[fractional_precision];
-//                sprintf(decimal, "%d", dec);
-//                strcat(dec_num, front);
-//                strcat(dec_num, decimal);
 
                 PyObject* py_dec_str = PyUnicode_FromString(dec_num);
                 PyObject* py_fractional_seconds =
