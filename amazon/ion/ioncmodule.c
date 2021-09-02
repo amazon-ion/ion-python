@@ -12,6 +12,8 @@
 
 #define MICROSECOND_DIGITS 6
 
+#define MAX_TIMESTAMP_PRECISION 9
+
 #define ERR_MSG_MAX_LEN 100
 #define FIELD_NAME_MAX_LEN 1000
 
@@ -722,19 +724,53 @@ iERR ionc_write_value(hWRITER writer, PyObject* obj, PyObject* tuple_as_sexp) {
         if (tid_TIMESTAMP_INT != ion_type) {
             _FAILWITHMSG(IERR_INVALID_ARG, "Found datetime; expected TIMESTAMP Ion type.");
         }
+
         ION_TIMESTAMP timestamp_value;
+        PyObject *fractional_seconds, *fractional_decimal_tuple, *py_exponent, *py_digits;
         int year, month, day, hour, minute, second;
         short precision, fractional_precision;
-
+        int final_fractional_precision, final_fractional_seconds;
         if (PyObject_HasAttrString(obj, "precision")) {
             // This is a Timestamp.
             precision = int_attr_by_name(obj, "precision");
             fractional_precision = int_attr_by_name(obj, "fractional_precision");
+            if (PyObject_HasAttrString(obj, "fractional_seconds")) {
+                fractional_seconds = PyObject_GetAttrString(obj, "fractional_seconds");
+                fractional_decimal_tuple = PyObject_CallMethod(fractional_seconds, "as_tuple", NULL);
+                py_exponent = PyObject_GetAttrString(fractional_decimal_tuple, "exponent");
+                py_digits = PyObject_GetAttrString(fractional_decimal_tuple, "digits");
+                int exp = PyLong_AsLong(py_exponent) * -1;
+                if (exp > MAX_TIMESTAMP_PRECISION) {
+                    final_fractional_precision = MAX_TIMESTAMP_PRECISION;
+                } else {
+                    final_fractional_precision = exp;
+                }
+
+                int keep = exp - final_fractional_precision;
+                int digits_len = PyLong_AsLong(PyObject_CallMethod(py_digits, "__len__", NULL));
+                final_fractional_seconds = 0;
+                for (int i = 0; i < digits_len - keep; i++) {
+                    PyObject* digit = PyTuple_GetItem(py_digits, i);
+                    Py_INCREF(digit);
+                    final_fractional_seconds = final_fractional_seconds * 10 + PyLong_AsLong(digit);
+                    Py_DECREF(digit);
+                }
+
+                Py_DECREF(fractional_seconds);
+                Py_DECREF(fractional_decimal_tuple);
+                Py_DECREF(py_exponent);
+                Py_DECREF(py_digits);
+
+            } else {
+                final_fractional_precision = fractional_precision;
+                final_fractional_seconds = int_attr_by_name(obj, "microsecond");
+            }
         }
         else {
             // This is a naive datetime. It always has maximum precision.
             precision = SECOND_PRECISION;
-            fractional_precision = MICROSECOND_DIGITS;
+            final_fractional_precision = MICROSECOND_DIGITS;
+            final_fractional_seconds = int_attr_by_name(obj, "microsecond");
         }
 
         year = int_attr_by_name(obj, "year");
@@ -745,15 +781,15 @@ iERR ionc_write_value(hWRITER writer, PyObject* obj, PyObject* tuple_as_sexp) {
             minute = int_attr_by_name(obj, "minute");
             second = int_attr_by_name(obj, "second");
             int microsecond = int_attr_by_name(obj, "microsecond");
-            if (fractional_precision > 0) {
+            if (final_fractional_precision > 0) {
                 decQuad fraction;
                 decNumber helper, dec_number_precision;
-                decQuadFromInt32(&fraction, (int32_t)microsecond);
+                decQuadFromInt32(&fraction, (int32_t)final_fractional_seconds);
                 decQuad tmp;
-                decQuadScaleB(&fraction, &fraction, decQuadFromInt32(&tmp, -MICROSECOND_DIGITS), &dec_context);
+                decQuadScaleB(&fraction, &fraction, decQuadFromInt32(&tmp, -final_fractional_precision), &dec_context);
                 decQuadToNumber(&fraction, &helper);
                 decContextClearStatus(&dec_context, DEC_Inexact); // TODO consider saving, clearing, and resetting the status flag
-                decNumberRescale(&helper, &helper, decNumberFromInt32(&dec_number_precision, -fractional_precision), &dec_context);
+                decNumberRescale(&helper, &helper, decNumberFromInt32(&dec_number_precision, -final_fractional_precision), &dec_context);
                 if (decContextTestStatus(&dec_context, DEC_Inexact)) {
                     // This means the fractional component is not [0, 1) or has more than microsecond precision.
                     decContextClearStatus(&dec_context, DEC_Inexact);
@@ -994,31 +1030,51 @@ static iERR ionc_read_timestamp(hREADER hreader, PyObject** timestamp_out) {
         case ION_TS_FRAC:
         {
             decQuad fraction = timestamp_value.fraction;
+            decQuad tmp;
+
             int32_t fractional_precision = decQuadGetExponent(&fraction);
             if (fractional_precision > 0) {
                 _FAILWITHMSG(IERR_INVALID_TIMESTAMP, "Timestamp fractional precision cannot be a positive number.");
             }
             fractional_precision = fractional_precision * -1;
 
-            decQuad tmp;
-            decQuadScaleB(&fraction, &fraction, decQuadFromInt32(&tmp, MICROSECOND_DIGITS), &dec_context);
-            int32_t microsecond = decQuadToInt32Exact(&fraction, &dec_context, DEC_ROUND_DOWN);
             if (fractional_precision > MICROSECOND_DIGITS) {
-                // C extension only supports up to microsecond precision.
-                fractional_precision = MICROSECOND_DIGITS;
-            }
+                decQuadScaleB(&fraction, &fraction, decQuadFromInt32(&tmp, fractional_precision), &dec_context);
+                int dec = decQuadToInt32Exact(&fraction, &dec_context, DEC_ROUND_DOWN);
+                if (fractional_precision > MAX_TIMESTAMP_PRECISION) fractional_precision = MAX_TIMESTAMP_PRECISION;
+                if (decContextTestStatus(&dec_context, DEC_Inexact)) {
+                    // This means the fractional component is not [0, 1) or has more than microsecond precision.
+                    decContextClearStatus(&dec_context, DEC_Inexact);
+                }
 
-            if (decContextTestStatus(&dec_context, DEC_Inexact)) {
-                // This means the fractional component is not [0, 1) or has more than microsecond precision.
-                decContextClearStatus(&dec_context, DEC_Inexact);
-            }
-            PyObject* py_fractional_precision = PyInt_FromLong(fractional_precision);
-            PyObject* py_microsecond = PyInt_FromLong(microsecond);
-            PyDict_SetItemString(timestamp_args, "fractional_precision", py_fractional_precision);
-            PyDict_SetItemString(timestamp_args, "microsecond", py_microsecond);
-            Py_DECREF(py_fractional_precision);
-            Py_DECREF(py_microsecond);
+                char* dec_num = malloc(fractional_precision + 2);
+                decQuad d;
+                decQuadFromInt32(&d, dec);
+                decQuadScaleB(&d, &d, decQuadFromInt32(&tmp, -fractional_precision), &dec_context);
+                dec_num = decQuadToString(&d, dec_num);
 
+                PyObject* py_dec_str = PyUnicode_FromString(dec_num);
+                PyObject* py_fractional_seconds = PyObject_CallFunctionObjArgs(_decimal_constructor, py_dec_str, NULL);
+                PyDict_SetItemString(timestamp_args, "fractional_seconds", py_fractional_seconds);
+                Py_DECREF(py_fractional_seconds);
+                Py_DECREF(py_dec_str);
+                free(dec_num);
+            } else {
+                decQuadScaleB(&fraction, &fraction, decQuadFromInt32(&tmp, MICROSECOND_DIGITS), &dec_context);
+                int32_t microsecond = decQuadToInt32Exact(&fraction, &dec_context, DEC_ROUND_DOWN);
+
+                if (decContextTestStatus(&dec_context, DEC_Inexact)) {
+                    // This means the fractional component is not [0, 1) or has more than microsecond precision.
+                    decContextClearStatus(&dec_context, DEC_Inexact);
+                }
+
+                PyObject* py_microsecond = PyInt_FromLong(microsecond);
+                PyObject* py_fractional_precision = PyInt_FromLong(fractional_precision);
+                PyDict_SetItemString(timestamp_args, "microsecond", py_microsecond);
+                PyDict_SetItemString(timestamp_args, "fractional_precision", py_fractional_precision);
+                Py_DECREF(py_microsecond);
+                Py_DECREF(py_fractional_precision);
+            }
         }
         case ION_TS_SEC:
         {

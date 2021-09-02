@@ -214,12 +214,12 @@ SIMPLE_SCALARS_MAP_TEXT = {
         (
             timestamp(2016, 2, 2, 0, 0, 30, precision=TimestampPrecision.SECOND,
                       fractional_seconds=Decimal('0.00001000')),
-            (b'2016-02-02T00:00:30.00001000-00:00', b'2016-02-02T00:00:30.000010-00:00')
+            (b'2016-02-02T00:00:30.00001000-00:00', b'2016-02-02T00:00:30.00001000-00:00')
         ),
         (
             timestamp(2016, 2, 2, 0, 0, 30, precision=TimestampPrecision.SECOND,
                       fractional_seconds=Decimal('0.7e-500')),
-            (b'2016-02-02T00:00:30.' + b'0' * 500 + b'7-00:00', b'2016-02-02T00:00:30.000000-00:00')
+            (b'2016-02-02T00:00:30.' + b'0' * 500 + b'7-00:00', b'2016-02-02T00:00:30.000000000-00:00')
         )
     ),
     _IT.SYMBOL: (
@@ -361,7 +361,7 @@ SIMPLE_SCALARS_MAP_BINARY = {
             timestamp(2016, 2, 2, 0, 0, 30, precision=TimestampPrecision.SECOND,
                       fractional_seconds=Decimal('0.7e-500')),
             (b'\x6B\xC0\x0F\xE0\x82\x82\x80\x80\x9E\x43\xF5\x07',
-             b'\x69\xC0\x0F\xE0\x82\x82\x80\x80\x9E\xC6')
+             b'\x69\xC0\x0F\xE0\x82\x82\x80\x80\x9E\xC9')
         )
     ),
     _IT.SYMBOL: (
