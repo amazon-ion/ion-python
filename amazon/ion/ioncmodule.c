@@ -107,14 +107,6 @@ static int int_attr_by_name(PyObject* obj, char* attr_name) {
     return c_int;
 }
 
-char* string_concatenation(int len1, int len2, char* str1, char* str2) {
-    char* res_str = malloc(len1+len2);
-    res_str[0] = '\0';
-    strcat(res_str, str1);
-    strcat(res_str, str2);
-    return res_str;
-}
-
 // TODO compare performance of these offset_seconds* methods. The _26 version will work with all versions, so if it is
 // as fast, should be used for all.
 static int offset_seconds_26(PyObject* timedelta) {
@@ -1055,14 +1047,14 @@ static iERR ionc_read_timestamp(hREADER hreader, PyObject** timestamp_out) {
                     decContextClearStatus(&dec_context, DEC_Inexact);
                 }
 
-                char* front = "0.";
-                char decimal[fractional_precision];
-                sprintf(decimal, "%d", dec);
-                char* dec_num = string_concatenation(2, fractional_precision, front, decimal);
+                char* dec_num = malloc(fractional_precision + 2);
+                decQuad d;
+                decQuadFromInt32(&d, dec);
+                decQuadScaleB(&d, &d, decQuadFromInt32(&tmp, -fractional_precision), &dec_context);
+                dec_num = decQuadToString(&d, dec_num);
 
                 PyObject* py_dec_str = PyUnicode_FromString(dec_num);
-                PyObject* py_fractional_seconds =
-                    PyObject_CallFunctionObjArgs(_decimal_constructor, py_dec_str, NULL);
+                PyObject* py_fractional_seconds = PyObject_CallFunctionObjArgs(_decimal_constructor, py_dec_str, NULL);
                 PyDict_SetItemString(timestamp_args, "fractional_seconds", py_fractional_seconds);
                 Py_DECREF(py_fractional_seconds);
                 Py_DECREF(py_dec_str);
