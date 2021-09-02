@@ -1058,6 +1058,7 @@ static iERR ionc_read_timestamp(hREADER hreader, PyObject** timestamp_out) {
                 PyDict_SetItemString(timestamp_args, "fractional_seconds", py_fractional_seconds);
                 Py_DECREF(py_fractional_seconds);
                 Py_DECREF(py_dec_str);
+                free(dec_num);
             } else {
                 decQuadScaleB(&fraction, &fraction, decQuadFromInt32(&tmp, MICROSECOND_DIGITS), &dec_context);
                 int32_t microsecond = decQuadToInt32Exact(&fraction, &dec_context, DEC_ROUND_DOWN);
