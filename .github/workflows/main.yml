@@ -1,0 +1,25 @@
+name: build and test
+
+on:
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ['3.6', '3.7', '3.8', '3.9', 'pypy-3.6']
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - run: mvn package -f ion-java-cli/pom.xml
+      - run: java -jar ion-java-cli/target/ion-java-cli-1.0.jar version
+      - run: pip install --upgrade setuptools
+      - run: pip install -r requirements.txt
+      - run: pip install
+      - run: py.test
