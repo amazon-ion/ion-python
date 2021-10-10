@@ -133,10 +133,11 @@ class _IonNature(object):
                                   annotations=self.ion_annotations, depth=depth)
 
 
-def _ion_type_for(name, base_cls):
+def _ion_type_for(name, base_cls, ion_type=None):
     class IonPyValueType(base_cls, _IonNature):
         def __init__(self, *args, **kwargs):
             super(IonPyValueType, self).__init__(*args, **kwargs)
+            self.ion_type = ion_type
 
     IonPyValueType.__name__ = name
     IonPyValueType.__qualname__ = name
@@ -150,8 +151,8 @@ else:
 
 
 IonPyBool = IonPyInt
-IonPyFloat = _ion_type_for('IonPyFloat', float)
-IonPyDecimal = _ion_type_for('IonPyDecimal', Decimal)
+IonPyFloat = _ion_type_for('IonPyFloat', float, IonType.FLOAT)
+IonPyDecimal = _ion_type_for('IonPyDecimal', Decimal, IonType.DECIMAL)
 IonPyText = _ion_type_for('IonPyText', six.text_type)
 IonPyBytes = _ion_type_for('IonPyBytes', six.binary_type)
 
@@ -159,6 +160,7 @@ IonPyBytes = _ion_type_for('IonPyBytes', six.binary_type)
 class IonPySymbol(SymbolToken, _IonNature):
     def __init__(self, *args, **kwargs):
         super(IonPySymbol, self).__init__(*args, **kwargs)
+        self.ion_type = IonType.SYMBOL
 
     @staticmethod
     def _to_constructor_args(st):
@@ -173,6 +175,7 @@ class IonPySymbol(SymbolToken, _IonNature):
 class IonPyTimestamp(Timestamp, _IonNature):
     def __init__(self, *args, **kwargs):
         super(IonPyTimestamp, self).__init__(*args, **kwargs)
+        self.ion_type = IonType.TIMESTAMP
 
     @staticmethod
     def _to_constructor_args(ts):
@@ -215,5 +218,4 @@ def is_null(value):
 
 
 IonPyList = _ion_type_for('IonPyList', list)
-IonPyDict = _ion_type_for('IonPyDict', Multimap)
-
+IonPyDict = _ion_type_for('IonPyDict', Multimap, IonType.STRUCT)
