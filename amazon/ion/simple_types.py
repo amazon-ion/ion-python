@@ -24,7 +24,14 @@ from __future__ import division
 from __future__ import print_function
 
 from decimal import Decimal
-from collections import MutableMapping
+
+# in Python 3.10, abstract collections have moved into their own module
+# for compatibility with 3.10+, first try imports from the new location
+# if that fails, try from the pre-3.10 location
+try:
+    from collections.abc import MutableMapping
+except:
+    from collections import MutableMapping
 
 import six
 
