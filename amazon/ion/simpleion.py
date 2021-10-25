@@ -481,7 +481,7 @@ def dump(obj, fp, imports=None, binary=True, sequence_as_stream=False, skipkeys=
          use_decimal=True, namedtuple_as_object=True, tuple_as_array=True, bigint_as_string=False, sort_keys=False,
          item_sort_key=None, for_json=None, ignore_nan=False, int_as_string_bitcount=None, iterable_as_array=False,
          tuple_as_sexp=False, omit_version_marker=False, **kw):
-    if c_ext and imports is None:
+    if c_ext and (imports is None and indent is None):
         return dump_extension(obj, fp, binary=binary, sequence_as_stream=sequence_as_stream,
                               tuple_as_sexp=tuple_as_sexp, omit_version_marker=omit_version_marker)
     else:
