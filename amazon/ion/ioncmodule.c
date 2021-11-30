@@ -16,6 +16,8 @@
 
 #define ERR_MSG_MAX_LEN 100
 #define FIELD_NAME_MAX_LEN 1000
+#define ANNOTATION_MAX_LEN 50
+
 
 static char _err_msg[ERR_MSG_MAX_LEN];
 
@@ -924,6 +926,7 @@ static PyObject* ionc_write(PyObject *self, PyObject *args, PyObject *kwds) {
     ION_WRITER_OPTIONS options;
     memset(&options, 0, sizeof(options));
     options.output_as_binary = PyObject_IsTrue(binary);
+    options.max_annotation_count = ANNOTATION_MAX_LEN;
     IONCHECK(ion_writer_open(&writer, ion_stream, &options));
 
     if (sequence_as_stream == Py_True && (PyList_Check(obj) || PyTuple_Check(obj))) {
@@ -1495,6 +1498,7 @@ PyObject* ionc_read(PyObject* self, PyObject *args, PyObject *kwds) {
     ION_READER_OPTIONS options;
     memset(&options, 0, sizeof(options));
     options.decimal_context = &dec_context;
+    options.max_annotation_count = ANNOTATION_MAX_LEN;
     IONCHECK(ion_reader_open_buffer(&reader, (BYTE*)buffer, (SIZE)size, &options)); // NULL represents default reader options
 
     top_level_container = PyList_New(0);
