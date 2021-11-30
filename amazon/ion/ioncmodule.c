@@ -18,7 +18,6 @@
 #define FIELD_NAME_MAX_LEN 1000
 #define ANNOTATION_MAX_LEN 50
 
-
 static char _err_msg[ERR_MSG_MAX_LEN];
 
 #define _FAILWITHMSG(x, msg) { err = x; snprintf(_err_msg, ERR_MSG_MAX_LEN, msg); goto fail; }
