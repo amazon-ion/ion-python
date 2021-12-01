@@ -24,7 +24,7 @@ from __future__ import division
 from __future__ import print_function
 
 from decimal import Decimal
-from collections import MutableMapping
+from collections.abc import MutableMapping
 
 import six
 

@@ -612,6 +612,24 @@ def test_roundtrip(p):
     _assert_roundtrip(obj, res, tuple_as_sexp)
 
 
+@parametrize(
+    *tuple(_generate_roundtrips(_ROUNDTRIPS))
+)
+def test_roundtrip_ion_stream(p):
+    obj, is_binary, indent, tuple_as_sexp = p
+    expected  = [obj]
+    out = BytesIO()
+    dump(obj, out, binary=is_binary, indent=indent, tuple_as_sexp=tuple_as_sexp)
+    out.seek(0)
+    res = load(out, single_value=False, parse_eagerly=True)
+    _assert_roundtrip(expected, res, tuple_as_sexp)
+
+
+def test_ion_stream():
+    expected = "$ion_1_0 [1] (2) {a:3}"
+    result = dumps(loads(expected, single_value=False, parse_eagerly=False), binary=False)
+    assert result == expected
+
 @parametrize(True, False)
 def test_single_value_with_stream_fails(is_binary):
     out = BytesIO()
