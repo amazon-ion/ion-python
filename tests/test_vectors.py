@@ -121,7 +121,7 @@ _SKIP_LIST = (
 
 if c_ext:
     _SKIP_LIST += (
-        _good_file(u'subfieldVarInt.ion'),  # c_ext supports 300 decimal digits while there is a 8000+ decimal digits test..
+        _good_file(u'subfieldVarInt.ion'),  # c_ext supports 300 decimal digits while here is a 8000+ decimal digits test..
     )
 
 

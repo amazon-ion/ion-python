@@ -18,7 +18,6 @@ from __future__ import division
 from __future__ import print_function
 
 import sys
-from os.path import abspath, dirname, join, exists
 from setuptools import setup, find_packages, Extension
 from install import _install_ionc
 

@@ -1,0 +1,26 @@
+name: build and test
+
+on:
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ['3.6', '3.7', '3.8', '3.9', '3.10', 'pypy-3.6']
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Create a virtual environment
+        run: git submodule init && git submodule update && python3 -m venv ./venv && . venv/bin/activate
+
+      - run: pip install --upgrade setuptools
+      - run: pip install -r requirements.txt
+      - run: pip install -e .
+      - run: py.test
