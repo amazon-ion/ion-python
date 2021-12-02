@@ -617,7 +617,7 @@ def test_roundtrip(p):
 )
 def test_roundtrip_ion_stream(p):
     obj, is_binary, indent, tuple_as_sexp = p
-    expected  = [obj]
+    expected = [obj]
     out = BytesIO()
     dump(obj, out, binary=is_binary, indent=indent, tuple_as_sexp=tuple_as_sexp)
     out.seek(0)

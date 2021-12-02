@@ -19,8 +19,15 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from collections import OrderedDict
-from collections.abc import MutableMapping, MutableSequence
+# in Python 3.10, abstract collections have moved into their own module
+# for compatibility with 3.10+, first try imports from the new location
+# if that fails, try from the pre-3.10 location
+try:
+    from collections.abc import MutableMapping, MutableSequence
+    from collections import OrderedDict
+except:
+    from collections import MutableMapping, MutableSequence, OrderedDict
+    
 from datetime import datetime, timedelta, tzinfo
 from decimal import Decimal, ROUND_FLOOR, Context, Inexact
 from math import isnan

@@ -238,7 +238,7 @@ def test_write_numeric_with_annotation_simpleion():
     # http://amzn.github.io/ion-docs/guides/cookbook.html#reading-numeric-types
     value = IonPyFloat.from_value(IonType.FLOAT, 123, (u'abc',))
     data = simpleion.dumps(value, binary=False)
-    assert data == u'$ion_1_0 abc::123e+0' or u'$ion_1_0 abc::123.0e0'
+    assert data == u'$ion_1_0 abc::123e+0' or data == u'$ion_1_0 abc::123.0e0'
 
 
 def test_read_numerics_events():

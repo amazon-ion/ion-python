@@ -152,6 +152,7 @@ SIMPLE_SCALARS_MAP_TEXT = {
         (_D('0e-15'), b'0d-15'),
         (_D('-1e1000'), b'-1d+1000'),
         (_D('-4.412111311414141e1000'), b'-4.412111311414141d+1000'),
+        # TODO C extension doesn't support this much decimal digits. comment it for now.
         # (_D('1.1999999999999999555910790149937383830547332763671875e0'),
         #     b'1.1999999999999999555910790149937383830547332763671875'),
     ),
@@ -213,8 +214,7 @@ SIMPLE_SCALARS_MAP_TEXT = {
         ),
         (
             timestamp(2016, 2, 2, 0, 0, 30, precision=TimestampPrecision.SECOND,
-                      fractional_seconds=Decimal('0.00001000')),
-            (b'2016-02-02T00:00:30.00001000-00:00', b'2016-02-02T00:00:30.00001000-00:00')
+                      fractional_seconds=Decimal('0.000010000')), b'2016-02-02T00:00:30.000010000-00:00'
         ),
         (
             timestamp(2016, 2, 2, 0, 0, 30, precision=TimestampPrecision.SECOND,
