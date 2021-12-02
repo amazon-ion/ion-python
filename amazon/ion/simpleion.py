@@ -23,6 +23,7 @@ from datetime import datetime
 from decimal import Decimal
 from io import BytesIO, TextIOBase
 from itertools import chain
+from types import GeneratorType
 
 import six
 
@@ -155,7 +156,7 @@ def dump_python(obj, fp, imports=None, binary=True, sequence_as_stream=False, sk
     from_type = _FROM_TYPE_TUPLE_AS_SEXP if tuple_as_sexp else _FROM_TYPE
     if binary or not omit_version_marker:
         writer.send(ION_VERSION_MARKER_EVENT)  # The IVM is emitted automatically in binary; it's optional in text.
-    if sequence_as_stream and isinstance(obj, (list, tuple)):
+    if sequence_as_stream and isinstance(obj, (list, tuple)) or isinstance(obj, GeneratorType):
         # Treat this top-level sequence as a stream; serialize its elements as top-level values, but don't serialize the
         # sequence itself.
         for top_level in obj:
@@ -304,7 +305,7 @@ def dumps(obj, imports=None, binary=True, sequence_as_stream=False, skipkeys=Fal
 
 
 def load_python(fp, catalog=None, single_value=True, encoding='utf-8', cls=None, object_hook=None, parse_float=None,
-         parse_int=None, parse_constant=None, object_pairs_hook=None, use_decimal=None, **kw):
+        parse_int=None, parse_constant=None, object_pairs_hook=None, use_decimal=None, parse_eagerly=True, **kw):
     """Deserialize ``fp`` (a file-like object), which contains a text or binary Ion stream, to a Python object using the
     following conversion table::
         +-------------------+-------------------+
@@ -344,6 +345,8 @@ def load_python(fp, catalog=None, single_value=True, encoding='utf-8', cls=None,
             will be returned without an enclosing container. If True and there are multiple top-level values in the Ion
             stream, IonException will be raised. NOTE: this means that when data is dumped using
             ``sequence_as_stream=True``, it must be loaded using ``single_value=False``. Default: True.
+        parse_eagerly: (Optional[True|False]) Used in conjunction with ``single_value=False`` to return the result as list
+            or an iterator
         encoding: NOT IMPLEMENTED
         cls: NOT IMPLEMENTED
         object_hook: NOT IMPLEMENTED
@@ -370,13 +373,24 @@ def load_python(fp, catalog=None, single_value=True, encoding='utf-8', cls=None,
         else:
             raw_reader = text_reader()
     reader = blocking_reader(managed_reader(raw_reader, catalog), fp)
-    out = []  # top-level
-    _load(out, reader)
-    if single_value:
-        if len(out) != 1:
-            raise IonException('Stream contained %d values; expected a single value.' % (len(out),))
-        return out[0]
-    return out
+    if parse_eagerly:
+        out = []  # top-level
+        _load(out, reader)
+        if single_value:
+            if len(out) != 1:
+                raise IonException('Stream contained %d values; expected a single value.' % (len(out),))
+            return out[0]
+        return out
+    else:
+        out = _load_iteratively(reader)
+        if single_value:
+            result = next(out)
+            try:
+                next(out)
+                raise IonException('Stream contained more than 1 values; expected a single value.')
+            except StopIteration:
+                return result
+        return out
 
 
 _FROM_ION_TYPE = [
@@ -395,6 +409,21 @@ _FROM_ION_TYPE = [
     IonPyDict
 ]
 
+def _load_iteratively(reader, end_type=IonEventType.STREAM_END):
+    event = reader.send(NEXT_EVENT)
+    while event.event_type is not end_type:
+        ion_type = event.ion_type
+        if event.event_type is IonEventType.CONTAINER_START:
+            container = _FROM_ION_TYPE[ion_type].from_event(event)
+            _load(container, reader, IonEventType.CONTAINER_END, ion_type is IonType.STRUCT)
+            yield container
+        elif event.event_type is IonEventType.SCALAR:
+            if event.value is None or ion_type is IonType.NULL or ion_type.is_container:
+                scalar = IonPyNull.from_event(event)
+            else:
+                scalar = _FROM_ION_TYPE[ion_type].from_event(event)
+            yield scalar
+        event = reader.send(NEXT_EVENT)
 
 def _load(out, reader, end_type=IonEventType.STREAM_END, in_struct=False):
 
@@ -421,7 +450,7 @@ def _load(out, reader, end_type=IonEventType.STREAM_END, in_struct=False):
 
 
 def loads(ion_str, catalog=None, single_value=True, encoding='utf-8', cls=None, object_hook=None, parse_float=None,
-          parse_int=None, parse_constant=None, object_pairs_hook=None, use_decimal=None, **kw):
+          parse_int=None, parse_constant=None, object_pairs_hook=None, use_decimal=None, parse_eagerly=True, **kw):
     """Deserialize ``ion_str``, which is a string representation of an Ion object, to a Python object using the
     conversion table used by load (above).
 
@@ -432,6 +461,8 @@ def loads(ion_str, catalog=None, single_value=True, encoding='utf-8', cls=None, 
             and will be returned without an enclosing container. If True and there are multiple top-level values in
             the Ion stream, IonException will be raised. NOTE: this means that when data is dumped using
             ``sequence_as_stream=True``, it must be loaded using ``single_value=False``. Default: True.
+        parse_eagerly: (Optional[True|False]) Used in conjunction with ``single_value=False`` to return the result as list
+            or an iterator
         encoding: NOT IMPLEMENTED
         cls: NOT IMPLEMENTED
         object_hook: NOT IMPLEMENTED
@@ -458,7 +489,7 @@ def loads(ion_str, catalog=None, single_value=True, encoding='utf-8', cls=None, 
 
     return load(ion_buffer, catalog=catalog, single_value=single_value, encoding=encoding, cls=cls,
                 object_hook=object_hook, parse_float=parse_float, parse_int=parse_int, parse_constant=parse_constant,
-                object_pairs_hook=object_pairs_hook, use_decimal=use_decimal)
+                object_pairs_hook=object_pairs_hook, use_decimal=use_decimal, parse_eagerly=parse_eagerly)
 
 
 def dump_extension(obj, fp, binary=True, sequence_as_stream=False, tuple_as_sexp=False, omit_version_marker=False):
@@ -470,10 +501,22 @@ def dump_extension(obj, fp, binary=True, sequence_as_stream=False, tuple_as_sexp
     fp.write(res)
 
 
-def load_extension(fp, single_value=True, encoding='utf-8'):
-    data = fp.read()
-    data = data if isinstance(data, bytes) else bytes(data, encoding)
-    return ionc.ionc_read(data, single_value, False)
+def load_extension(fp, single_value=True, parse_eagerly=True):
+    iterator = ionc.ionc_read(fp, emit_bare_values=False)
+    if single_value:
+        try:
+            value = next(iterator)
+        except StopIteration:
+            return None
+        try:
+            next(iterator)
+            raise IonException('Stream contained more than 1 values; expected a single value.')
+        except StopIteration:
+            pass
+        return value
+    if parse_eagerly:
+        return list(iterator)
+    return iterator
 
 
 def dump(obj, fp, imports=None, binary=True, sequence_as_stream=False, skipkeys=False, ensure_ascii=True,
@@ -496,11 +539,11 @@ def dump(obj, fp, imports=None, binary=True, sequence_as_stream=False, skipkeys=
 
 
 def load(fp, catalog=None, single_value=True, encoding='utf-8', cls=None, object_hook=None, parse_float=None,
-         parse_int=None, parse_constant=None, object_pairs_hook=None, use_decimal=None, **kw):
+         parse_int=None, parse_constant=None, object_pairs_hook=None, use_decimal=None, parse_eagerly=True, **kw):
     if c_ext and catalog is None:
-        return load_extension(fp, single_value=single_value, encoding=encoding)
+        return load_extension(fp, parse_eagerly=parse_eagerly, single_value=single_value)
     else:
         return load_python(fp, catalog=catalog, single_value=single_value, encoding=encoding, cls=cls,
                          object_hook=object_hook, parse_float=parse_float, parse_int=parse_int,
                          parse_constant=parse_constant, object_pairs_hook=object_pairs_hook,
-                         use_decimal=use_decimal, **kw)
+                         use_decimal=use_decimal, parse_eagerly=parse_eagerly, **kw)

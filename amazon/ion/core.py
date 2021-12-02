@@ -19,7 +19,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from collections import MutableMapping, MutableSequence, OrderedDict
+from collections import OrderedDict
+from collections.abc import MutableMapping, MutableSequence
 from datetime import datetime, timedelta, tzinfo
 from decimal import Decimal, ROUND_FLOOR, Context, Inexact
 from math import isnan
