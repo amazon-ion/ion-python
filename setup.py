@@ -22,7 +22,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='amazon.ion',
-    version='0.7.0',
+    version='0.8.0',
     description='A Python implementation of Amazon Ion.',
     url='http://github.com/amzn/ion-python',
     author='Amazon Ion Team',
