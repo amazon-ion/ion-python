@@ -1,7 +1,7 @@
 ### 0.8.0 (2020-12-07)
 * Makes build/CI work with Python 3.9. (#152)
 * Sets the default ion_type when an IonPy* is constructed. (#173)
-* Adds friendlier debugging for ionPyDict. (#144)
+* Adds friendlier debugging for IonPyDict. (#144)
 * Adds detail error messages for missing ion_type. (#138)
 * Adds support of empty string field_name. (#141)
 
