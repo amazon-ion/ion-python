@@ -11,7 +11,7 @@ This package is designed to work with **Python 3.6+**
 
 Start with the [simpleion](https://ion-python.readthedocs.io/en/latest/amazon.ion.html#module-amazon.ion.simpleion)
 module, which provides four APIs (`dump`, `dumps`, `load`, `loads`) that will be familiar to users of Python's
-built-in JSON parsing module. Simpleion module's performance is improved by an optional [C extension](https://github.com/amzn/ion-python/blob/c-extension-beta/C_EXTENSION.md).
+built-in JSON parsing module. Simpleion module's performance is improved by an optional [C extension](https://github.com/amzn/ion-python/blob/master/C_EXTENSION.md).
 
 For example:
 

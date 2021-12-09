@@ -1,6 +1,4 @@
-# Ion Python C Extension Beta
-
-### ***This feature is considered experimental, in Beta stage.***
+# Ion Python C Extension
 
 1. [Overall](#overall)
 2. [Motivation](#motivation)
@@ -15,6 +13,7 @@
    8.1 &nbsp;[Distribution](#1-distribution)<br>
 
 ## Overall
+
 Ion Python C extension utilizes Ion C to access files that close the performance gap between the Ion Python simpleion module and other Ion implementations.
 
 The simpleion module C extension supports limited options for now and will add more incrementally. Refer to [TODO](#todo) for details.  
@@ -112,13 +111,14 @@ ion Python        \xee\x99\x81\x83  \xde\x95  \x87\xbe\x92 \x86annot1\x86annot2\
 ```
 
 ### 2. Known Issues
-1. Type translation errors causing python to crash. Refer to [amzn/ion-python#151](https://github.com/amzn/ion-python/issues/151) for details.
-2. We barely see memory leak issues recently, but it is possible that the issue still exists. Refer to [amzn/ion-python#155](https://github.com/amzn/ion-python/issues/155) for details.
-3. C extension only supports at most 6 for timestamp precision. Refer to [amzn/ion-python#160](https://github.com/amzn/ion-python/issues/160) for details.
-4. C extension only supports at most 34 decimal digits. Refer to [amzn/ion-python#159](https://github.com/amzn/ion-python/issues/159) for details.
+
+1. We barely see memory leak issues recently, but it is possible that the issue still exists. Refer to [amzn/ion-python#155](https://github.com/amzn/ion-python/issues/155) for details.
+2. C extension only supports at most 9 for timestamp precision. Refer to [amzn/ion-python#160](https://github.com/amzn/ion-python/issues/160) for details.
+3. C extension only supports at most 34 decimal digits. Refer to [amzn/ion-python#159](https://github.com/amzn/ion-python/issues/159) for details.
 
 
 ## TODO
+
 1. More bug fixing.
 2. More performance improvement.
 3. Support more simpleion options such as `imports`, `catalog`, `omit_version_marker`. (Ion Python uses pure python implementation to handle unsupported options currently)
@@ -127,7 +127,7 @@ ion Python        \xee\x99\x81\x83  \xde\x95  \x87\xbe\x92 \x86annot1\x86annot2\
 ## Deploy
 
 ### 1. Distribution
-PYPI supports two ways of distribution: [Source Code Distribution](https://packaging.python.org/guides/distributing-packages-using-setuptools/#source-distributions) and [Wheel Distribution](https://packaging.python.org/guides/distributing-packages-using-setuptools/#wheels). This Beta version uses source code distribution to build Ion C locally automatically after installation of the package. <br/>
+PYPI supports two ways of distribution: [Source Code Distribution](https://packaging.python.org/guides/distributing-packages-using-setuptools/#source-distributions) and [Wheel Distribution](https://packaging.python.org/guides/distributing-packages-using-setuptools/#wheels). This version uses source code distribution to build Ion C locally automatically after installation of the package. <br/>
 
 We will add wheel distribution in the future release because of the following benefits:
 1. Pre-compiling Ion C library avoids potential build/compile issues and does not require a C compiler to be present on the user's machine.
