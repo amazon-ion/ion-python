@@ -5,3 +5,4 @@ global-exclude *.pyc
 global-exclude .git*
 include install.py
 include amazon/ion/_ioncmodule.h
+include amazon/ion/ioncmodule.c

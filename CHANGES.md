@@ -1,3 +1,6 @@
+### 0.9.0 (2020-12-10)
+* Adds a C extension to speed up simpleion module. (#181)
+
 ### 0.8.0 (2020-12-07)
 * Makes build/CI work with Python 3.9. (#152)
 * Sets the default ion_type when an IonPy* is constructed. (#173)
