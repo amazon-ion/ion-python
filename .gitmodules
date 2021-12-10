@@ -2,3 +2,7 @@
 	path = vectors
 	url = https://github.com/amzn/ion-tests
 	branch = master
+[submodule "ion-c"]
+	path = ion-c
+	url = https://github.com/amzn/ion-c
+	branch = master

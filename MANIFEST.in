@@ -3,3 +3,5 @@ recursive-include tests *.py
 graft vectors
 global-exclude *.pyc
 global-exclude .git*
+include install.py
+include amazon/ion/_ioncmodule.h

@@ -22,5 +22,5 @@ jobs:
 
       - run: pip install --upgrade setuptools
       - run: pip install -r requirements.txt
-      - run: pip install .
+      - run: pip install -e .
       - run: py.test

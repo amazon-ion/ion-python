@@ -36,7 +36,7 @@ from amazon.ion.util import record
 from amazon.ion.writer_binary_raw import _serialize_symbol, _write_length
 from tests.writer_util import VARUINT_END_BYTE, ION_ENCODED_INT_ZERO, SIMPLE_SCALARS_MAP_BINARY, SIMPLE_SCALARS_MAP_TEXT
 from tests import parametrize
-
+from amazon.ion.simpleion import c_ext
 
 _st = partial(SymbolToken, sid=None, location=None)
 
@@ -59,91 +59,100 @@ _SIMPLE_CONTAINER_MAP = {
     IonType.LIST: (
         (
             [[], ],
-            _Expected(b'\xB0', b'[]')
+            (_Expected(b'\xB0', b'[]'),)
         ),
         (
             [(), ],
-            _Expected(b'\xB0', b'[]')
+            (_Expected(b'\xB0', b'[]'),)
         ),
         (
             [IonPyList.from_value(IonType.LIST, []), ],
-            _Expected(b'\xB0', b'[]')
+            (_Expected(b'\xB0', b'[]'),)
         ),
         (
             [[0], ],
-            _Expected(
+            (_Expected(
                 bytes_of([
                     0xB0 | 0x01,  # Int value 0 fits in 1 byte.
                     ION_ENCODED_INT_ZERO
                 ]),
                 b'[0]'
-            )
+            ),)
         ),
         (
             [(0,), ],
-            _Expected(
+            (_Expected(
                 bytes_of([
                     0xB0 | 0x01,  # Int value 0 fits in 1 byte.
                     ION_ENCODED_INT_ZERO
                 ]),
                 b'[0]'
-            )
+            ),)
         ),
         (
             [IonPyList.from_value(IonType.LIST, [0]), ],
-            _Expected(
+            (_Expected(
                 bytes_of([
                     0xB0 | 0x01,  # Int value 0 fits in 1 byte.
                     ION_ENCODED_INT_ZERO
                 ]),
                 b'[0]'
-            )
+            ),)
         ),
     ),
     IonType.SEXP: (
         (
             [IonPyList.from_value(IonType.SEXP, []), ],
-            _Expected(b'\xC0', b'()')
+            (_Expected(b'\xC0', b'()'),)
         ),
         (
             [IonPyList.from_value(IonType.SEXP, [0]), ],
-            _Expected(
+            (_Expected(
                 bytes_of([
                     0xC0 | 0x01,  # Int value 0 fits in 1 byte.
                     ION_ENCODED_INT_ZERO
                 ]),
                 b'(0)'
-            )
+            ),)
         ),
         (
             [(), ],  # NOTE: the generators will detect this and set 'tuple_as_sexp' to True for this case.
-            _Expected(b'\xC0', b'()')
+            (_Expected(b'\xC0', b'()'),)
         )
     ),
     IonType.STRUCT: (
         (
             [{}, ],
-            _Expected(b'\xD0', b'{}')
+            (_Expected(b'\xD0', b'{}'),)
         ),
         (
             [IonPyDict.from_value(IonType.STRUCT, {}), ],
-            _Expected(b'\xD0', b'{}')
+            (_Expected(b'\xD0', b'{}'),)
         ),
         (
             [{u'': u''}, ],
-            _Expected(
+            (_Expected(
                 bytes_of([
                     0xDE,  # The lower nibble may vary. It does not indicate actual length unless it's 0.
                     VARUINT_END_BYTE | 2,  # Field name 10 and value 0 each fit in 1 byte.
                     VARUINT_END_BYTE | 10,
-                    0x80    # Empty string
+                    0x80  # Empty string
                 ]),
                 b"{'':\"\"}"
+            ),
+             _Expected(
+                 bytes_of([
+                     0xD2,
+                     VARUINT_END_BYTE | 10,
+                     0x80  # Empty string
+                 ]),
+                 b"{'':\"\"}"
+             ),
             )
         ),
         (
             [{u'foo': 0}, ],
-            _Expected(
+            (_Expected(
                 bytes_of([
                     0xDE,  # The lower nibble may vary. It does not indicate actual length unless it's 0.
                     VARUINT_END_BYTE | 2,  # Field name 10 and value 0 each fit in 1 byte.
@@ -151,11 +160,20 @@ _SIMPLE_CONTAINER_MAP = {
                     ION_ENCODED_INT_ZERO
                 ]),
                 b"{foo:0}"
+            ),
+             _Expected(
+                 bytes_of([
+                     0xD2,
+                     VARUINT_END_BYTE | 10,
+                     ION_ENCODED_INT_ZERO
+                 ]),
+                 b"{foo:0}"
+             ),
             )
         ),
         (
             [IonPyDict.from_value(IonType.STRUCT, {u'foo': 0}), ],
-            _Expected(
+            (_Expected(
                 bytes_of([
                     0xDE,  # The lower nibble may vary. It does not indicate actual length unless it's 0.
                     VARUINT_END_BYTE | 2,  # Field name 10 and value 0 each fit in 1 byte.
@@ -163,6 +181,15 @@ _SIMPLE_CONTAINER_MAP = {
                     ION_ENCODED_INT_ZERO
                 ]),
                 b"{foo:0}"
+            ),
+             _Expected(
+                 bytes_of([
+                     0xD2,
+                     VARUINT_END_BYTE | 10,
+                     ION_ENCODED_INT_ZERO
+                 ]),
+                 b"{foo:0}"
+             ),
             )
         ),
     ),
@@ -185,8 +212,12 @@ def generate_scalars_binary(scalars_map, preceding_symbols=0):
                 has_symbols = True
             elif ion_type is IonType.STRING:
                 # Encode all strings as symbols too.
-                symbol_expected = _serialize_symbol(
-                    IonEvent(IonEventType.SCALAR, IonType.SYMBOL, SymbolToken(None, 10 + preceding_symbols)))
+                if c_ext:
+                    symbol_expected = _serialize_symbol(
+                        IonEvent(IonEventType.SCALAR, IonType.SYMBOL, SymbolToken(None, 10)))
+                else:
+                    symbol_expected = _serialize_symbol(
+                        IonEvent(IonEventType.SCALAR, IonType.SYMBOL, SymbolToken(None, 10 + preceding_symbols)))
                 yield _Parameter(IonType.SYMBOL.name + ' ' + native,
                                  IonPyText.from_value(IonType.SYMBOL, native), symbol_expected, True)
             yield _Parameter('%s %s' % (ion_type.name, native), native, native_expected, has_symbols)
@@ -198,26 +229,30 @@ def generate_containers_binary(container_map, preceding_symbols=0):
     for ion_type, container in six.iteritems(container_map):
         for test_tuple in container:
             obj = test_tuple[0]
-            expecteds = test_tuple[1].binary
+            expecteds = test_tuple[1]
+            final_expected = ()
             has_symbols = False
             tuple_as_sexp = False
-            for elem in obj:
-                if isinstance(elem, (dict, Multimap)) and len(elem) > 0:
-                    has_symbols = True
-                elif ion_type is IonType.SEXP and isinstance(elem, tuple):
-                    tuple_as_sexp = True
-            if has_symbols and preceding_symbols:
-                # we need to make a distinct copy that will contain an altered encoding
-                expecteds = []
-                for expected in expecteds:
-                    expected = bytearray(expected)
-                    field_sid = expected[-2] & (~VARUINT_END_BYTE)
-                    expected[-2] = VARUINT_END_BYTE | (preceding_symbols + field_sid)
-                    expecteds.append(expected)
-            expected = bytearray()
-            for e in expecteds:
-                expected.extend(e)
-            yield _Parameter(repr(obj), obj, expected, has_symbols, True, tuple_as_sexp=tuple_as_sexp)
+            for one_expected in expecteds:
+                one_expected = one_expected.binary
+                for elem in obj:
+                    if isinstance(elem, (dict, Multimap)) and len(elem) > 0:
+                        has_symbols = True
+                    elif ion_type is IonType.SEXP and isinstance(elem, tuple):
+                        tuple_as_sexp = True
+                if has_symbols and preceding_symbols:
+                    # we need to make a distinct copy that will contain an altered encoding
+                    one_expected = []
+                    for expected in one_expected:
+                        expected = bytearray(expected)
+                        field_sid = expected[-2] & (~VARUINT_END_BYTE)
+                        expected[-2] = VARUINT_END_BYTE | (preceding_symbols + field_sid)
+                        one_expected.append(expected)
+                expected = bytearray()
+                for e in one_expected:
+                    expected.extend(e)
+                final_expected += (expected,)
+            yield _Parameter(repr(obj), obj, final_expected, has_symbols, True, tuple_as_sexp=tuple_as_sexp)
 
 
 def generate_annotated_values_binary(scalars_map, container_map):
@@ -229,19 +264,39 @@ def generate_annotated_values_binary(scalars_map, container_map):
         obj.ion_annotations = (_st(u'annot1'), _st(u'annot2'),)
         annot_length = 2  # 10 and 11 each fit in one VarUInt byte
         annot_length_length = 1  # 2 fits in one VarUInt byte
-        value_length = len(value_p.expected)
-        length_field = annot_length + annot_length_length + value_length
-        wrapper = []
-        _write_length(wrapper, length_field, 0xE0)
-        wrapper.extend([
-            VARUINT_END_BYTE | annot_length,
-            VARUINT_END_BYTE | 10,
-            VARUINT_END_BYTE | 11
-        ])
+
+        final_expected = ()
+        if isinstance(value_p.expected, (list, tuple)):
+            expecteds = value_p.expected
+        else:
+            expecteds = (value_p.expected, )
+        for one_expected in expecteds:
+            value_length = len(one_expected)
+            length_field = annot_length + annot_length_length + value_length
+            wrapper = []
+            _write_length(wrapper, length_field, 0xE0)
+
+            if c_ext and obj.ion_type is IonType.SYMBOL and not isinstance(obj, IonPyNull) \
+                    and not (hasattr(obj, 'sid') and (obj.sid < 10 or obj.sid is None)):
+                wrapper.extend([
+                    VARUINT_END_BYTE | annot_length,
+                    VARUINT_END_BYTE | 11,
+                    VARUINT_END_BYTE | 12
+                ])
+            else:
+                wrapper.extend([
+                    VARUINT_END_BYTE | annot_length,
+                    VARUINT_END_BYTE | 10,
+                    VARUINT_END_BYTE | 11
+                ])
+
+            exp = bytearray(wrapper) + one_expected
+            final_expected += (exp, )
+
         yield _Parameter(
             desc='ANNOTATED %s' % value_p.desc,
             obj=obj,
-            expected=bytearray(wrapper) + value_p.expected,
+            expected=final_expected,
             has_symbols=True,
             stream=value_p.stream
         )
@@ -268,15 +323,26 @@ def _assert_symbol_aware_ion_equals(assertion, output):
 
 def _dump_load_run(p, dumps_func, loads_func, binary):
     # test dump
-    res = dumps_func(p.obj, binary=binary, sequence_as_stream=p.stream, tuple_as_sexp=p.tuple_as_sexp)
-    if not p.has_symbols:
-        if binary:
-            assert (_IVM + p.expected) == res
-        else:
-            assert (b'$ion_1_0 ' + p.expected) == res
+    res = dumps_func(p.obj, binary=binary, sequence_as_stream=p.stream, tuple_as_sexp=p.tuple_as_sexp,
+                     omit_version_marker=True)
+    if isinstance(p.expected, (tuple, list)):
+        expecteds = p.expected
     else:
-        # The payload contains a LST. The value comes last, so compare the end bytes.
-        assert p.expected == res[len(res) - len(p.expected):]
+        expecteds = (p.expected,)
+    write_success = False
+    for expected in expecteds:
+        if not p.has_symbols:
+            if binary:
+                write_success = (_IVM + expected) == res or expected == res
+            else:
+                write_success = (b'$ion_1_0 ' + expected) == res or expected == res
+        else:
+            # The payload contains a LST. The value comes last, so compare the end bytes.
+            write_success = expected == res[len(res) - len(expected):]
+        if write_success:
+            break
+    if not write_success:
+        raise AssertionError('Expected: %s , found %s' % (expecteds, res))
     # test load
     res = loads_func(res, single_value=(not p.stream))
     _assert_symbol_aware_ion_equals(p.obj, res)
@@ -342,15 +408,20 @@ def generate_containers_text(container_map):
     for ion_type, container in six.iteritems(container_map):
         for test_tuple in container:
             obj = test_tuple[0]
-            expected = test_tuple[1].text[0]
+            expected = test_tuple[1]
+            final_expected = ()
             has_symbols = False
             tuple_as_sexp = False
-            for elem in obj:
-                if isinstance(elem, dict) and len(elem) > 0:
-                    has_symbols = True
-                elif ion_type is IonType.SEXP and isinstance(elem, tuple):
-                    tuple_as_sexp = True
-            yield _Parameter(repr(obj), obj, expected, has_symbols, True, tuple_as_sexp=tuple_as_sexp)
+
+            for one_expected in expected:
+                one_expected = one_expected.text[0]
+                for elem in obj:
+                    if isinstance(elem, dict) and len(elem) > 0:
+                        has_symbols = True
+                    elif ion_type is IonType.SEXP and isinstance(elem, tuple):
+                        tuple_as_sexp = True
+                final_expected += (one_expected,)
+            yield _Parameter(repr(obj), obj, final_expected, has_symbols, True, tuple_as_sexp=tuple_as_sexp)
 
 
 def generate_annotated_values_text(scalars_map, container_map):
@@ -360,10 +431,18 @@ def generate_annotated_values_text(scalars_map, container_map):
         if not isinstance(obj, _IonNature):
             continue
         obj.ion_annotations = (_st(u'annot1'), _st(u'annot2'),)
+
+        annotated_expected = ()
+        if isinstance(value_p.expected, (tuple, list)):
+            for expected in value_p.expected:
+                annotated_expected += (b"annot1::annot2::" + expected,)
+        else:
+            annotated_expected += (b"annot1::annot2::" + value_p.expected,)
+
         yield _Parameter(
             desc='ANNOTATED %s' % value_p.desc,
             obj=obj,
-            expected=b"annot1::annot2::" + value_p.expected,
+            expected=annotated_expected,
             has_symbols=True,
             stream=value_p.stream
         )
@@ -533,6 +612,24 @@ def test_roundtrip(p):
     _assert_roundtrip(obj, res, tuple_as_sexp)
 
 
+@parametrize(
+    *tuple(_generate_roundtrips(_ROUNDTRIPS))
+)
+def test_roundtrip_ion_stream(p):
+    obj, is_binary, indent, tuple_as_sexp = p
+    expected = [obj]
+    out = BytesIO()
+    dump(obj, out, binary=is_binary, indent=indent, tuple_as_sexp=tuple_as_sexp)
+    out.seek(0)
+    res = load(out, single_value=False, parse_eagerly=True)
+    _assert_roundtrip(expected, res, tuple_as_sexp)
+
+
+def test_ion_stream():
+    expected = "$ion_1_0 [1] (2) {a:3}"
+    result = dumps(loads(expected, single_value=False, parse_eagerly=False), binary=False)
+    assert result == expected
+
 @parametrize(True, False)
 def test_single_value_with_stream_fails(is_binary):
     out = BytesIO()
@@ -571,6 +668,9 @@ class PrettyPrintParams(record('ion_text', 'indent', ('exact_text', None), ('reg
                 "\n\t\troof: false,?\n", "\n\t\twalls: 4,?\n", "\n\t\\}\n\\]\\Z"])
         )
 def test_pretty_print(p):
+    if c_ext:
+        # TODO support pretty print for C extension.
+        return
     ion_text, indent, exact_text, regexes = p
     ion_value = loads(ion_text)
     actual_pretty_ion_text = dumps(ion_value, binary=False, indent=indent)

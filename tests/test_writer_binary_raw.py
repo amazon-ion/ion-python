@@ -185,19 +185,30 @@ def _generate_annotated_values():
             [SymbolToken(None, 10), SymbolToken(None, 11)]),) + value_p.events[1:]
         annot_length = 2  # 10 and 11 each fit in one VarUInt byte
         annot_length_length = 1  # 2 fits in one VarUInt byte
-        value_length = len(value_p.expected)
-        length_field = annot_length + annot_length_length + value_length
-        wrapper = []
-        _write_length(wrapper, length_field, 0xE0)
-        wrapper.extend([
-            VARUINT_END_BYTE | annot_length,
-            VARUINT_END_BYTE | 10,
-            VARUINT_END_BYTE | 11
-        ])
+        final_expected = ()
+        if isinstance(value_p.expected, (list, tuple)):
+            expecteds = value_p.expected
+        else:
+            expecteds = (value_p.expected,)
+
+        for one_expected in expecteds:
+            value_length = len(one_expected)
+            length_field = annot_length + annot_length_length + value_length
+            wrapper = []
+            _write_length(wrapper, length_field, 0xE0)
+            wrapper.extend([
+                VARUINT_END_BYTE | annot_length,
+                VARUINT_END_BYTE | 10,
+                VARUINT_END_BYTE | 11
+            ])
+
+            exp = bytearray(wrapper) + one_expected
+            final_expected += (exp, )
+
         yield _P(
             desc='ANN %s' % value_p.desc,
             events=events + (_E(_ET.STREAM_END),),
-            expected=bytearray(wrapper) + value_p.expected,
+            expected=final_expected,
         )
 
 
