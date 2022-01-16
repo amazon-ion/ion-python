@@ -72,12 +72,21 @@ def _library_exists_helper(name):
         and os.path.exists(join(_IONC_LOCATION, name))
 
 
+def readonly_handler(func, path, execinfo):
+    os.chmod(path, 128)
+    func(path)
+
+
 def _download_ionc():
     try:
         # Install ion-c.
         if isdir(_CURRENT_ION_C_DIR):
-            shutil.rmtree(_CURRENT_ION_C_DIR)
-        check_call(['git', 'submodule', 'update', '--init', '--recursive'])
+            shutil.rmtree(_CURRENT_ION_C_DIR, onerror=readonly_handler)
+
+        # TODO submodule does not work, need to be fixed.
+        # check_call(['git', 'submodule', 'update', '--init', '--recursive'])
+        check_call(['git', 'clone', '--recurse-submodules', _IONC_REPO_URL, 'ion-c'])
+
         os.chdir(_CURRENT_ION_C_DIR)
 
         # Initialize submodule.
@@ -90,7 +99,7 @@ def _download_ionc():
         return True
     except:
         if isdir(_IONC_DIR):
-            shutil.rmtree(_IONC_DIR)
+            shutil.rmtree(_IONC_DIR, onerror=readonly_handler)
         print('ionc build error: Unable to build ion-c library.')
         return False
 
@@ -155,7 +164,7 @@ def _move_lib_mac_and_linux(name):
 def move_build_lib_for_distribution():
     # Create a directory to store build output.
     if isdir(_C_EXT_DEPENDENCY_DIR):
-        shutil.rmtree(_C_EXT_DEPENDENCY_DIR)
+        shutil.rmtree(_C_EXT_DEPENDENCY_DIR, onerror=readonly_handler)
     os.mkdir(_C_EXT_DEPENDENCY_DIR)
     os.mkdir(_C_EXT_DEPENDENCY_LIB_LOCATION)
     os.mkdir(_C_EXT_DEPENDENCY_INCLUDES_DIR)

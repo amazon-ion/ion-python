@@ -62,11 +62,6 @@ def run_setup():
         include_package_data=True,
         namespace_packages=['amazon'],
 
-        install_requires=[
-            'six',
-            'jsonconversion'
-        ],
-
         setup_requires=[
             'pytest-runner',
         ],

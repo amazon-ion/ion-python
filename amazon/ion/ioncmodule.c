@@ -579,6 +579,19 @@ static iERR ionc_write_big_int(hWRITER writer, PyObject *obj) {
     Py_DECREF(temp);
 fail:
     cRETURN;
+
+//    iENTER;
+//    PyObject* int_str = PyObject_CallMethod(obj, "__str__", NULL);
+//    ION_STRING string_value;
+//    ion_string_from_py(int_str, &string_value);
+//    ION_INT ion_int_value;
+//
+//    IONCHECK(ion_int_init(&ion_int_value, NULL));
+//    IONCHECK(ion_int_from_string(&ion_int_value, &string_value));
+//    IONCHECK(ion_writer_write_ion_int(writer, &ion_int_value));
+//fail:
+//    Py_XDECREF(int_str);
+//    cRETURN;
 }
 
 /*
@@ -735,6 +748,25 @@ iERR ionc_write_value(hWRITER writer, PyObject* obj, PyObject* tuple_as_sexp) {
         Py_DECREF(py_sign);
 
         IONCHECK(ion_writer_write_ion_decimal(writer, &decimal_value));
+
+//      TODO math
+//        if (ion_type == tid_none_INT) {
+//            ion_type = tid_DECIMAL_INT;
+//        }
+//        if (tid_DECIMAL_INT != ion_type) {
+//            _FAILWITHMSG(IERR_INVALID_ARG, "Found Decimal; expected DECIMAL Ion type.");
+//        }
+//
+//        PyObject* decimal_str = PyObject_CallMethod(obj, "__str__", NULL);
+//        char* decimal_c_str = NULL;
+//        Py_ssize_t decimal_c_str_len;
+//        c_string_from_py(decimal_str, &decimal_c_str, &decimal_c_str_len);
+//
+//        ION_DECIMAL decimal_value;
+//        IONCHECK(ion_decimal_from_string(&decimal_value, decimal_c_str, &dec_context));
+//        Py_DECREF(decimal_str);
+//
+//        IONCHECK(ion_writer_write_ion_decimal(writer, &decimal_value));
     }
     else if (PyBytes_Check(obj)) {
         if (ion_type == tid_none_INT) {
@@ -1289,7 +1321,6 @@ iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BOOL in_s
         }
         case tid_INT_INT:
         {
-            // TODO add ion-c API to return an int64 if possible, or an ION_INT if necessary
             ION_INT ion_int_value;
             IONCHECK(ion_int_init(&ion_int_value, hreader));
             IONCHECK(ion_reader_read_ion_int(hreader, &ion_int_value));
@@ -1329,6 +1360,28 @@ iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BOOL in_s
             ion_nature_constructor = _ionpyint_fromvalue;
             Py_DECREF(ion_int_base);
             break;
+
+//          TODO math
+//            ION_INT ion_int_value;
+//            IONCHECK(ion_int_init(&ion_int_value, hreader));
+//            IONCHECK(ion_reader_read_ion_int(hreader, &ion_int_value));
+//            SIZE int_char_len, int_char_written;
+//            IONCHECK(ion_int_char_length(&ion_int_value, &int_char_len));
+//            char* ion_int_str = (char*)PyMem_Malloc(int_char_len + 1); // Leave room for \0
+//            err = ion_int_to_char(&ion_int_value, (BYTE*)ion_int_str, int_char_len, &int_char_written);
+//            if (err) {
+//                PyMem_Free(ion_int_str);
+//                IONCHECK(err);
+//            }
+//            if (int_char_len < int_char_written) {
+//                PyMem_Free(ion_int_str);
+//                _FAILWITHMSG(IERR_BUFFER_TOO_SMALL, "Not enough space given to represent int as string.");
+//            }
+//            py_value = PyLong_FromString(ion_int_str, NULL, 10);
+//            PyMem_Free(ion_int_str);
+//
+//            ion_nature_constructor = _ionpyint_fromvalue;
+//            break;
         }
         case tid_FLOAT_INT:
         {
