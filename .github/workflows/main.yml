@@ -25,7 +25,7 @@ jobs:
       - run: pip install -e .
       - run: py.test
 
-    test-Win:
+    test2:
       runs-on: windows-latest
       strategy:
         matrix:
