@@ -2,7 +2,7 @@ name: build and test
 
 on:
   pull_request:
-    branches: [ master ]
+    branches: [ master, config ]
 
 jobs:
   test:
@@ -24,3 +24,20 @@ jobs:
       - run: pip install -r requirements.txt
       - run: pip install -e .
       - run: py.test
+
+    test-Win:
+      runs-on: windows-latest
+      strategy:
+        matrix:
+          python: [ '3.6', '3.7', '3.8', '3.9', '3.10']
+      steps:
+        - uses: actions/checkout@v2
+        - name: Set up Python
+          uses: actions/setup-python@v2
+          with:
+            python-version: ${{ matrix.python-version }}
+
+        - run: pip install --upgrade setuptools
+        - run: pip install -r requirements.txt
+        - run: pip install -e .
+        - run: py.test
