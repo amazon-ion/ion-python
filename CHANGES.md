@@ -1,5 +1,5 @@
 ### 0.9.1 (2022-01-31)
-Fixes distribution issues to enable C extension by default.
+* Fixes distribution issues to enable C extension by default.
 
 ### 0.9.0 (2021-12-10)
 * Adds a C extension to speed up simpleion module. (#181)
