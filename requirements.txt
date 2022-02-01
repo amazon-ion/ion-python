@@ -14,3 +14,4 @@ six==1.16.0
 toml==0.10.2
 tox==3.23.1
 virtualenv==20.4.7
+setuptools==60.5.0
