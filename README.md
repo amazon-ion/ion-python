@@ -9,6 +9,13 @@ This package is designed to work with **Python 3.6+**
 
 ## Getting Started
 
+Instal using pip with the following command.
+
+```shell
+python3 -m pip install amazon.ion
+```
+
+
 Start with the [simpleion](https://ion-python.readthedocs.io/en/latest/amazon.ion.html#module-amazon.ion.simpleion)
 module, which provides four APIs (`dump`, `dumps`, `load`, `loads`) that will be familiar to users of Python's
 built-in JSON parsing module. Simpleion module's performance is improved by an optional [C extension](https://github.com/amzn/ion-python/blob/master/C_EXTENSION.md).
