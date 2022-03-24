@@ -9,7 +9,7 @@ This package is designed to work with **Python 3.6+**
 
 ## Getting Started
 
-Instal using pip with the following command.
+Install using pip with the following command.
 
 ```shell
 python3 -m pip install amazon.ion
