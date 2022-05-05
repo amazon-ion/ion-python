@@ -157,7 +157,7 @@ jobs:
           zip ion-python-wheels ./*.whl
           aws s3 mv ion-python-wheels.zip ${{ secrets.AWS_WHEELS_BUCKET_URL }} --acl bucket-owner-full-control
 
-      - name: Install the release wheels from PYPI
+      - name: Install the released wheels from PYPI
         run: |
           sleep 300s
 
