@@ -88,8 +88,6 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/')
     needs: [test]
     runs-on: ${{ matrix.os }}
-    outputs:
-      output1: ${{ steps.step1.outputs.test }}
     strategy:
       fail-fast: true
       matrix:
@@ -102,11 +100,6 @@ jobs:
         run: |
           pip3 install -U pip
           pip3 install -U setuptools
-
-      - name: Install wheels and twine
-        run: |
-          pip3 install wheel
-          pip3 install twine
 
       - name: Set up QEMU
         if: runner.os == 'Linux'
