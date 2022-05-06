@@ -1,3 +1,7 @@
+### 0.9.2 (2022-05-5)
+* Adds required dependency (#197)
+* Adds an installation guide in readme (#195)
+
 ### 0.9.1 (2022-01-31)
 * Fixes distribution issues to enable C extension by default.
 
