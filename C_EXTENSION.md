@@ -127,9 +127,9 @@ ion Python        \xee\x99\x81\x83  \xde\x95  \x87\xbe\x92 \x86annot1\x86annot2\
 ## Deploy
 
 ### 1. Distribution
-PYPI supports two ways of distribution: [Source Code Distribution](https://packaging.python.org/guides/distributing-packages-using-setuptools/#source-distributions) and [Wheel Distribution](https://packaging.python.org/guides/distributing-packages-using-setuptools/#wheels). This version uses source code distribution to build Ion C locally automatically after installation of the package. <br/>
+PYPI supports two ways of distribution: [Source Code Distribution](https://packaging.python.org/guides/distributing-packages-using-setuptools/#source-distributions) and [Wheel Distribution](https://packaging.python.org/guides/distributing-packages-using-setuptools/#wheels). We support both of them. <br/>
 
-We will add wheel distribution in the future release because of the following benefits:
+Note that the benefits of wheel distribution are:
 1. Pre-compiling Ion C library avoids potential build/compile issues and does not require a C compiler to be present on the user's machine.
 2. Installation of wheels is faster and more efficient.
 
