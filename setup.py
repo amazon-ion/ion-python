@@ -40,6 +40,7 @@ def run_setup():
                     extra_link_args=['-Wl,-rpath,%s' % '$ORIGIN/ion-c-build/lib',  # LINUX
                                      '-Wl,-rpath,%s' % '@loader_path/ion-c-build/lib'  # MAC
                                      ],
+                    extra_compile_args=['-std=c99'],
                 ),
             ],
         )
