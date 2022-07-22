@@ -112,10 +112,10 @@ ion Python        \xee\x99\x81\x83  \xde\x95  \x87\xbe\x92 \x86annot1\x86annot2\
 
 ### 2. Known Issues
 
-1. We barely see memory leak issues recently, but it is possible that the issue still exists. Refer to [amzn/ion-python#155](https://github.com/amzn/ion-python/issues/155) for details.
-2. C extension only supports at most 9 for timestamp precision. Refer to [amzn/ion-python#160](https://github.com/amzn/ion-python/issues/160) for details.
-3. C extension only supports at most 34 decimal digits. Refer to [amzn/ion-python#159](https://github.com/amzn/ion-python/issues/159) for details.
-
+1. C extension only supports at most 9 for timestamp precision. Refer to [amzn/ion-python#160](https://github.com/amzn/ion-python/issues/160) for details.
+2. C extension only supports at most 34 decimal digits. Refer to [amzn/ion-python#159](https://github.com/amzn/ion-python/issues/159) for details.
+3. C extension has a limitation to read large Clob data. Refer to [amzn/ion-python#207](https://github.com/amzn/ion-python/issues/207) for details.
+4. For any memory leak issue, please comment on [amzn/ion-python#155](https://github.com/amzn/ion-python/issues/155).
 
 ## TODO
 
@@ -123,6 +123,7 @@ ion Python        \xee\x99\x81\x83  \xde\x95  \x87\xbe\x92 \x86annot1\x86annot2\
 2. More performance improvement.
 3. Support more simpleion options such as `imports`, `catalog`, `omit_version_marker`. (Ion Python uses pure python implementation to handle unsupported options currently)
 4. Support pretty print.
+
 
 ## Deploy
 
