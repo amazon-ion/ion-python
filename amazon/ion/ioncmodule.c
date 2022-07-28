@@ -646,7 +646,7 @@ iERR ionc_write_value(hWRITER writer, PyObject* obj, PyObject* tuple_as_sexp) {
         int year, month, day, hour, minute, second;
         short precision, fractional_precision;
         int final_fractional_precision, final_fractional_seconds;
-        if (PyObject_HasAttrString(obj, "precision")) {
+        if (PyObject_HasAttrString(obj, "precision") && PyObject_GetAttrString(obj, "precision") != Py_None) {
             // This is a Timestamp.
             precision = int_attr_by_name(obj, "precision");
             fractional_precision = int_attr_by_name(obj, "fractional_precision");
