@@ -305,7 +305,7 @@ def dumps(obj, imports=None, binary=True, sequence_as_stream=False, skipkeys=Fal
 
 
 def load_python(fp, catalog=None, single_value=True, encoding='utf-8', cls=None, object_hook=None, parse_float=None,
-        parse_int=None, parse_constant=None, object_pairs_hook=None, use_decimal=None, parse_eagerly=False, **kw):
+        parse_int=None, parse_constant=None, object_pairs_hook=None, use_decimal=None, parse_eagerly=True, **kw):
     """Deserialize ``fp`` (a file-like object), which contains a text or binary Ion stream, to a Python object using the
     following conversion table::
         +-------------------+-------------------+
@@ -502,13 +502,13 @@ def dump_extension(obj, fp, binary=True, sequence_as_stream=False, tuple_as_sexp
     fp.write(res)
 
 
-def load_extension(fp, single_value=True, parse_eagerly=False, encoding='utf-8'):
+def load_extension(fp, single_value=True, parse_eagerly=True, encoding='utf-8'):
     if parse_eagerly:
         data = fp.read()
         data = data if isinstance(data, bytes) else bytes(data, encoding)
-        return ionc.ionc_read(data, single_value=single_value, emit_bare_values=False, parse_eagerly=True)
+        return ionc.ionc_read(data, single_value=single_value, emit_bare_values=False, parse_eagerly=parse_eagerly)
     else:
-        iterator = ionc.ionc_read(fp, emit_bare_values=False, parse_eagerly=True)
+        iterator = ionc.ionc_read(fp, emit_bare_values=False, parse_eagerly=parse_eagerly)
         if single_value:
             try:
                 value = next(iterator)

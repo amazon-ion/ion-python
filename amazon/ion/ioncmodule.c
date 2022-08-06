@@ -30,7 +30,7 @@ static char _err_msg[ERR_MSG_MAX_LEN];
 // Python 2/3 compatibility
 #if PY_MAJOR_VERSION >= 3
     #define IONC_BYTES_FORMAT "y#"
-    #define IONC_READ_ARGS_FORMAT "OO"
+    #define IONC_READ_ARGS_FORMAT "OOOO"
     #define PyInt_AsSsize_t PyLong_AsSsize_t
     #define PyInt_AsLong PyLong_AsLong
     #define PyInt_FromLong PyLong_FromLong
@@ -41,7 +41,7 @@ static char _err_msg[ERR_MSG_MAX_LEN];
     #define PyInt_Check PyLong_Check
 #else
     #define IONC_BYTES_FORMAT "s#"
-    #define IONC_READ_ARGS_FORMAT "OOO"
+    #define IONC_READ_ARGS_FORMAT "OOOOO"
 #endif
 
 #if PY_VERSION_HEX < 0x02070000
@@ -1510,40 +1510,73 @@ PyObject* ionc_read(PyObject* self, PyObject *args, PyObject *kwds) {
     iENTER;
     PyObject *py_file = NULL; // TextIOWrapper
     PyObject *emit_bare_values;
+    PyObject *single_value;
+    PyObject *parse_eagerly;
     ionc_read_Iterator *iterator = NULL;
-    static char *kwlist[] = {"file", "emit_bare_values", NULL};
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, IONC_READ_ARGS_FORMAT, kwlist, &py_file, &emit_bare_values)) {
+    PyObject *top_level_container = NULL;
+    static char *kwlist[] = {"file", "emit_bare_values", "single_value", "parse_eagerly", NULL};
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, IONC_READ_ARGS_FORMAT, kwlist, &py_file, &emit_bare_values,
+            &single_value, &parse_eagerly)) {
         FAILWITH(IERR_INVALID_ARG);
     }
 
-    iterator = PyObject_New(ionc_read_Iterator, &ionc_read_IteratorType);
-    if (!iterator) {
-        FAILWITH(IERR_INTERNAL_ERROR);
+    // parse lazily, return an iterator
+    if (parse_eagerly == Py_False) {
+        iterator = PyObject_New(ionc_read_Iterator, &ionc_read_IteratorType);
+        if (!iterator) {
+            FAILWITH(IERR_INTERNAL_ERROR);
+        }
+        Py_INCREF(py_file);
+
+        if (!PyObject_Init((PyObject*) iterator, &ionc_read_IteratorType)) {
+            FAILWITH(IERR_INTERNAL_ERROR);
+        }
+
+        iterator->closed = FALSE;
+        iterator->file_handler_state.py_file = py_file;
+        iterator->emit_bare_values = emit_bare_values == Py_True;
+        memset(&iterator->reader, 0, sizeof(iterator->reader));
+        memset(&iterator->_reader_options, 0, sizeof(iterator->_reader_options));
+        iterator->_reader_options.decimal_context = &dec_context;
+
+        IONCHECK(ion_reader_open_stream(
+            &iterator->reader,
+            &iterator->file_handler_state,
+            ion_read_file_stream_handler,
+            &iterator->_reader_options)); // NULL represents default reader options
+        return iterator;
+    } else {
+        PyString_AsStringAndSize(py_file, &buffer, &size);
+        // TODO what if size is larger than SIZE ?
+        ION_READER_OPTIONS options;
+        memset(&options, 0, sizeof(options));
+        options.decimal_context = &dec_context;
+        options.max_annotation_count = ANNOTATION_MAX_LEN;
+        IONCHECK(ion_reader_open_buffer(&reader, (BYTE*)buffer, (SIZE)size, &options)); // NULL represents default reader options
+
+        top_level_container = PyList_New(0);
+        IONCHECK(ionc_read_all(reader, top_level_container, FALSE, emit_bare_values == Py_True));
+        IONCHECK(ion_reader_close(reader));
+        if (single_value == Py_True) {
+            Py_ssize_t len = PyList_Size(top_level_container);
+            if (len != 1) {
+                _FAILWITHMSG(IERR_INVALID_ARG, "Single_value option specified; expected a single value.")
+            }
+            PyObject* value = PyList_GetItem(top_level_container, 0);
+            Py_XINCREF(value);
+            Py_DECREF(top_level_container);
+            return value;
+        }
+        return top_level_container;
     }
-    Py_INCREF(py_file);
 
-    if (!PyObject_Init((PyObject*) iterator, &ionc_read_IteratorType)) {
-        FAILWITH(IERR_INTERNAL_ERROR);
-    }
 
-    iterator->closed = FALSE;
-    iterator->file_handler_state.py_file = py_file;
-    iterator->emit_bare_values = emit_bare_values == Py_True;
-    memset(&iterator->reader, 0, sizeof(iterator->reader));
-    memset(&iterator->_reader_options, 0, sizeof(iterator->_reader_options));
-    iterator->_reader_options.decimal_context = &dec_context;
-
-    IONCHECK(ion_reader_open_stream(
-        &iterator->reader,
-        &iterator->file_handler_state,
-        ion_read_file_stream_handler,
-        &iterator->_reader_options)); // NULL represents default reader options
-    return iterator;
 
 fail:
     if (iterator != NULL) {
         Py_DECREF(py_file);
     }
+    Py_XDECREF(top_level_container);
     Py_XDECREF(iterator);
     PyObject* exception = PyErr_Format(_ion_exception_cls, "%s %s", ion_error_to_str(err), _err_msg);
     _err_msg[0] = '\0';
