@@ -305,7 +305,7 @@ def dumps(obj, imports=None, binary=True, sequence_as_stream=False, skipkeys=Fal
 
 
 def load_python(fp, catalog=None, single_value=True, encoding='utf-8', cls=None, object_hook=None, parse_float=None,
-        parse_int=None, parse_constant=None, object_pairs_hook=None, use_decimal=None, parse_eagerly=True, **kw):
+        parse_int=None, parse_constant=None, object_pairs_hook=None, use_decimal=None, parse_eagerly=False, **kw):
     """Deserialize ``fp`` (a file-like object), which contains a text or binary Ion stream, to a Python object using the
     following conversion table::
         +-------------------+-------------------+
@@ -345,8 +345,8 @@ def load_python(fp, catalog=None, single_value=True, encoding='utf-8', cls=None,
             will be returned without an enclosing container. If True and there are multiple top-level values in the Ion
             stream, IonException will be raised. NOTE: this means that when data is dumped using
             ``sequence_as_stream=True``, it must be loaded using ``single_value=False``. Default: True.
-        parse_eagerly: (Optional[True|False]) Used in conjunction with ``single_value=False`` to return the result as list
-            or an iterator
+        parse_eagerly (Optional[True|False]): NOTE THAT THIS FEATURE IS STILL CONSIDERED EXPERIMENTAL. Used in
+            conjunction with ``single_value=False`` to return the result as list or an iterator
         encoding: NOT IMPLEMENTED
         cls: NOT IMPLEMENTED
         object_hook: NOT IMPLEMENTED
@@ -409,6 +409,7 @@ _FROM_ION_TYPE = [
     IonPyDict
 ]
 
+
 def _load_iteratively(reader, end_type=IonEventType.STREAM_END):
     event = reader.send(NEXT_EVENT)
     while event.event_type is not end_type:
@@ -425,8 +426,8 @@ def _load_iteratively(reader, end_type=IonEventType.STREAM_END):
             yield scalar
         event = reader.send(NEXT_EVENT)
 
-def _load(out, reader, end_type=IonEventType.STREAM_END, in_struct=False):
 
+def _load(out, reader, end_type=IonEventType.STREAM_END, in_struct=False):
     def add(obj):
         if in_struct:
             out.add_item(event.field_name.text, obj)
@@ -461,8 +462,8 @@ def loads(ion_str, catalog=None, single_value=True, encoding='utf-8', cls=None, 
             and will be returned without an enclosing container. If True and there are multiple top-level values in
             the Ion stream, IonException will be raised. NOTE: this means that when data is dumped using
             ``sequence_as_stream=True``, it must be loaded using ``single_value=False``. Default: True.
-        parse_eagerly: (Optional[True|False]) Used in conjunction with ``single_value=False`` to return the result as list
-            or an iterator
+        parse_eagerly (Optional[True|False]): NOTE THAT THIS FEATURE IS STILL CONSIDERED EXPERIMENTAL. Used in
+            conjunction with ``single_value=False`` to return the result as list or an iterator
         encoding: NOT IMPLEMENTED
         cls: NOT IMPLEMENTED
         object_hook: NOT IMPLEMENTED
@@ -501,22 +502,24 @@ def dump_extension(obj, fp, binary=True, sequence_as_stream=False, tuple_as_sexp
     fp.write(res)
 
 
-def load_extension(fp, single_value=True, parse_eagerly=True):
-    iterator = ionc.ionc_read(fp, emit_bare_values=False)
-    if single_value:
-        try:
-            value = next(iterator)
-        except StopIteration:
-            return None
-        try:
-            next(iterator)
-            raise IonException('Stream contained more than 1 values; expected a single value.')
-        except StopIteration:
-            pass
-        return value
+def load_extension(fp, single_value=True, parse_eagerly=False, encoding='utf-8'):
     if parse_eagerly:
-        return list(iterator)
-    return iterator
+        data = fp.read()
+        data = data if isinstance(data, bytes) else bytes(data, encoding)
+        return ionc.ionc_read(data, single_value=single_value, emit_bare_values=False, parse_eagerly=True)
+    else:
+        iterator = ionc.ionc_read(fp, emit_bare_values=False, parse_eagerly=True)
+        if single_value:
+            try:
+                value = next(iterator)
+            except StopIteration:
+                return None
+            try:
+                next(iterator)
+                raise IonException('Stream contained more than 1 values; expected a single value.')
+            except StopIteration:
+                pass
+            return value
 
 
 def dump(obj, fp, imports=None, binary=True, sequence_as_stream=False, skipkeys=False, ensure_ascii=True,
@@ -539,9 +542,9 @@ def dump(obj, fp, imports=None, binary=True, sequence_as_stream=False, skipkeys=
 
 
 def load(fp, catalog=None, single_value=True, encoding='utf-8', cls=None, object_hook=None, parse_float=None,
-         parse_int=None, parse_constant=None, object_pairs_hook=None, use_decimal=None, parse_eagerly=True, **kw):
+         parse_int=None, parse_constant=None, object_pairs_hook=None, use_decimal=None, parse_eagerly=False, **kw):
     if c_ext and catalog is None:
-        return load_extension(fp, parse_eagerly=parse_eagerly, single_value=single_value)
+        return load_extension(fp, single_value=single_value, parse_eagerly=parse_eagerly, encoding=encoding)
     else:
         return load_python(fp, catalog=catalog, single_value=single_value, encoding=encoding, cls=cls,
                          object_hook=object_hook, parse_float=parse_float, parse_int=parse_int,
