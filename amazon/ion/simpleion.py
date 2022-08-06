@@ -346,7 +346,7 @@ def load_python(fp, catalog=None, single_value=True, encoding='utf-8', cls=None,
             stream, IonException will be raised. NOTE: this means that when data is dumped using
             ``sequence_as_stream=True``, it must be loaded using ``single_value=False``. Default: True.
         parse_eagerly (Optional[True|False]): NOTE THAT THIS FEATURE IS STILL CONSIDERED EXPERIMENTAL. Used in
-            conjunction with ``single_value=False`` to return the result as list or an iterator
+            conjunction with ``single_value=False`` to return the result as list or an iterator.
         encoding: NOT IMPLEMENTED
         cls: NOT IMPLEMENTED
         object_hook: NOT IMPLEMENTED
@@ -463,7 +463,7 @@ def loads(ion_str, catalog=None, single_value=True, encoding='utf-8', cls=None, 
             the Ion stream, IonException will be raised. NOTE: this means that when data is dumped using
             ``sequence_as_stream=True``, it must be loaded using ``single_value=False``. Default: True.
         parse_eagerly (Optional[True|False]): NOTE THAT THIS FEATURE IS STILL CONSIDERED EXPERIMENTAL. Used in
-            conjunction with ``single_value=False`` to return the result as list or an iterator
+            conjunction with ``single_value=False`` to return the result as list or an iterator.
         encoding: NOT IMPLEMENTED
         cls: NOT IMPLEMENTED
         object_hook: NOT IMPLEMENTED
@@ -506,9 +506,9 @@ def load_extension(fp, single_value=True, parse_eagerly=True, encoding='utf-8'):
     if parse_eagerly:
         data = fp.read()
         data = data if isinstance(data, bytes) else bytes(data, encoding)
-        return ionc.ionc_read(data, single_value=single_value, emit_bare_values=False, parse_eagerly=parse_eagerly)
+        return ionc.ionc_read(data, single_value=single_value, emit_bare_values=False, parse_eagerly=True)
     else:
-        iterator = ionc.ionc_read(fp, emit_bare_values=False, parse_eagerly=parse_eagerly)
+        iterator = ionc.ionc_read(fp, single_value=single_value, emit_bare_values=False, parse_eagerly=False)
         if single_value:
             try:
                 value = next(iterator)
@@ -520,6 +520,7 @@ def load_extension(fp, single_value=True, parse_eagerly=True, encoding='utf-8'):
             except StopIteration:
                 pass
             return value
+        return iterator
 
 
 def dump(obj, fp, imports=None, binary=True, sequence_as_stream=False, skipkeys=False, ensure_ascii=True,
@@ -542,7 +543,7 @@ def dump(obj, fp, imports=None, binary=True, sequence_as_stream=False, skipkeys=
 
 
 def load(fp, catalog=None, single_value=True, encoding='utf-8', cls=None, object_hook=None, parse_float=None,
-         parse_int=None, parse_constant=None, object_pairs_hook=None, use_decimal=None, parse_eagerly=False, **kw):
+         parse_int=None, parse_constant=None, object_pairs_hook=None, use_decimal=None, parse_eagerly=True, **kw):
     if c_ext and catalog is None:
         return load_extension(fp, single_value=single_value, parse_eagerly=parse_eagerly, encoding=encoding)
     else:

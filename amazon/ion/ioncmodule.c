@@ -1520,7 +1520,7 @@ PyObject* ionc_read(PyObject* self, PyObject *args, PyObject *kwds) {
         FAILWITH(IERR_INVALID_ARG);
     }
 
-    // parse lazily, return an iterator
+    // Return an iterator to parse lazily.
     if (parse_eagerly == Py_False) {
         iterator = PyObject_New(ionc_read_Iterator, &ionc_read_IteratorType);
         if (!iterator) {
@@ -1546,6 +1546,10 @@ PyObject* ionc_read(PyObject* self, PyObject *args, PyObject *kwds) {
             &iterator->_reader_options)); // NULL represents default reader options
         return iterator;
     } else {
+        hREADER      reader;
+        long         size;
+        char     *buffer = NULL;
+
         PyString_AsStringAndSize(py_file, &buffer, &size);
         // TODO what if size is larger than SIZE ?
         ION_READER_OPTIONS options;
