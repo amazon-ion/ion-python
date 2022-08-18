@@ -21,7 +21,7 @@
 #define FIELD_NAME_MAX_LEN 1000
 #define ANNOTATION_MAX_LEN 50
 
-#define IONC_STREAM_READ_BUFFER_SIZE 1024
+#define IONC_STREAM_READ_BUFFER_SIZE 1024*32
 
 static char _err_msg[ERR_MSG_MAX_LEN];
 
@@ -1669,7 +1669,8 @@ PyObject* ionc_init_module(void) {
 
     decContextDefault(&dec_context, DEC_INIT_DECQUAD);  //The writer already had one of these, but it's private.
 
-    _arg_read_size = PyLong_FromLong(IONC_STREAM_READ_BUFFER_SIZE);
+    // Divide by four to avoid size overflow due to Unicode and UTF-8 conversion
+    _arg_read_size = PyLong_FromLong(IONC_STREAM_READ_BUFFER_SIZE/4);
     return m;
 }
 
