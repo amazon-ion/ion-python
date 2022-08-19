@@ -22,6 +22,7 @@
 #define ANNOTATION_MAX_LEN 50
 
 #define IONC_STREAM_READ_BUFFER_SIZE 1024*32
+#define IONC_STREAM_BYTES_READ_SIZE PyLong_FromLong(IONC_STREAM_READ_BUFFER_SIZE/4)
 
 static char _err_msg[ERR_MSG_MAX_LEN];
 
@@ -87,8 +88,6 @@ static PyObject* _py_symboltoken_constructor;
 static PyObject* _exception_module;
 static PyObject* _ion_exception_cls;
 static decContext dec_context;
-static PyObject *_arg_read_size;
-
 
 typedef struct {
     PyObject *py_file; // a TextIOWrapper-like object
@@ -1400,7 +1399,7 @@ iERR ion_read_file_stream_handler(struct _ion_user_stream *pstream) {
     Py_ssize_t size;
     _ION_READ_STREAM_HANDLE *stream_handle = (_ION_READ_STREAM_HANDLE *) pstream->handler_state;
     PyObject *py_buffer_as_bytes = NULL;
-    PyObject *py_buffer = PyObject_CallMethod(stream_handle->py_file, "read", "O", _arg_read_size);
+    PyObject *py_buffer = PyObject_CallMethod(stream_handle->py_file, "read", "O", IONC_STREAM_BYTES_READ_SIZE);
 
     if (py_buffer == NULL) {
         pstream->limit = NULL;
@@ -1428,7 +1427,7 @@ iERR ion_read_file_stream_handler(struct _ion_user_stream *pstream) {
 
     // safe-guarding the size variable to protect memcpy bounds
     if (size < 0  || size > IONC_STREAM_READ_BUFFER_SIZE) {
-        FAILWITH(IERR_READ_ERROR);
+        _FAILWITHMSG(IERR_READ_ERROR, "illegal bytes number has been read");
     }
     memcpy(stream_handle->buffer, char_buffer, size);
 
@@ -1669,8 +1668,6 @@ PyObject* ionc_init_module(void) {
 
     decContextDefault(&dec_context, DEC_INIT_DECQUAD);  //The writer already had one of these, but it's private.
 
-    // Divide by four to avoid size overflow due to Unicode and UTF-8 conversion
-    _arg_read_size = PyLong_FromLong(IONC_STREAM_READ_BUFFER_SIZE/4);
     return m;
 }
 

@@ -704,3 +704,13 @@ def test_dumps_omit_version_marker():
     assert dumps(v) == b'\xe0\x01\x00\xea\x21\x05'
     assert dumps(v, omit_version_marker=True) == b'\xe0\x01\x00\xea\x21\x05'
 
+
+# See issue https://github.com/amzn/ion-python/issues/213
+def test_loads_unicode_utf8_conversion():
+    # Generates test data that more than 1024*32 bytes
+    data = "[ '''\u2013''',"
+    data += 'test,' * 100000
+    data += "]"
+    # Loads API should convert it to UTF-8 without illegal bytes number read exception.
+    loads(data, parse_eagerly=True)
+
