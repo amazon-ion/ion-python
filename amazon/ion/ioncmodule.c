@@ -1427,7 +1427,7 @@ iERR ion_read_file_stream_handler(struct _ion_user_stream *pstream) {
 
     // safe-guarding the size variable to protect memcpy bounds
     if (size < 0  || size > IONC_STREAM_READ_BUFFER_SIZE) {
-        _FAILWITHMSG(IERR_READ_ERROR, "illegal bytes number has been read");
+        FAILWITH(IERR_READ_ERROR);
     }
     memcpy(stream_handle->buffer, char_buffer, size);
 
