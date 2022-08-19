@@ -1,3 +1,9 @@
+### 0.9.3 (2022-08-18)
+* Fixes a timestamp precision check issue. (#211)
+* Changes bytes read size to avoid unicode/UTF-8 conversion issue. (#216)
+* Adds compile args for C extension setup. (#206)
+* Updates C extension document.
+
 ### 0.9.2 (2022-05-5)
 * Adds required dependency (#197)
 * Adds an installation guide in readme (#195)
