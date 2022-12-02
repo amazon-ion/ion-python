@@ -12,9 +12,7 @@
 # specific language governing permissions and limitations under the
 # License.
 
-# Python 2/3 compatibility
 from decimal import Decimal
-from functools import partial
 
 import pytest
 

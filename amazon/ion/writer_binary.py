@@ -13,20 +13,14 @@
 # License.
 
 """Binary Ion writer with symbol table management."""
-
-# Python 2/3 compatibility
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
-import six
+from enum import IntEnum
 
 from .core import ION_STREAM_END_EVENT, IonEventType, IonType, IonEvent, DataEvent, Transition
 from .exceptions import IonException
 from .symbols import SID_ION_SYMBOL_TABLE, SID_IMPORTS, SHARED_TABLE_TYPE, \
                      SID_NAME, SID_VERSION, SID_MAX_ID, SID_SYMBOLS, LOCAL_TABLE_TYPE, \
                      SymbolTable, _SYSTEM_SYMBOL_TOKENS
-from .util import coroutine, Enum, record
+from .util import coroutine, record
 from .writer import NOOP_WRITER_EVENT, writer_trampoline, partial_transition, WriteEventType, \
                     _drain
 from .writer_binary_raw import _WRITER_EVENT_NEEDS_INPUT_EMPTY, _raw_binary_writer
@@ -35,7 +29,7 @@ from .writer_buffer import BufferTree
 _IVM = b'\xE0\x01\x00\xEA'
 
 
-class _SymbolEventType(Enum):
+class _SymbolEventType(IntEnum):
     """Enumeration of events that impact a symbol table.
 
     Attributes:
@@ -111,7 +105,7 @@ def _symbol_table_coroutine(writer_buffer, imports):
             if symbol_text is not None:
                 key = symbol_text
         except AttributeError:
-            assert isinstance(symbol, six.text_type)
+            assert isinstance(symbol, str)
             key = symbol
             symbol_text = symbol
         token = local_symbols.get(key)

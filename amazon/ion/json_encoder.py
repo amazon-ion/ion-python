@@ -16,7 +16,6 @@ from .core import IonType
 from .simple_types import IonPyList, IonPyDict, IonPyNull, IonPyBool, IonPyInt, IonPyFloat, IonPyDecimal, \
     IonPyTimestamp, IonPyText, IonPyBytes, IonPySymbol
 from base64 import standard_b64encode
-from six import text_type
 import sys
 if hasattr(sys, "pypy_version_info"):
     raise ImportError("The json_encoder module is not supported for use with PyPy.")
@@ -52,7 +51,7 @@ class IonToJSONEncoder(JSONExtendedEncoder):
         elif isinstance(o, IonPyBytes) and o.ion_type == IonType.BLOB:
             return standard_b64encode(o).decode("utf-8")
         elif isinstance(o, IonPyBytes) and o.ion_type == IonType.CLOB:
-            return text_type("").join(chr(b) for b in o)
+            return "".join(chr(b) for b in o)
         elif isinstance(o, IonPyDecimal) and o.ion_type == IonType.DECIMAL:
             return float(o)
         elif isinstance(o, IonPySymbol) and o.ion_type == IonType.SYMBOL:

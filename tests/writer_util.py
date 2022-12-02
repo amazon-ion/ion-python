@@ -12,15 +12,9 @@
 # specific language governing permissions and limitations under the
 # License.
 
-# Python 2/3 compatibility
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 from base64 import b64encode
 from datetime import datetime, timedelta
 
-import six
 from decimal import Decimal
 
 import sys
@@ -402,13 +396,13 @@ SIMPLE_SCALARS_MAP_BINARY = {
 
 
 def generate_scalars(scalars_map, force_stream_end=False):
-    for ion_type, values in six.iteritems(scalars_map):
+    for ion_type, values in iter(scalars_map.items()):
         for native, expected in values:
             yield _scalar_p(ion_type, native, expected, force_stream_end)
 
 
 def generate_containers(containers_map, force_stream_end=False):
-    for ion_type, container in six.iteritems(containers_map):
+    for ion_type, container in iter(containers_map.items()):
         for container_value_events, expected in container:
             start_event = IonEvent(IonEventType.CONTAINER_START, ion_type)
             end_event = IonEvent(IonEventType.CONTAINER_END, ion_type)

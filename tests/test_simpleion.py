@@ -19,7 +19,6 @@ from decimal import Decimal
 from itertools import chain
 from math import isnan
 
-import six
 import re
 from pytest import raises
 
@@ -197,7 +196,7 @@ _SIMPLE_CONTAINER_MAP = {
 
 
 def generate_scalars_binary(scalars_map, preceding_symbols=0):
-    for ion_type, values in six.iteritems(scalars_map):
+    for ion_type, values in iter(scalars_map.items()):
         for native, expected in values:
             native_expected = expected
             has_symbols = False
@@ -205,8 +204,8 @@ def generate_scalars_binary(scalars_map, preceding_symbols=0):
                 # An un-adorned 'None' doesn't contain enough information to determine its Ion type
                 native_expected = b'\x0f'
             elif ion_type is IonType.CLOB:
-                # All six.binary_type are treated as BLOBs unless wrapped by an _IonNature
-                tid = six.byte2int(expected) + 0x10  # increment upper nibble for clob -> blob; keep lower nibble
+                # All bytes are treated as BLOBs unless wrapped by an _IonNature
+                tid = expected[0] + 0x10  # increment upper nibble for clob -> blob; keep lower nibble
                 native_expected = bytearray([tid]) + expected[1:]
             elif ion_type is IonType.SYMBOL and native is not None:
                 has_symbols = True
@@ -226,7 +225,7 @@ def generate_scalars_binary(scalars_map, preceding_symbols=0):
 
 
 def generate_containers_binary(container_map, preceding_symbols=0):
-    for ion_type, container in six.iteritems(container_map):
+    for ion_type, container in iter(container_map.items()):
         for test_tuple in container:
             obj = test_tuple[0]
             expecteds = test_tuple[1]
@@ -384,14 +383,14 @@ def test_dumps_loads_binary(p):
 
 
 def generate_scalars_text(scalars_map):
-    for ion_type, values in six.iteritems(scalars_map):
+    for ion_type, values in iter(scalars_map.items()):
         for native, expected in values:
             native_expected = expected
             has_symbols = False
             if native is None:
                 native_expected = b'null'
             elif ion_type is IonType.CLOB:
-                # All six.binary_type are treated as BLOBs unless wrapped by an _IonNature
+                # All bytes are treated as BLOBs unless wrapped by an _IonNature
                 native = _FROM_ION_TYPE[ion_type].from_value(ion_type, native)
             elif ion_type is IonType.SYMBOL and native is not None:
                 has_symbols = True
@@ -405,7 +404,7 @@ def generate_scalars_text(scalars_map):
 
 
 def generate_containers_text(container_map):
-    for ion_type, container in six.iteritems(container_map):
+    for ion_type, container in iter(container_map.items()):
         for test_tuple in container:
             obj = test_tuple[0]
             expected = test_tuple[1]
@@ -585,7 +584,7 @@ def _assert_roundtrip(before, after, tuple_as_sexp):
             out = _FROM_ION_TYPE[ion_type].from_value(ion_type, out)
         if isinstance(out, dict):
             update = {}
-            for field, value in six.iteritems(out):
+            for field, value in iter(out.items()):
                 update[field] = _to_ion_nature(value)
             update = IonPyDict.from_value(out.ion_type, update, out.ion_annotations)
             out = update

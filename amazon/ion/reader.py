@@ -13,22 +13,13 @@
 # License.
 
 """Provides common functionality for Ion binary and text readers."""
-
-# Python 2/3 compatibility
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
-import six
-
 from collections import deque
-
-import sys
+from enum import IntEnum
 
 from amazon.ion.symbols import SymbolToken
 from .core import DataEvent, IonEventType, Transition
 from .core import ION_STREAM_END_EVENT
-from .util import coroutine, Enum
+from .util import coroutine
 
 
 class CodePoint(int):
@@ -40,31 +31,6 @@ class CodePoint(int):
         self.is_escaped = False
 
 
-def _narrow_unichr(code_point):
-    """Retrieves the unicode character representing any given code point, in a way that won't break on narrow builds.
-
-    This is necessary because the built-in unichr function will fail for ordinals above 0xFFFF on narrow builds (UCS2);
-    ordinals above 0xFFFF would require recalculating and combining surrogate pairs. This avoids that by retrieving the
-    unicode character that was initially read.
-
-    Args:
-        code_point (int|CodePoint): An int or a subclass of int that contains the unicode character representing its
-            code point in an attribute named 'char'.
-    """
-    try:
-        if len(code_point.char) > 1:
-            return code_point.char
-    except AttributeError:
-        pass
-    return six.unichr(code_point)
-
-
-_NARROW_BUILD = sys.maxunicode < 0x10ffff
-_WIDE_BUILD = not _NARROW_BUILD
-
-safe_unichr = six.unichr if (six.PY3 or _WIDE_BUILD) else _narrow_unichr
-
-
 class CodePointArray:
     """A mutable sequence of code points. Used in place of bytearray() for text values."""
     def __init__(self, initial_bytes=None):
@@ -74,14 +40,14 @@ class CodePointArray:
                 self.append(b)
 
     def append(self, value):
-        self.__text += safe_unichr(value)
+        self.__text += chr(value)
 
     def extend(self, values):
-        if isinstance(values, six.text_type):
+        if isinstance(values, str):
             self.__text += values
         else:
-            assert isinstance(values, six.binary_type)
-            for b in six.iterbytes(values):
+            assert isinstance(values, bytes)
+            for b in iter(values):
                 self.append(b)
 
     def as_symbol(self):
@@ -122,12 +88,14 @@ class BufferQueue(object):
         self.__size = 0
         self.__data_cls = CodePointArray if is_unicode else bytearray
         if is_unicode:
-            self.__chr = safe_unichr
-            self.__element_type = six.text_type
+            self.__chr = chr
+            self.__element_type = str
         else:
-            self.__chr = chr if six.PY2 else lambda x: x
-            self.__element_type = six.binary_type
-        self.__ord = ord if (six.PY3 and is_unicode) else lambda x: x
+            # TODO: this may be able to be fully eliminated
+            self.__chr = lambda x: x
+            self.__element_type = bytes
+        # TODO: this may be able to be fully eliminated
+        self.__ord = ord if is_unicode else lambda x: x
         self.position = 0
         self.is_unicode = is_unicode
 
@@ -208,7 +176,7 @@ class BufferQueue(object):
         if BufferQueue.is_eof(segment):
             octet = _EOF
         else:
-            octet = self.__ord(six.indexbytes(segment, offset))
+            octet = self.__ord(segment[offset])
         offset += 1
         if offset == segment_len:
             offset = 0
@@ -228,18 +196,18 @@ class BufferQueue(object):
         """
         if self.position < 1:
             raise IndexError('Cannot unread an empty buffer queue.')
-        if isinstance(c, six.text_type):
+        if isinstance(c, str):
             if not self.is_unicode:
                 BufferQueue._incompatible_types(self.is_unicode, c)
         else:
             c = self.__chr(c)
         num_code_units = self.is_unicode and len(c) or 1
         if self.__offset == 0:
-            if num_code_units == 1 and six.PY3:
+            if num_code_units == 1:
                 if self.is_unicode:
                     segment = c
                 else:
-                    segment = six.int2byte(c)
+                    segment = bytes((c,))
             else:
                 segment = c
             self.__segments.appendleft(segment)
@@ -280,7 +248,7 @@ class BufferQueue(object):
         return self.__size
 
 
-class ReadEventType(Enum):
+class ReadEventType(IntEnum):
     """Events that are pushed into an Ion reader co-routine.
 
     Attributes:
@@ -292,6 +260,7 @@ class ReadEventType(Enum):
     DATA = 0
     NEXT = 1
     SKIP = 2
+
 
 NEXT_EVENT = DataEvent(ReadEventType.NEXT, None)
 SKIP_EVENT = DataEvent(ReadEventType.SKIP, None)

@@ -18,11 +18,6 @@ In particular, this module provides the extension to native Python data types wi
 particulars of the Ion data model.
 """
 
-# Python 2/3 compatibility
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 from decimal import Decimal
 
 # in Python 3.10, abstract collections have moved into their own module
@@ -32,8 +27,6 @@ try:
     from collections.abc import MutableMapping
 except:
     from collections import MutableMapping
-
-import six
 
 from amazon.ion.symbols import SymbolToken
 from .core import TIMESTAMP_PRECISION_FIELD
@@ -151,17 +144,12 @@ def _ion_type_for(name, base_cls, ion_type=None):
     return IonPyValueType
 
 
-if six.PY2:
-    IonPyInt = _ion_type_for('IonPyInt', long)
-else:
-    IonPyInt = _ion_type_for('IonPyInt', int)
-
-
+IonPyInt = _ion_type_for('IonPyInt', int)
 IonPyBool = IonPyInt
 IonPyFloat = _ion_type_for('IonPyFloat', float, IonType.FLOAT)
 IonPyDecimal = _ion_type_for('IonPyDecimal', Decimal, IonType.DECIMAL)
-IonPyText = _ion_type_for('IonPyText', six.text_type)
-IonPyBytes = _ion_type_for('IonPyBytes', six.binary_type)
+IonPyText = _ion_type_for('IonPyText', str)
+IonPyBytes = _ion_type_for('IonPyBytes', bytes)
 
 
 class IonPySymbol(SymbolToken, _IonNature):

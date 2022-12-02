@@ -13,18 +13,10 @@
 # License.
 
 """Provides utilities for determining whether two objects are equivalent under the Ion data model."""
-
-# Python 2/3 compatibility
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 import struct
 from datetime import datetime
 from decimal import Decimal
 from math import isnan
-
-import six
 
 from amazon.ion.core import IonType, Timestamp, TimestampPrecision, MICROSECOND_PRECISION, OffsetTZInfo, Multimap
 from amazon.ion.simple_types import _IonNature, IonPyList, IonPyDict, IonPyTimestamp, IonPyNull, IonPySymbol, \
@@ -135,7 +127,7 @@ def _structs_eq(a, b, comparison_func):
     if dict_len != len(b):
         return False
     for a, b in ((a, b), (b, a)):
-        key_iter = six.iterkeys(a)
+        key_iter = iter(a.keys())
         while True:
             try:
                 key = next(key_iter)
@@ -199,8 +191,8 @@ def _timestamp_instants_eq(a, b):
 
 
 def _symbols_eq(a, b):
-    assert isinstance(a, (six.text_type, SymbolToken))
-    if not isinstance(b, (six.text_type, SymbolToken)):
+    assert isinstance(a, (str, SymbolToken))
+    if not isinstance(b, (str, SymbolToken)):
         return False
     a_text = getattr(a, 'text', a)
     b_text = getattr(b, 'text', b)

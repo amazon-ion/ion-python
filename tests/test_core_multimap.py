@@ -1,5 +1,4 @@
 from amazon.ion.core import Multimap, record
-import six
 
 from tests import parametrize
 
@@ -58,6 +57,6 @@ def test_delete_item(item):
 )
 def test_constructor(d):
     m = Multimap(d)
-    for k, v in six.iteritems(d):
+    for k, v in iter(d.items()):
         assert m[k] == v
     assert len(m) == len(d)

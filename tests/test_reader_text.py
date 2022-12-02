@@ -12,19 +12,12 @@
 # specific language governing permissions and limitations under the
 # License.
 
-# Python 2/3 compatibility
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 from decimal import Decimal
 from itertools import chain
 
-import six
-
 from amazon.ion.core import timestamp, TimestampPrecision
 from amazon.ion.exceptions import IonException
-from amazon.ion.reader import ReadEventType, _NARROW_BUILD
+from amazon.ion.reader import ReadEventType
 from amazon.ion.reader_text import reader, _POS_INF, _NEG_INF, _NAN
 from amazon.ion.symbols import SymbolToken
 from amazon.ion.util import coroutine
@@ -903,7 +896,7 @@ def _scalar_event_pairs(data, events, info):
             if space_delimited and event.value is not None \
                 and ((event.ion_type is IonType.SYMBOL) or
                      (event.ion_type is IonType.STRING and
-                      six.byte2int(b'"') != six.indexbytes(data, 0))):  # triple-quoted strings
+                      b'"'[0] != data[0])):  # triple-quoted strings
                 # Because annotations and field names are symbols, a space delimiter after a symbol isn't enough to
                 # generate a symbol event immediately. Similarly, triple-quoted strings may be followed by another
                 # triple-quoted string if only delimited by whitespace or comments.
@@ -1218,7 +1211,7 @@ def _paired_params(params, desc, top_level=True):
         yield _P(
             desc='%s %s' % (desc, data),
             event_pairs=event_pairs,
-            is_unicode=isinstance(data, six.text_type)
+            is_unicode=isinstance(data, str)
         )
 
 
@@ -1246,7 +1239,6 @@ _good_unicode_params = partial(_basic_params, _end, 'GOOD - UNICODE', u'')
     _bad_unicode_params(_BAD_ESCAPES_FROM_UNICODE),
     _bad_grammar_params(_BAD_ESCAPES_FROM_BYTES),
     _paired_params(_INCOMPLETE_ESCAPES, 'INCOMPLETE ESCAPES'),
-    _paired_params(_UNICODE_SURROGATES, 'UNICODE SURROGATES') if _NARROW_BUILD else (),
     _good_params(_UNSPACED_SEXPS),
     _paired_params(_SKIP, 'SKIP'),
     _paired_params(_GOOD_FLUSH, 'GOOD FLUSH'),

@@ -14,11 +14,6 @@
 
 """Provides symbol table managed processing for Ion readers."""
 
-# Python 2/3 compatibility
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 from .core import IonEventType, IonType, IonThunkEvent, MemoizingThunk, Transition, \
                   ION_VERSION_MARKER_EVENT
 from .exceptions import IonException
@@ -27,7 +22,7 @@ from .symbols import SymbolTable, SymbolTableCatalog, \
                      LOCAL_TABLE_TYPE, SYSTEM_SYMBOL_TABLE, \
                      TEXT_ION, TEXT_ION_1_0, TEXT_ION_SYMBOL_TABLE, TEXT_SYMBOLS, TEXT_IMPORTS, \
                      TEXT_NAME, TEXT_VERSION, TEXT_MAX_ID
-from .util import coroutine, record, Enum
+from .util import coroutine, record
 
 
 class _ManagedContext(record('catalog', ('symbol_table', SYSTEM_SYMBOL_TABLE))):
