@@ -5,7 +5,7 @@ for Python.
 [![Build Status](https://travis-ci.org/amzn/ion-python.svg?branch=master)](https://travis-ci.org/amzn/ion-python)
 [![Documentation Status](https://readthedocs.org/projects/ion-python/badge/?version=latest)](https://ion-python.readthedocs.io/en/latest/?badge=latest)
 
-This package is designed to work with **Python 3.6+**
+This package is designed to work with **Python 3.6** and above. Sunsetted versions may not be supported once they are 6 months or more past EOL.
 
 ## Getting Started
 
@@ -81,13 +81,13 @@ installed Python (`requirements.txt` installs `tox`).
 Install relevant versions of Python:
 
 ```
-$ for V in 3.6.13 3.7.10 3.8.10 3.9.5 pypy3.7-7.3.5; do pyenv install $V; done
+$ for V in 3.7.10 3.8.10 3.9.5 pypy3.7-7.3.5; do pyenv install $V; done
 ```
 
 Once you have these installations, add them as a local `pyenv` configuration
 
 ```
-$ pyenv local 3.6.13 3.7.10 3.8.10 3.9.5 pypy3.7-7.3.5
+$ pyenv local 3.7.10 3.8.10 3.9.5 pypy3.7-7.3.5
 ```
 
 Assuming you have `pyenv` properly set up (making sure `pyenv init` is evaluated into your shell),
