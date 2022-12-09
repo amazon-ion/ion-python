@@ -31,10 +31,6 @@ static char _err_msg[ERR_MSG_MAX_LEN];
 #define IONC_BYTES_FORMAT "y#"
 #define IONC_READ_ARGS_FORMAT "OO"
 
-#if PY_VERSION_HEX < 0x02070000
-    #define offset_seconds(x) offset_seconds_26(x)
-#endif
-
 static PyObject* _math_module;
 
 static PyObject* _decimal_module;
@@ -126,15 +122,6 @@ static int int_attr_by_name(PyObject* obj, char* attr_name) {
     }
     Py_DECREF(py_int);
     return c_int;
-}
-
-// TODO compare performance of these offset_seconds* methods. The _26 version will work with all versions, so if it is
-// as fast, should be used for all.
-static int offset_seconds_26(PyObject* timedelta) {
-    long microseconds = int_attr_by_name(timedelta, "microseconds");
-    long seconds_microseconds = (long)int_attr_by_name(timedelta, "seconds") * 1000000;
-    long days_microseconds = (long)int_attr_by_name(timedelta, "days") * 24 * 3600 * 1000000;
-    return (microseconds + seconds_microseconds + days_microseconds) / 1000000;
 }
 
 static int offset_seconds(PyObject* timedelta) {
