@@ -14,31 +14,25 @@
 
 """Writer for raw binary Ion values, without symbol table management."""
 
-# Python 2/3 compatibility
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
-
 from datetime import datetime
 from decimal import Decimal, localcontext
+from enum import IntEnum
 from functools import partial
 
-import six
 import struct
 
 from amazon.ion.equivalence import _is_float_negative_zero
 from amazon.ion.symbols import SymbolToken
 from .core import IonEventType, IonType, DataEvent, Transition, TimestampPrecision, TIMESTAMP_FRACTION_PRECISION_FIELD, \
     MICROSECOND_PRECISION, TIMESTAMP_PRECISION_FIELD, TIMESTAMP_FRACTIONAL_SECONDS_FIELD, Timestamp
-from .util import coroutine, total_seconds, Enum
+from .util import coroutine, total_seconds
 from .writer import NOOP_WRITER_EVENT, WriteEventType, \
                     writer_trampoline, partial_transition, serialize_scalar, \
                     validate_scalar_value, illegal_state_null
 from .writer_binary_raw_fields import _write_varuint, _write_uint, _write_varint, _write_int
 
 
-class _TypeIds(Enum):
+class _TypeIds(IntEnum):
     NULL = 0x00
     BOOL_FALSE = 0x10
     BOOL_TRUE = 0x11
@@ -57,7 +51,7 @@ class _TypeIds(Enum):
     ANNOTATION_WRAPPER = 0xE0
 
 
-class _Zeros(Enum):
+class _Zeros(IntEnum):
     """Single-octet encodings, represented by the type ID and a length nibble of zero.
 
     Notes:
@@ -129,7 +123,7 @@ def _write_int_value(buf, tid, value):
 def _serialize_int(ion_event):
     buf = bytearray()
     value = ion_event.value
-    validate_scalar_value(value, six.integer_types)
+    validate_scalar_value(value, int)
     if value == 0:
         buf.append(_Zeros.INT)
     else:
@@ -204,7 +198,7 @@ def _serialize_decimal(ion_event):
 def _serialize_string(ion_event):
     buf = bytearray()
     value = ion_event.value
-    validate_scalar_value(value, six.text_type)
+    validate_scalar_value(value, str)
     if not value:
         buf.append(_Zeros.STRING)
     else:

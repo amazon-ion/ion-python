@@ -12,11 +12,6 @@
 # specific language governing permissions and limitations under the
 # License.
 
-# Python 2/3 compatibility
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 import sys
 from setuptools import setup, find_packages, Extension
 from install import _install_ionc
@@ -63,9 +58,6 @@ def run_setup():
         include_package_data=True,
         namespace_packages=['amazon'],
 
-        install_requires=[
-            'six',
-        ],
         setup_requires=[
             'pytest-runner',
         ],

@@ -13,18 +13,10 @@
 # License.
 
 """Implementations of Ion Text writers."""
-
-# Python 2/3 compatibility
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 import base64
 import math
 import re
 from functools import partial
-
-import six
 
 from datetime import datetime
 from decimal import Decimal
@@ -81,13 +73,16 @@ def _serialize_scalar_from_string_representation_factory(type_name, types, str_f
     def serialize(ion_event):
         value = ion_event.value
         validate_scalar_value(value, types)
-        return six.b(str_func(value))
+
+        # This assumes an encoding of UTF-8, which is the only one supported at time
+        # of writing (Dec 2022).
+        return str_func(value).encode("utf-8")
     serialize.__name__ = '_serialize_' + type_name
     return serialize
 
 
 _serialize_int = _serialize_scalar_from_string_representation_factory(
-    'int', six.integer_types
+    'int', int
 )
 
 
@@ -205,9 +200,9 @@ def _is_printable_ascii(code_point):
 
 
 _SERIALIZE_COMMON_ESCAPE_MAP = {
-    six.byte2int(b'\n'): br'\n',
-    six.byte2int(b'\r'): br'\r',
-    six.byte2int(b'\t'): br'\t',
+    b'\n'[0]: br'\n',
+    b'\r'[0]: br'\r',
+    b'\t'[0]: br'\t',
 }
 _2B_ESCAPE_MAX = 0xFF
 _4B_ESCAPE_MAX = 0xFFFF
@@ -225,17 +220,17 @@ def _escape(code_point):
 
 
 def _bytes_text(code_point_iter, quote, prefix=b'', suffix=b''):
-    quote_code_point = None if len(quote) == 0 else six.byte2int(quote)
+    quote_code_point = None if len(quote) == 0 else quote[0]
     buf = BytesIO()
     buf.write(prefix)
     buf.write(quote)
     for code_point in code_point_iter:
         if code_point == quote_code_point:
             buf.write(b'\\' + quote)
-        elif code_point == six.byte2int(b'\\'):
+        elif code_point == b'\\'[0]:
             buf.write(b'\\\\')
         elif _is_printable_ascii(code_point):
-            buf.write(six.int2byte(code_point))
+            buf.write(bytes((code_point,)))
         else:
             buf.write(_escape(code_point))
     buf.write(quote)
@@ -260,7 +255,7 @@ def _serialize_symbol_value(value, suffix=b''):
             return (u'$%d' % value.sid).encode() + suffix
     except AttributeError:
         text = value
-    validate_scalar_value(text, (six.text_type, type(SymbolToken)))
+    validate_scalar_value(text, (str, type(SymbolToken)))
     quote = _SINGLE_QUOTE if _symbol_needs_quotes(text) else b''
     return _bytes_text(unicode_iter(text), quote, suffix=suffix)
 
@@ -272,7 +267,7 @@ def _serialize_symbol(ion_event):
 def _serialize_string(ion_event):
     # TODO Support multi-line strings.
     value = ion_event.value
-    validate_scalar_value(value, six.text_type)
+    validate_scalar_value(value, str)
     return _bytes_text(unicode_iter(value), _DOUBLE_QUOTE)
 
 
@@ -282,7 +277,7 @@ _LOB_END = b'}}'
 
 def _serialize_clob(ion_event):
     value = ion_event.value
-    return _bytes_text(six.iterbytes(value), _DOUBLE_QUOTE, prefix=_LOB_START, suffix=_LOB_END)
+    return _bytes_text(iter(value), _DOUBLE_QUOTE, prefix=_LOB_START, suffix=_LOB_END)
 
 
 def _serialize_blob(ion_event):
@@ -448,7 +443,9 @@ def raw_writer(indent=None):
     if not (indent is None or is_whitespace_str):
         raise ValueError('The indent parameter must either be None or a string containing only whitespace')
 
-    indent_bytes = six.b(indent) if isinstance(indent, str) else indent
+    # This assumes an encoding of UTF-8, which is the only one supported at time
+    # of writing (Dec 2022).
+    indent_bytes = indent.encode("UTF-8") if isinstance(indent, str) else indent
 
     return writer_trampoline(_raw_writer_coroutine(indent=indent_bytes))
 

@@ -11,28 +11,22 @@
 # OF ANY KIND, either express or implied. See the License for the
 # specific language governing permissions and limitations under the
 # License.
-
-# Python 2/3 compatibility
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
+import io
 import struct
 from collections import defaultdict
 from decimal import getcontext
+from enum import IntEnum
 from functools import partial
 from io import open, BytesIO
 from itertools import chain
 from os import listdir
 from os.path import isfile, join, abspath, split
 
-import six
 from pytest import raises
 
 from amazon.ion.exceptions import IonException
 from amazon.ion.equivalence import ion_equals
 from amazon.ion.simpleion import load, dump
-from amazon.ion.util import Enum
 from tests import parametrize
 from amazon.ion.simpleion import c_ext
 
@@ -136,7 +130,7 @@ _DEBUG_WHITELIST = (
 )
 
 
-class _VectorType(Enum):
+class _VectorType(IntEnum):
     GOOD = 0
     GOOD_EQUIVS = 2
     GOOD_NONEQUIVS = 3
@@ -291,8 +285,8 @@ def _element_preprocessor(ion_sequence):
     # These strings need to be parsed before comparison.
     def preprocess(element):
         if is_embedded:
-            assert isinstance(element, six.text_type)
-            element = load(six.StringIO(element), single_value=False)
+            assert isinstance(element, str)
+            element = load(io.StringIO(element), single_value=False)
         return element
     is_embedded = ion_sequence.ion_annotations and \
         ion_sequence.ion_annotations[0].text == _embedded_documents_annotation

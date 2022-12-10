@@ -12,15 +12,9 @@
 # specific language governing permissions and limitations under the
 # License.
 
-# Python 2/3 compatibility
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
-import six
-
 from datetime import timedelta
 from decimal import Decimal, localcontext
+from enum import IntEnum
 from functools import partial
 from io import BytesIO
 from struct import unpack
@@ -29,12 +23,12 @@ from .core import ION_STREAM_INCOMPLETE_EVENT, ION_STREAM_END_EVENT, ION_VERSION
                   IonEventType, IonType, IonEvent, IonThunkEvent, Transition, \
                   TimestampPrecision, Timestamp, OffsetTZInfo
 from .exceptions import IonException
-from .util import coroutine, record, Enum
+from .util import coroutine, record
 from .reader import reader_trampoline, BufferQueue, ReadEventType
 from .symbols import SYMBOL_ZERO_TOKEN, SymbolToken
 
 
-class _TypeID(Enum):
+class _TypeID(IntEnum):
     """Type IDs in the binary encoding which is distinct from the :class:`IonType` enum."""
     NULL = 0
     BOOL = 1
@@ -642,7 +636,7 @@ def _int_factory(sign, data):
             length -= 2
         if length == 1:
             value <<= 8
-            value |= six.indexbytes(data, -length)
+            value |= data[-length]
         return sign * value
     return parse_int
 

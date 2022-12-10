@@ -27,11 +27,6 @@ defined below.
 - ``varuint``: applies only to the VarUInt field - the unsigned, variable-length field.
 """
 
-# Python 2/3 compatibility
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 from .util import bit_length
 
 _VARIABLE_END_BIT_MASK = 0b10000000  # Both VarInt and VarUInt

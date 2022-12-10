@@ -13,19 +13,11 @@
 # License.
 
 """Provides a ``simplejson``-like API for dumping and loading Ion data."""
-
-# Python 2/3 compatibility
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
+import io
 from datetime import datetime
 from decimal import Decimal
 from io import BytesIO, TextIOBase
-from itertools import chain
 from types import GeneratorType
-
-import six
 
 from amazon.ion.reader_text import text_reader
 from amazon.ion.writer_text import text_writer
@@ -50,7 +42,7 @@ except ModuleNotFoundError:
 
 _ION_CONTAINER_END_EVENT = IonEvent(IonEventType.CONTAINER_END)
 _IVM = b'\xe0\x01\x00\xea'
-_TEXT_TYPES = (TextIOBase, six.StringIO)
+_TEXT_TYPES = (TextIOBase, io.StringIO)
 
 
 def dump_python(obj, fp, imports=None, binary=True, sequence_as_stream=False, skipkeys=False, ensure_ascii=True,
@@ -166,26 +158,22 @@ def dump_python(obj, fp, imports=None, binary=True, sequence_as_stream=False, sk
     writer.send(ION_STREAM_END_EVENT)
 
 
-_FROM_TYPE = dict(chain(
-    six.iteritems({
-        type(None): IonType.NULL,
-        type(True): IonType.BOOL,
-        type(False): IonType.BOOL,
-        float: IonType.FLOAT,
-        six.text_type: IonType.STRING,
-        Decimal: IonType.DECIMAL,
-        datetime: IonType.TIMESTAMP,
-        Timestamp: IonType.TIMESTAMP,
-        six.binary_type: IonType.BLOB,
-        SymbolToken: IonType.SYMBOL,
-        list: IonType.LIST,
-        tuple: IonType.LIST,
-        dict: IonType.STRUCT
-    }),
-    six.iteritems(
-        dict(zip(six.integer_types, [IonType.INT] * len(six.integer_types)))
-    ),
-))
+_FROM_TYPE = {
+    type(None): IonType.NULL,
+    type(True): IonType.BOOL,
+    type(False): IonType.BOOL,
+    float: IonType.FLOAT,
+    str: IonType.STRING,
+    Decimal: IonType.DECIMAL,
+    datetime: IonType.TIMESTAMP,
+    Timestamp: IonType.TIMESTAMP,
+    bytes: IonType.BLOB,
+    SymbolToken: IonType.SYMBOL,
+    list: IonType.LIST,
+    tuple: IonType.LIST,
+    dict: IonType.STRUCT,
+    int: IonType.INT
+}
 
 _FROM_TYPE_TUPLE_AS_SEXP = dict(_FROM_TYPE)
 _FROM_TYPE_TUPLE_AS_SEXP.update({
@@ -225,7 +213,7 @@ def _dump(obj, writer, from_type, field=None, in_struct=False, depth=0):
             event = IonEvent(IonEventType.CONTAINER_START, ion_type, field_name=field, depth=depth)
         writer.send(event)
         if ion_type is IonType.STRUCT:
-            for field, val in six.iteritems(obj):
+            for field, val in iter(obj.items()):
                 _dump(val, writer, from_type, field, in_struct=True, depth=depth+1)
         else:
             for elem in obj:
@@ -287,7 +275,7 @@ def dumps(obj, imports=None, binary=True, sequence_as_stream=False, skipkeys=Fal
         Union[str|bytes]: The string or binary representation of the data.  if ``binary=True``, this will be a
             ``bytes`` object, otherwise this will be a ``str`` object (or ``unicode`` in the case of Python 2.x)
     """
-    ion_buffer = six.BytesIO()
+    ion_buffer = io.BytesIO()
 
     dump(obj, ion_buffer, imports=imports, sequence_as_stream=sequence_as_stream, binary=binary, skipkeys=skipkeys,
          ensure_ascii=ensure_ascii, check_circular=check_circular,
@@ -480,10 +468,10 @@ def loads(ion_str, catalog=None, single_value=True, encoding='utf-8', cls=None, 
             A sequence of Python objects representing a stream of Ion values.
     """
 
-    if isinstance(ion_str, six.binary_type):
+    if isinstance(ion_str, bytes):
         ion_buffer = BytesIO(ion_str)
-    elif isinstance(ion_str, six.text_type):
-        ion_buffer = six.StringIO(ion_str)
+    elif isinstance(ion_str, str):
+        ion_buffer = io.StringIO(ion_str)
     else:
         raise TypeError('Unsupported text: %r' % ion_str)
 

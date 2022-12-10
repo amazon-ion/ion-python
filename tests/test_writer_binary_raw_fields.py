@@ -12,11 +12,6 @@
 # specific language governing permissions and limitations under the
 # License.
 
-# Python 2/3 compatibility
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 from tests import parametrize
 
 from amazon.ion.writer_binary_raw_fields import _write_int, _write_int_uncached, _write_varint, \

@@ -22,7 +22,6 @@ import datetime
 from decimal import Decimal
 import json
 import pytest
-import six
 import sys
 
 is_pypy = hasattr(sys, "pypy_version_info")
@@ -174,7 +173,7 @@ def test_symbol():
     if is_pypy:
         return
 
-    ion_value = loads(dumps(SymbolToken(six.text_type("Symbol"), None)))
+    ion_value = loads(dumps(SymbolToken(str("Symbol"), None)))
     assert isinstance(ion_value, IonPySymbol) and ion_value.ion_type == IonType.SYMBOL
     json_string = json.dumps(ion_value, cls=IonToJSONEncoder)
     assert json_string == '"Symbol"'
@@ -184,7 +183,7 @@ def test_string():
     if is_pypy:
         return
 
-    ion_value = loads(dumps(six.text_type("String")))
+    ion_value = loads(dumps(str("String")))
     assert isinstance(ion_value, IonPyText) and ion_value.ion_type == IonType.STRING
     json_string = json.dumps(ion_value, cls=IonToJSONEncoder)
     assert json_string == '"String"'
@@ -204,7 +203,7 @@ def test_blob():
     if is_pypy:
         return
 
-    ion_value = loads(dumps(b64encode("Ion".encode("ASCII")) if six.PY2 else bytes("Ion", "ASCII")))
+    ion_value = loads(dumps(bytes("Ion", "ASCII")))
     assert isinstance(ion_value, IonPyBytes) and ion_value.ion_type == IonType.BLOB
     json_string = json.dumps(ion_value, cls=IonToJSONEncoder)
     assert json_string == '"SW9u"'
@@ -214,7 +213,7 @@ def test_list():
     if is_pypy:
         return
 
-    ion_value = loads(dumps([six.text_type("Ion"), 123]))
+    ion_value = loads(dumps([str("Ion"), 123]))
     assert isinstance(ion_value, IonPyList) and ion_value.ion_type == IonType.LIST
     json_string = json.dumps(ion_value, cls=IonToJSONEncoder)
     assert json_string == '["Ion", 123]'
@@ -224,7 +223,7 @@ def test_sexp():
     if is_pypy:
         return
 
-    value = (six.text_type("Ion"), 123)
+    value = (str("Ion"), 123)
     ion_value = loads(dumps(loads(dumps(value, tuple_as_sexp=True))))
     assert isinstance(ion_value, IonPyList) and ion_value.ion_type == IonType.SEXP
     json_string = json.dumps(ion_value, cls=IonToJSONEncoder)
@@ -236,10 +235,10 @@ def test_struct():
         return
 
     value = {
-        six.text_type("string_value"): six.text_type("Ion"),
-        six.text_type("int_value"): 123,
-        six.text_type("nested_struct"): {
-            six.text_type("nested_value"): six.text_type("Nested Ion")
+        str("string_value"): str("Ion"),
+        str("int_value"): 123,
+        str("nested_struct"): {
+            str("nested_value"): str("Nested Ion")
         }
     }
     ion_value = loads(dumps(value))
@@ -255,7 +254,7 @@ def test_annotation_suppression():
     if is_pypy:
         return
 
-    ion_value = loads(dumps(IonPyInt.from_value(IonType.INT, 123, six.text_type("Annotation"))))
+    ion_value = loads(dumps(IonPyInt.from_value(IonType.INT, 123, str("Annotation"))))
     assert isinstance(ion_value, IonPyInt) and ion_value.ion_type == IonType.INT
     json_string = json.dumps(ion_value, cls=IonToJSONEncoder)
     assert json_string == '123'

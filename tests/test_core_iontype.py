@@ -12,11 +12,6 @@
 # specific language governing permissions and limitations under the
 # License.
 
-# Python 2/3 compatibility
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 import itertools
 import tests
 
@@ -35,8 +30,8 @@ def in_and_out_params(in_types, out_types):
         (_P(t, True) for t in in_types)
     ))
 
-_IN_TYPES = set([IonType.SYMBOL, IonType.STRING])
-_OUT_TYPES = set(IonType._enum_members.values()) - _IN_TYPES
+_IN_TYPES = {IonType.SYMBOL, IonType.STRING}
+_OUT_TYPES = set(IonType) - _IN_TYPES
 
 
 @tests.parametrize(*in_and_out_params(_IN_TYPES, _OUT_TYPES))
@@ -44,8 +39,8 @@ def test_is_text(p):
     assert p.expected == p.type.is_text
 
 
-_IN_TYPES = set([IonType.CLOB, IonType.BLOB])
-_OUT_TYPES = set(IonType._enum_members.values()) - _IN_TYPES
+_IN_TYPES = {IonType.CLOB, IonType.BLOB}
+_OUT_TYPES = set(IonType) - _IN_TYPES
 
 
 @tests.parametrize(*in_and_out_params(_IN_TYPES, _OUT_TYPES))
@@ -53,8 +48,8 @@ def test_is_lob(p):
     assert p.expected == p.type.is_lob
 
 
-_IN_TYPES = set([IonType.LIST, IonType.SEXP, IonType.STRUCT])
-_OUT_TYPES = set(IonType._enum_members.values()) - _IN_TYPES
+_IN_TYPES = {IonType.LIST, IonType.SEXP, IonType.STRUCT}
+_OUT_TYPES = set(IonType) - _IN_TYPES
 
 
 @tests.parametrize(*in_and_out_params(_IN_TYPES, _OUT_TYPES))

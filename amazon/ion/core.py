@@ -13,11 +13,7 @@
 # License.
 
 """Ion core types."""
-
-# Python 2/3 compatibility
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from enum import IntEnum
 
 # in Python 3.10, abstract collections have moved into their own module
 # for compatibility with 3.10+, first try imports from the new location
@@ -32,13 +28,10 @@ from datetime import datetime, timedelta, tzinfo
 from decimal import Decimal, ROUND_FLOOR, Context, Inexact
 from math import isnan
 
-import six
-
-from .util import Enum
 from .util import record
 
 
-class IonType(Enum):
+class IonType(IntEnum):
     """Enumeration of the Ion data types."""
     NULL = 0
     BOOL = 1
@@ -75,7 +68,7 @@ class IonType(Enum):
 
 
 # TODO At some point we can add SCALAR_START/SCALAR_END for streaming large values.
-class IonEventType(Enum):
+class IonEventType(IntEnum):
     """Enumeration of Ion parser or serializer events.
 
     These types do not correspond directly to the Ion type system, but they are related.
@@ -304,7 +297,7 @@ class DataEvent(record('type', 'data')):
     """Event generated as a result of the writer or as input into the reader.
 
     Args:
-        type (Enum): The type of event.
+        type (IntEnum): The type of event.
         data (bytes):  The serialized data returned.  If no data is to be serialized,
             this should be the empty byte string.
     """
@@ -351,7 +344,7 @@ class OffsetTZInfo(tzinfo):
         return 'OffsetTZInfo(%s%s)' % (sign, delta)
 
 
-class TimestampPrecision(Enum):
+class TimestampPrecision(IntEnum):
     """The different levels of precision supported in an Ion timestamp."""
     YEAR = 0
     MONTH = 1
@@ -619,7 +612,7 @@ class Multimap(MutableMapping):
         super(Multimap, self).__init__()
         self.__store = OrderedDict()
         if args is not None and len(args) > 0:
-            for key, value in six.iteritems(args[0]):
+            for key, value in iter(args[0].items()):
                 self.__store[key] = MultimapValue(value)
 
     def __getitem__(self, key):
@@ -632,10 +625,10 @@ class Multimap(MutableMapping):
         self.__store[key] = MultimapValue(value)
 
     def __len__(self):
-        return sum([len(values) for values in six.itervalues(self.__store)])
+        return sum([len(values) for values in iter(self.__store.values())])
 
     def __iter__(self):
-        for key in six.iterkeys(self.__store):
+        for key in iter(self.__store.keys()):
             yield key
 
     def __str__(self):
@@ -645,8 +638,7 @@ class Multimap(MutableMapping):
         str_repr = '{'
         for key, value in self.items():
             str_repr += '%r: %r, ' % (key, value)
-        str_repr = str_repr[:len(str_repr) - 2] + '}'
-        return six.ensure_binary(str_repr) if six.PY2 else str_repr
+        return str_repr[:len(str_repr) - 2] + '}'
 
     def add_item(self, key, value):
         if key in self.__store:

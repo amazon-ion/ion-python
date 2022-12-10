@@ -13,17 +13,13 @@
 # License.
 
 """Provides common functionality for Ion binary and text writers."""
-
-# Python 2/3 compatibility
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from enum import IntEnum
 
 from .core import DataEvent, IonEventType, Transition, IonType
-from .util import coroutine, Enum
+from .util import coroutine
 
 
-class WriteEventType(Enum):
+class WriteEventType(IntEnum):
     """Events that can come from an Ion writer co-routine.
 
     Attributes:

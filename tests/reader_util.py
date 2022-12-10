@@ -12,11 +12,6 @@
 # specific language governing permissions and limitations under the
 # License.
 
-# Python 2/3 compatibility
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 from pytest import raises
 
 from tests import is_exception, listify

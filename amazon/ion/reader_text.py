@@ -12,29 +12,18 @@
 # specific language governing permissions and limitations under the
 # License.
 
-# Python 2/3 compatibility
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 import base64
 from decimal import Decimal
 from collections import defaultdict
+from enum import IntEnum
 from functools import partial
-
-import six
-import sys
 
 from amazon.ion.core import Transition, ION_STREAM_INCOMPLETE_EVENT, ION_STREAM_END_EVENT, IonType, IonEvent, \
     IonEventType, IonThunkEvent, TimestampPrecision, timestamp, ION_VERSION_MARKER_EVENT
 from amazon.ion.exceptions import IonException
-from amazon.ion.reader import BufferQueue, reader_trampoline, ReadEventType, safe_unichr, CodePointArray, CodePoint, \
-    _NARROW_BUILD
+from amazon.ion.reader import BufferQueue, reader_trampoline, ReadEventType, CodePointArray, CodePoint
 from amazon.ion.symbols import SymbolToken, TEXT_ION_1_0
-from amazon.ion.util import record, coroutine, Enum, _next_code_point, CodePoint
-
-_ord = six.byte2int
-_chr = safe_unichr
+from amazon.ion.util import record, coroutine, _next_code_point, CodePoint
 
 
 def _illegal_character(c, ctx, message=''):
@@ -51,7 +40,7 @@ def _illegal_character(c, ctx, message=''):
     if c is None:
         header = 'Illegal token'
     else:
-        c = 'EOF' if BufferQueue.is_eof(c) else _chr(c)
+        c = 'EOF' if BufferQueue.is_eof(c) else chr(c)
         header = 'Illegal character %s' % (c,)
     raise IonException('%s at position %d in %s value contained in %s. %s Pending value: %s'
                        % (header, ctx.queue.position, value_type, container_type, message, ctx.value))
@@ -62,7 +51,7 @@ def _defaultdict(dct, fallback=_illegal_character):
     accessed.
     """
     out = defaultdict(lambda: fallback)
-    for k, v in six.iteritems(dct):
+    for k, v in iter(dct.items()):
         out[k] = v
     return out
 
@@ -87,7 +76,7 @@ def _merge_mappings(*args):
 
 def _seq(s):
     """Converts bytes to a sequence of integer code points."""
-    return tuple(six.iterbytes(s))
+    return tuple(iter(s))
 
 
 _ENCODING = 'utf-8'
@@ -117,38 +106,38 @@ _OPERATORS = _seq(b'!#%&*+-./;<=>?@^`|~')
 _COMMON_ESCAPES = _seq(b'abtnfrv?0\'"/\\')
 _NEWLINES = _seq(b'\r\n')
 
-_UNDERSCORE = _ord(b'_')
-_DOT = _ord(b'.')
-_COMMA = _ord(b',')
-_COLON = _ord(b':')
-_SLASH = _ord(b'/')
-_ASTERISK = _ord(b'*')
-_BACKSLASH = _ord(b'\\')
-_CARRIAGE_RETURN = _ord(b'\r')
-_NEWLINE = _ord(b'\n')
-_DOUBLE_QUOTE = _ord(b'"')
-_SINGLE_QUOTE = _ord(b'\'')
-_DOLLAR_SIGN = _ord(b'$')
-_PLUS = _ord(b'+')
-_MINUS = _ord(b'-')
+_UNDERSCORE = ord(b'_')
+_DOT = ord(b'.')
+_COMMA = ord(b',')
+_COLON = ord(b':')
+_SLASH = ord(b'/')
+_ASTERISK = ord(b'*')
+_BACKSLASH = ord(b'\\')
+_CARRIAGE_RETURN = ord(b'\r')
+_NEWLINE = ord(b'\n')
+_DOUBLE_QUOTE = ord(b'"')
+_SINGLE_QUOTE = ord(b'\'')
+_DOLLAR_SIGN = ord(b'$')
+_PLUS = ord(b'+')
+_MINUS = ord(b'-')
 _HYPHEN = _MINUS
-_T = _ord(b'T')
-_Z = _ord(b'Z')
-_T_LOWER = _ord(b't')
-_N_LOWER = _ord(b'n')
-_F_LOWER = _ord(b'f')
+_T = ord(b'T')
+_Z = ord(b'Z')
+_T_LOWER = ord(b't')
+_N_LOWER = ord(b'n')
+_F_LOWER = ord(b'f')
 _ZERO = _DIGITS[0]
-_OPEN_BRACE = _ord(b'{')
-_OPEN_BRACKET = _ord(b'[')
-_OPEN_PAREN = _ord(b'(')
-_CLOSE_BRACE = _ord(b'}')
-_CLOSE_BRACKET = _ord(b']')
-_CLOSE_PAREN = _ord(b')')
-_BASE64_PAD = _ord(b'=')
-_QUESTION_MARK = _ord(b'?')
-_UNICODE_ESCAPE_2 = _ord(b'x')
-_UNICODE_ESCAPE_4 = _ord(b'u')
-_UNICODE_ESCAPE_8 = _ord(b'U')
+_OPEN_BRACE = ord(b'{')
+_OPEN_BRACKET = ord(b'[')
+_OPEN_PAREN = ord(b'(')
+_CLOSE_BRACE = ord(b'}')
+_CLOSE_BRACKET = ord(b']')
+_CLOSE_PAREN = ord(b')')
+_BASE64_PAD = ord(b'=')
+_QUESTION_MARK = ord(b'?')
+_UNICODE_ESCAPE_2 = ord(b'x')
+_UNICODE_ESCAPE_4 = ord(b'u')
+_UNICODE_ESCAPE_8 = ord(b'U')
 
 _ESCAPED_NEWLINE = u''  # An escaped newline expands to nothing.
 
@@ -214,35 +203,35 @@ _NULL_TIMESTAMP_SUFFIX = _NullSequence(IonType.TIMESTAMP, _seq(b'imestamp'))
 # possible suffixes to 'null.'. Any other suffix to 'null.' is an error. _NULL_STARTS is entered when 'null.' is found.
 
 _NULL_STR_NEXT = {
-    _ord(b'i'): _NULL_STRING_SUFFIX,
-    _ord(b'u'): _NULL_STRUCT_SUFFIX
+    ord(b'i'): _NULL_STRING_SUFFIX,
+    ord(b'u'): _NULL_STRUCT_SUFFIX
 }
 
 _NULL_ST_NEXT = {
-    _ord(b'r'): _NULL_STR_NEXT
+    ord(b'r'): _NULL_STR_NEXT
 }
 
 _NULL_S_NEXT = {
-    _ord(b'y'): _NULL_SYMBOL_SUFFIX,
-    _ord(b'e'): _NULL_SEXP_SUFFIX,
-    _ord(b't'): _NULL_ST_NEXT
+    ord(b'y'): _NULL_SYMBOL_SUFFIX,
+    ord(b'e'): _NULL_SEXP_SUFFIX,
+    ord(b't'): _NULL_ST_NEXT
 }
 
 _NULL_B_NEXT = {
-    _ord(b'l'): _NULL_BLOB_SUFFIX,
-    _ord(b'o'): _NULL_BOOL_SUFFIX
+    ord(b'l'): _NULL_BLOB_SUFFIX,
+    ord(b'o'): _NULL_BOOL_SUFFIX
 }
 
 _NULL_STARTS = {
-    _ord(b'n'): _NULL_SUFFIX,  # null.null
-    _ord(b's'): _NULL_S_NEXT,  # null.string, null.symbol, null.struct, null.sexp
-    _ord(b'i'): _NULL_INT_SUFFIX,  # null.int
-    _ord(b'f'): _NULL_FLOAT_SUFFIX,  # null.float
-    _ord(b'd'): _NULL_DECIMAL_SUFFIX,  # null.decimal
-    _ord(b'b'): _NULL_B_NEXT,  # null.bool, null.blob
-    _ord(b'c'): _NULL_CLOB_SUFFIX,  # null.clob
-    _ord(b'l'): _NULL_LIST_SUFFIX,  # null.list
-    _ord(b't'): _NULL_TIMESTAMP_SUFFIX,  # null.timestamp
+    ord(b'n'): _NULL_SUFFIX,  # null.null
+    ord(b's'): _NULL_S_NEXT,  # null.string, null.symbol, null.struct, null.sexp
+    ord(b'i'): _NULL_INT_SUFFIX,  # null.int
+    ord(b'f'): _NULL_FLOAT_SUFFIX,  # null.float
+    ord(b'd'): _NULL_DECIMAL_SUFFIX,  # null.decimal
+    ord(b'b'): _NULL_B_NEXT,  # null.bool, null.blob
+    ord(b'c'): _NULL_CLOB_SUFFIX,  # null.clob
+    ord(b'l'): _NULL_LIST_SUFFIX,  # null.list
+    ord(b't'): _NULL_TIMESTAMP_SUFFIX,  # null.timestamp
 }
 
 
@@ -690,14 +679,14 @@ def _numeric_handler_factory(charset, transition, assertion, illegal_before_unde
         while True:
             if _ends_value(c):
                 if prev == _UNDERSCORE or prev in illegal_at_end:
-                    _illegal_character(c, ctx, '%s at end of number.' % (_chr(prev),))
+                    _illegal_character(c, ctx, '%s at end of number.' % (chr(prev),))
                 trans = ctx.event_transition(IonThunkEvent, IonEventType.SCALAR, ctx.ion_type, parse_func(ctx.value))
                 if c == _SLASH:
                     trans = ctx.immediate_transition(_number_slash_end_handler(c, ctx, trans))
             else:
                 if c == _UNDERSCORE:
                     if prev == _UNDERSCORE or prev in illegal_before_underscore:
-                        _illegal_character(c, ctx, 'Underscore after %s.' % (_chr(prev),))
+                        _illegal_character(c, ctx, 'Underscore after %s.' % (chr(prev),))
                 else:
                     if c not in charset:
                         trans = transition(prev, c, ctx, trans)
@@ -732,7 +721,7 @@ def _exponent_handler_factory(ion_type, exp_chars, parse_func, first_char=None):
                                     illegal_at_end=illegal, ion_type=ion_type, first_char=first_char)
 
 
-_decimal_handler = _exponent_handler_factory(IonType.DECIMAL, _DECIMAL_EXPS, _parse_decimal, first_char=_ord(b'e'))
+_decimal_handler = _exponent_handler_factory(IonType.DECIMAL, _DECIMAL_EXPS, _parse_decimal, first_char=ord(b'e'))
 _float_handler = _exponent_handler_factory(IonType.FLOAT, _FLOAT_EXPS, _parse_float)
 
 
@@ -753,7 +742,7 @@ def _coefficient_handler_factory(trans_table, parse_func, assertion=lambda c, ct
     """
     def transition(prev, c, ctx, trans):
         if prev == _UNDERSCORE:
-            _illegal_character(c, ctx, 'Underscore before %s.' % (_chr(c),))
+            _illegal_character(c, ctx, 'Underscore before %s.' % (chr(c),))
         return ctx.immediate_transition(trans_table[c](c, ctx))
     return _numeric_handler_factory(_DIGITS, transition, assertion, (_DOT,), parse_func,
                                     ion_type=ion_type, append_first_if_not=append_first_if_not)
@@ -826,7 +815,7 @@ def _timestamp_zero_start_handler(c, ctx):
         c, _ = yield trans
 
 
-class _TimestampState(Enum):
+class _TimestampState(IntEnum):
     YEAR = 0
     MONTH = 1
     DAY = 2
@@ -958,7 +947,7 @@ def _timestamp_handler(c, ctx):
     while True:
         is_eof = can_terminate and BufferQueue.is_eof(c)
         if c not in nxt and not is_eof:
-            _illegal_character(c, ctx, 'Expected %r in state %r.' % ([_chr(x) for x in nxt], state))
+            _illegal_character(c, ctx, 'Expected %r in state %r.' % ([chr(x) for x in nxt], state))
         if c in _VALUE_TERMINATORS or is_eof:
             if not can_terminate:
                 _illegal_character(c, ctx, 'Unexpected termination of timestamp.')
@@ -985,7 +974,7 @@ def _timestamp_handler(c, ctx):
                     if prev == _HYPHEN:
                         val.append(prev)
                 elif prev in (_TIMESTAMP_DELIMITERS + (_T,)):
-                    state = _TimestampState[state + 1]
+                    state = _TimestampState(state + 1)
                     val = tokens.transition(state)
                     if state == _TimestampState.FRACTIONAL:
                         nxt = _DIGITS + _TIMESTAMP_OFFSET_INDICATORS
@@ -1012,7 +1001,7 @@ def _timestamp_handler(c, ctx):
                         raise ValueError('Unknown timestamp state %r.' % (state,))
                 else:
                     # Reaching this branch would be indicative of a programming error within this state machine.
-                    raise ValueError('Digit following %s in timestamp state %r.' % (_chr(prev), state))
+                    raise ValueError('Digit following %s in timestamp state %r.' % (chr(prev), state))
                 val.append(c)
         prev = c
         c, _ = yield trans
@@ -1032,7 +1021,7 @@ def _comment_handler(c, ctx, whence):
             ctx.set_line_comment(False)
         block_comment = True
     else:
-        _illegal_character(c, ctx, 'Illegal character sequence "/%s".' % (_chr(c),))
+        _illegal_character(c, ctx, 'Illegal character sequence "/%s".' % (chr(c),))
     done = False
     prev = None
     trans = ctx.immediate_transition(self)
@@ -1091,7 +1080,7 @@ def _is_escaped_newline(c):
         return c.char == _ESCAPED_NEWLINE
     except AttributeError:
         return False
-    #return c in _NEWLINES and _is_escaped(c) and _chr(c) == u''
+    #return c in _NEWLINES and _is_escaped(c) and chr(c) == u''
 
 
 @coroutine
@@ -1140,7 +1129,7 @@ def _long_string_handler(c, ctx, is_field_name=False):
                         # This string value is followed by a quoted symbol.
                         if ctx.container.is_delimited:
                             _illegal_character(c, ctx, 'Delimiter %s not found after value.'
-                                               % (_chr(ctx.container.delimiter[0]),))
+                                               % (chr(ctx.container.delimiter[0]),))
                         trans = ctx.event_transition(IonEvent, IonEventType.SCALAR, ctx.ion_type, ctx.value.as_text())
                         if quotes == 1:
                             if BufferQueue.is_eof(c):
@@ -1340,7 +1329,7 @@ def _inf_or_operator_handler_factory(c_start, is_delegate=True):
             c, self = yield trans
         if ctx.container is not _C_SEXP:
             _illegal_character(c, next_ctx is None and ctx or next_ctx,
-                               'Illegal character following %s.' % (_chr(c_start),))
+                               'Illegal character following %s.' % (chr(c_start),))
         if match_index == 0:
             if c in _OPERATORS:
                 yield ctx.immediate_transition(_operator_symbol_handler(c, ctx))
@@ -1488,7 +1477,7 @@ def _symbol_identifier_or_unquoted_symbol_handler(c, ctx, is_field_name=False):
         prev = c
         c, _ = yield trans
     if len(val) == 1:
-        assert val[0] == _chr(_DOLLAR_SIGN)
+        assert val[0] == chr(_DOLLAR_SIGN)
     elif maybe_symbol_identifier:
         assert not maybe_ivm
         sid = int(val[1:])
@@ -1644,21 +1633,14 @@ def _struct_or_lob_handler(c, ctx):
     yield ctx.immediate_transition(_STRUCT_OR_LOB_TABLE[c](c, ctx))
 
 
-def _b64decode_py2(value):
-    # Some versions of python 2 don't support bytearray as input to base64.b64decode.
-    return base64.b64decode(six.binary_type(value))
-
-_b64decode = _b64decode_py2 if six.PY2 else base64.b64decode
-
-
 def _parse_lob(ion_type, value):
     def parse():
         if ion_type is IonType.CLOB:
             byte_value = bytearray()
             for b in value.as_text():
                 byte_value.append(ord(b))
-            return six.binary_type(byte_value)
-        return _b64decode(value)
+            return bytes(byte_value)
+        return base64.b64decode(value)
     return parse
 
 
@@ -1987,7 +1969,7 @@ def _container_handler(c, ctx):
                 if not delimiter_required:
                     _illegal_character(c, ctx.derive_child_context(None),
                                        'Encountered delimiter %s without preceding value.'
-                                       % (_chr(ctx.container.delimiter[0]),))
+                                       % (chr(ctx.container.delimiter[0]),))
                 is_field_name = ctx.ion_type is IonType.STRUCT
                 delimiter_required = False
                 c = None
@@ -2010,7 +1992,7 @@ def _container_handler(c, ctx):
             elif delimiter_required:
                 # This is not the delimiter, or whitespace, or the start of a comment. Throw.
                 _illegal_character(c, ctx.derive_child_context(None), 'Delimiter %s not found after value.'
-                                   % (_chr(ctx.container.delimiter[0]),))
+                                   % (chr(ctx.container.delimiter[0]),))
             elif has_pending_symbol():
                 # A character besides whitespace, comments, and delimiters has been found, and there is a pending
                 # symbol. That pending symbol is either an annotation, a field name, or a symbol value.
@@ -2048,8 +2030,7 @@ def _container_handler(c, ctx):
                 else:
                     handler = _VALUE_START_TABLE[c](c, child_context)  # Initialize the new handler
                     can_flush = _IMMEDIATE_FLUSH_TABLE[c]
-            container_start = c == _OPEN_BRACKET or \
-                              c == _OPEN_PAREN  # _OPEN_BRACE might start a lob; that is handled elsewhere.
+            container_start = c == _OPEN_BRACKET or c == _OPEN_PAREN  # _OPEN_BRACE might start a lob; that is handled elsewhere.
             quoted_start = c == _DOUBLE_QUOTE or c == _SINGLE_QUOTE
             while True:
                 # Loop over all characters in the current token. A token is either a non-symbol value or a pending
@@ -2165,7 +2146,7 @@ def _skip_trampoline(handler):
         data_event, _ = yield Transition(event, self)
 
 
-_next_code_point_iter = partial(_next_code_point, yield_char=_NARROW_BUILD)
+_next_code_point_iter = partial(_next_code_point, yield_char=False)
 
 
 @coroutine
@@ -2184,41 +2165,41 @@ def _next_code_point_handler(whence, ctx):
         code_point_generator = _next_code_point_iter(queue, queue_iter)
         code_point = next(code_point_generator)
         if code_point == _BACKSLASH:
-            escape_sequence += six.int2byte(_BACKSLASH)
+            escape_sequence += bytes((_BACKSLASH,))
             num_digits = None
             while True:
                 if len(queue) == 0:
                     yield ctx.read_data_event(self)
                 code_point = next(queue_iter)
-                if six.indexbytes(escape_sequence, -1) == _BACKSLASH:
-                    if code_point == _ord(b'u') and unicode_escapes_allowed:
+                if escape_sequence[-1] == _BACKSLASH:
+                    if code_point == ord(b'u') and unicode_escapes_allowed:
                         # 4-digit unicode escapes, plus '\u' for each surrogate
                         num_digits = 12 if low_surrogate_required else 6
                         low_surrogate_required = False
                     elif low_surrogate_required:
                         _illegal_character(code_point, ctx,
                                            'Unpaired high surrogate escape sequence %s.' % (escape_sequence,))
-                    elif code_point == _ord(b'x'):
+                    elif code_point == ord(b'x'):
                         num_digits = 4  # 2-digit hex escapes
-                    elif code_point == _ord(b'U') and unicode_escapes_allowed:
+                    elif code_point == ord(b'U') and unicode_escapes_allowed:
                         num_digits = 10  # 8-digit unicode escapes
                     elif code_point in _COMMON_ESCAPES:
                         if code_point == _SLASH or code_point == _QUESTION_MARK:
                             escape_sequence = b''  # Drop the \. Python does not recognize these as escapes.
-                        escape_sequence += six.int2byte(code_point)
+                        escape_sequence += bytes((code_point,))
                         break
                     elif code_point in _NEWLINES:
                         escaped_newline = True
                         break
                     else:
                         # This is a backslash followed by an invalid escape character. This is illegal.
-                        _illegal_character(code_point, ctx, 'Invalid escape sequence \\%s.' % (_chr(code_point),))
-                    escape_sequence += six.int2byte(code_point)
+                        _illegal_character(code_point, ctx, 'Invalid escape sequence \\%s.' % (chr(code_point),))
+                    escape_sequence += bytes((code_point,))
                 else:
                     if code_point not in _HEX_DIGITS:
                         _illegal_character(code_point, ctx,
-                                           'Non-hex character %s found in unicode escape.' % (_chr(code_point),))
-                    escape_sequence += six.int2byte(code_point)
+                                           'Non-hex character %s found in unicode escape.' % (chr(code_point),))
+                    escape_sequence += bytes((code_point,))
                     if len(escape_sequence) == num_digits:
                         break
             if not escaped_newline:

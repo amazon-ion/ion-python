@@ -12,16 +12,9 @@
 # specific language governing permissions and limitations under the
 # License.
 
-# Python 2/3 compatibility
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
-from datetime import timedelta
 from decimal import Decimal
 from itertools import chain
 from random import Random
-from six import int2byte
 
 from tests import parametrize, listify
 from tests.reader_util import reader_scaffold, ReaderParameter, all_top_level_as_one_stream_params, value_iter
@@ -274,11 +267,11 @@ def _gen_type_len(tid, length):
     """Very primitive type length encoder."""
     type_code = tid << 4
     if length < 0xE:
-        return int2byte(type_code | length)
+        return bytes((type_code | length,))
     else:
         type_code |= 0xE
         if length <= 0x7F:
-            return int2byte(type_code) + int2byte(0x80 | length)
+            return bytes((type_code,)) + bytes((0x80 | length,))
 
     raise ValueError('No support for long lengths in reader test')
 
@@ -351,7 +344,7 @@ def _containerize_params(params, with_skip=True):
             field_desc = ''
             if ion_type is IonType.STRUCT:
                 field_sid = rnd.randint(0, 0x7F)
-                field_data = int2byte(field_sid | 0x80)
+                field_data = bytes((field_sid | 0x80,))
                 field_tok = SymbolToken(None, field_sid)
                 field_desc = ' (f:0x%02X)' % field_sid
 
