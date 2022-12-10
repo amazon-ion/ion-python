@@ -73,8 +73,10 @@ def _serialize_scalar_from_string_representation_factory(type_name, types, str_f
     def serialize(ion_event):
         value = ion_event.value
         validate_scalar_value(value, types)
-        # TODO latin-1 is what six.b was doing. it does not seem right to me either
-        return str_func(value).encode("latin-1")
+
+        # This assumes an encoding of UTF-8, which is the only one supported at time
+        # of writing (Dec 2022).
+        return str_func(value).encode("utf-8")
     serialize.__name__ = '_serialize_' + type_name
     return serialize
 
@@ -441,8 +443,9 @@ def raw_writer(indent=None):
     if not (indent is None or is_whitespace_str):
         raise ValueError('The indent parameter must either be None or a string containing only whitespace')
 
-    # latin-1 is what six.b() was encoding this as before
-    indent_bytes = indent.encode("latin-1") if isinstance(indent, str) else indent
+    # This assumes an encoding of UTF-8, which is the only one supported at time
+    # of writing (Dec 2022).
+    indent_bytes = indent.encode("UTF-8") if isinstance(indent, str) else indent
 
     return writer_trampoline(_raw_writer_coroutine(indent=indent_bytes))
 

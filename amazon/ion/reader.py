@@ -91,10 +91,8 @@ class BufferQueue(object):
             self.__chr = chr
             self.__element_type = str
         else:
-            # TODO: this may be able to be fully eliminated
             self.__chr = lambda x: x
             self.__element_type = bytes
-        # TODO: this may be able to be fully eliminated
         self.__ord = ord if is_unicode else lambda x: x
         self.position = 0
         self.is_unicode = is_unicode
