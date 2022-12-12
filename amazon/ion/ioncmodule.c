@@ -28,26 +28,8 @@ static char _err_msg[ERR_MSG_MAX_LEN];
 
 #define _FAILWITHMSG(x, msg) { err = x; snprintf(_err_msg, ERR_MSG_MAX_LEN, msg); goto fail; }
 
-// Python 2/3 compatibility
-#if PY_MAJOR_VERSION >= 3
-    #define IONC_BYTES_FORMAT "y#"
-    #define IONC_READ_ARGS_FORMAT "OO"
-    #define PyInt_AsSsize_t PyLong_AsSsize_t
-    #define PyInt_AsLong PyLong_AsLong
-    #define PyInt_FromLong PyLong_FromLong
-    #define PyString_AsStringAndSize PyBytes_AsStringAndSize
-    #define PyString_Check PyUnicode_Check
-    #define PyString_FromStringAndSize PyUnicode_FromStringAndSize
-    #define PyString_FromString PyUnicode_FromString
-    #define PyInt_Check PyLong_Check
-#else
-    #define IONC_BYTES_FORMAT "s#"
-    #define IONC_READ_ARGS_FORMAT "OOO"
-#endif
-
-#if PY_VERSION_HEX < 0x02070000
-    #define offset_seconds(x) offset_seconds_26(x)
-#endif
+#define IONC_BYTES_FORMAT "y#"
+#define IONC_READ_ARGS_FORMAT "OO"
 
 static PyObject* _math_module;
 
@@ -136,25 +118,17 @@ static int int_attr_by_name(PyObject* obj, char* attr_name) {
     PyObject* py_int = PyObject_GetAttrString(obj, attr_name);
     int c_int = 0;
     if (py_int != Py_None) {
-        c_int = (int)PyInt_AsSsize_t(py_int);
+        c_int = (int)PyLong_AsSsize_t(py_int);
     }
     Py_DECREF(py_int);
     return c_int;
 }
 
-// TODO compare performance of these offset_seconds* methods. The _26 version will work with all versions, so if it is
-// as fast, should be used for all.
-static int offset_seconds_26(PyObject* timedelta) {
-    long microseconds = int_attr_by_name(timedelta, "microseconds");
-    long seconds_microseconds = (long)int_attr_by_name(timedelta, "seconds") * 1000000;
-    long days_microseconds = (long)int_attr_by_name(timedelta, "days") * 24 * 3600 * 1000000;
-    return (microseconds + seconds_microseconds + days_microseconds) / 1000000;
-}
-
+// an Alternative to calculate timedelta, see https://github.com/amzn/ion-python/issues/225
 static int offset_seconds(PyObject* timedelta) {
     PyObject* py_seconds = PyObject_CallMethod(timedelta, "total_seconds", NULL);
     PyObject* py_seconds_int = PyObject_CallMethod(py_seconds, "__int__", NULL);
-    int seconds = (int)PyInt_AsSsize_t(py_seconds_int);
+    int seconds = (int)PyLong_AsSsize_t(py_seconds_int);
     Py_DECREF(py_seconds);
     Py_DECREF(py_seconds_int);
     return seconds;
@@ -175,7 +149,7 @@ static int ion_type_from_py(PyObject* obj) {
         ion_type = PyObject_GetAttrString(obj, "ion_type");
     }
     if (ion_type == NULL) return tid_none_INT;
-    int c_type = c_ion_type_table[PyInt_AsSsize_t(ion_type)];
+    int c_type = c_ion_type_table[PyLong_AsSsize_t(ion_type)];
     Py_DECREF(ion_type);
     return c_type;
 }
@@ -190,22 +164,7 @@ static int ion_type_from_py(PyObject* obj) {
  */
 static iERR c_string_from_py(PyObject* str, char** out, Py_ssize_t* len_out) {
     iENTER;
-#if PY_MAJOR_VERSION >= 3
     *out = PyUnicode_AsUTF8AndSize(str, len_out);
-#else
-    PyObject *utf8_str;
-    if (PyUnicode_Check(str)) {
-        utf8_str = PyUnicode_AsUTF8String(str);
-    }
-    else {
-        utf8_str = PyString_AsEncodedObject(str, "utf-8", "strict");
-    }
-    if (!utf8_str) {
-        _FAILWITHMSG(IERR_INVALID_ARG, "Python 2 fails to convert python string to utf8 string.");
-    }
-    PyString_AsStringAndSize(utf8_str, out, len_out);
-    Py_DECREF(utf8_str);
-#endif
     iRETURN;
 }
 
@@ -253,7 +212,7 @@ static PyObject* ion_build_py_string(ION_STRING* string_value) {
  */
 static void ionc_add_to_container(PyObject* pyContainer, PyObject* element, BOOL in_struct, ION_STRING* field_name) {
     if (in_struct) {
-        PyObject* py_attr = PyString_FromString("add_item");
+        PyObject* py_attr = PyUnicode_FromString("add_item");
         PyObject* py_field_name = ion_build_py_string(field_name);
         PyObject_CallMethodObjArgs(
             pyContainer,
@@ -337,7 +296,7 @@ static iERR ionc_write_symboltoken(hWRITER writer, PyObject* symboltoken, BOOL i
     PyObject* symbol_text = PyObject_GetAttrString(symboltoken, "text");
     if (symbol_text == Py_None) {
         PyObject* py_sid = PyObject_GetAttrString(symboltoken, "sid");
-        SID sid = PyInt_AsSsize_t(py_sid);
+        SID sid = PyLong_AsSsize_t(py_sid);
         if (is_value) {
             err = _ion_writer_write_symbol_id_helper(writer, sid);
         }
@@ -567,7 +526,7 @@ iERR ionc_write_value(hWRITER writer, PyObject* obj, PyObject* tuple_as_sexp) {
         }
         IONCHECK(ion_writer_write_bool(writer, bool_value));
     }
-    else if (PyInt_Check(obj)) {
+    else if (PyLong_Check(obj)) {
         if (ion_type == tid_none_INT) {
             ion_type = tid_INT_INT;
         }
@@ -575,7 +534,7 @@ iERR ionc_write_value(hWRITER writer, PyObject* obj, PyObject* tuple_as_sexp) {
             IONCHECK(ionc_write_big_int(writer, obj));
         }
         else if (tid_BOOL_INT == ion_type) {
-            IONCHECK(ion_writer_write_bool(writer, PyInt_AsSsize_t(obj)));
+            IONCHECK(ion_writer_write_bool(writer, PyLong_AsSsize_t(obj)));
         }
         else {
             _FAILWITHMSG(IERR_INVALID_ARG, "Found int; expected INT or BOOL Ion type.");
@@ -621,7 +580,7 @@ iERR ionc_write_value(hWRITER writer, PyObject* obj, PyObject* tuple_as_sexp) {
         }
         char* bytes = NULL;
         Py_ssize_t len;
-        IONCHECK(PyString_AsStringAndSize(obj, &bytes, &len));
+        IONCHECK(PyBytes_AsStringAndSize(obj, &bytes, &len));
         if (ion_type == tid_BLOB_INT) {
             IONCHECK(ion_writer_write_blob(writer, (BYTE*)bytes, len));
         }
@@ -955,8 +914,8 @@ static iERR ionc_read_timestamp(hREADER hreader, PyObject** timestamp_out) {
         IONCHECK(ion_timestamp_get_local_offset(&timestamp_value, &off_minutes));
         off_hours = off_minutes / 60;
         off_minutes = off_minutes % 60;
-        PyObject* py_off_hours = PyInt_FromLong(off_hours);
-        PyObject* py_off_minutes = PyInt_FromLong(off_minutes);
+        PyObject* py_off_hours = PyLong_FromLong(off_hours);
+        PyObject* py_off_minutes = PyLong_FromLong(off_minutes);
         // Bounds checking is performed in python.
         PyDict_SetItemString(timestamp_args, "off_hours", py_off_hours);
         PyDict_SetItemString(timestamp_args, "off_minutes", py_off_minutes);
@@ -1005,8 +964,8 @@ static iERR ionc_read_timestamp(hREADER hreader, PyObject** timestamp_out) {
                     decContextClearStatus(&dec_context, DEC_Inexact);
                 }
 
-                PyObject* py_microsecond = PyInt_FromLong(microsecond);
-                PyObject* py_fractional_precision = PyInt_FromLong(fractional_precision);
+                PyObject* py_microsecond = PyLong_FromLong(microsecond);
+                PyObject* py_fractional_precision = PyLong_FromLong(fractional_precision);
                 PyDict_SetItemString(timestamp_args, "microsecond", py_microsecond);
                 PyDict_SetItemString(timestamp_args, "fractional_precision", py_fractional_precision);
                 Py_DECREF(py_microsecond);
@@ -1021,8 +980,8 @@ static iERR ionc_read_timestamp(hREADER hreader, PyObject** timestamp_out) {
         }
         case ION_TS_MIN:
         {
-            PyObject* temp_minutes = PyInt_FromLong(timestamp_value.minutes);
-            PyObject* temp_hours = PyInt_FromLong(timestamp_value.hours);
+            PyObject* temp_minutes = PyLong_FromLong(timestamp_value.minutes);
+            PyObject* temp_hours = PyLong_FromLong(timestamp_value.hours);
 
             PyDict_SetItemString(timestamp_args, "minute", temp_minutes);
             PyDict_SetItemString(timestamp_args, "hour",  temp_hours);
@@ -1032,18 +991,18 @@ static iERR ionc_read_timestamp(hREADER hreader, PyObject** timestamp_out) {
         }
         case ION_TS_DAY:
         {
-            PyObject* temp_day = PyInt_FromLong(timestamp_value.day);
+            PyObject* temp_day = PyLong_FromLong(timestamp_value.day);
             PyDict_SetItemString(timestamp_args, "day", temp_day);
             Py_DECREF(temp_day);
         }
         case ION_TS_MONTH:
-        {   PyObject* temp_month = PyInt_FromLong(timestamp_value.month);
+        {   PyObject* temp_month = PyLong_FromLong(timestamp_value.month);
             PyDict_SetItemString(timestamp_args, "month", temp_month);
             Py_DECREF(temp_month);
         }
         case ION_TS_YEAR:
         {
-            PyObject* temp_year = PyInt_FromLong(timestamp_value.year);
+            PyObject* temp_year = PyLong_FromLong(timestamp_value.year);
             PyDict_SetItemString(timestamp_args, "year", temp_year);
             Py_DECREF(temp_year);
             break;
@@ -1564,7 +1523,6 @@ static PyMethodDef ioncmodule_funcs[] = {
     {NULL}
 };
 
-#if PY_MAJOR_VERSION >= 3
 static struct PyModuleDef moduledef = {
     PyModuleDef_HEAD_INIT,
     "ionc",             /* m_name */
@@ -1576,17 +1534,12 @@ static struct PyModuleDef moduledef = {
     NULL,               /* m_clear*/
     NULL,               /* m_free */
 };
-#endif
 
 PyObject* ionc_init_module(void) {
     PyDateTime_IMPORT;
     PyObject* m;
 
-#if PY_MAJOR_VERSION >= 3
     m = PyModule_Create(&moduledef);
-#else
-    m = Py_InitModule3("ionc", ioncmodule_funcs,"Extension module example!");
-#endif
 
     // TODO is there a destructor for modules? These should be decreffed there
      _math_module               = PyImport_ImportModule("math");
@@ -1675,16 +1628,9 @@ static PyObject* init_module(void) {
     return ionc_init_module();
 }
 
-#if PY_MAJOR_VERSION >= 3
 PyMODINIT_FUNC
 PyInit_ionc(void)
 {
     return init_module();
 }
-#else
-void
-initionc(void)
-{
-    init_module();
-}
-#endif
+
