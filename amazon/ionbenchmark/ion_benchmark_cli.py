@@ -72,6 +72,7 @@ from tabulate import tabulate
 from amazon.ionbenchmark.API import API
 from amazon.ionbenchmark.Format import Format
 from amazon.ionbenchmark.util import str_to_bool, format_percentage, format_decimal, TOOL_VERSION
+# Related pypy incompatible issue - https://github.com/amzn/ion-python/issues/227
 pypy = platform.python_implementation() == 'PyPy'
 if not pypy:
     import tracemalloc
@@ -83,6 +84,7 @@ write_memory_usage_peak = 0
 read_memory_usage_peak = 0
 
 
+# Generates benchmark code for simpleion load API
 def generate_simpleion_load_test_code(file, memory_profiling, iterator=False, single_value=False,
                                       emit_bare_values=False):
     if not memory_profiling:
@@ -130,10 +132,12 @@ def generate_simpleion_load_test_code(file, memory_profiling, iterator=False, si
     return test_func
 
 
+# Generates benchmark code for event based API
 def generate_event_test_code(file):
     pass
 
 
+# Generates setup code for simpleion benchmark code
 def generate_simpleion_setup(c_extension, memory_profiling, gc=True):
     rtn = f'import amazon.ion.simpleion as ion;from amazon.ion.simple_types import IonPySymbol; ion.c_ext ={c_extension}'
     if memory_profiling:
@@ -144,10 +148,12 @@ def generate_simpleion_setup(c_extension, memory_profiling, gc=True):
     return rtn
 
 
+# Generates setup code for event based non_blocking benchmark code
 def generate_event_setup(file, gc=True):
     pass
 
 
+# Benchmarks simpleion load API
 def read_micro_benchmark_simpleion(iterations, warmups, c_extension, file, memory_profiling, iterator=False):
     file_size = Path(file).stat().st_size / BYTES_TO_MB
 
@@ -172,10 +178,15 @@ def read_micro_benchmark_simpleion(iterations, warmups, c_extension, file, memor
     return file_size, result_with_gc, result_with_raw_value
 
 
+# Benchmarks pure python implementation event based APIs
 def read_micro_benchmark_event(iterations, warmups, c_extension, file=None):
     pass
 
 
+# Framework for benchmarking read methods, this functions includes
+# 1. profile memory usage,
+# 2. benchmark performance,
+# 3. generate report
 def read_micro_benchmark_and_profiling(read_micro_benchmark_function, iterations, warmups, file, c_extension, iterator):
     if not file:
         raise Exception("Invalid file: file can not be none.")
@@ -203,6 +214,7 @@ def read_micro_benchmark_and_profiling(read_micro_benchmark_function, iterations
     return file_size, result_with_gc, conversion_time, read_memory_usage_peak
 
 
+# Generates and prints benchmark report
 def read_generate_report(file_size, total_time, conversion_time, wrapper_time_percentage, memory_usage_peak):
     table = [['file_size (MB)', 'total_time (s)', 'conversion_\ntime (s)', 'conversion_time/\ntotal_time (%)',
               'memory_usage_peak (MB)'],
@@ -215,6 +227,7 @@ def read_generate_report(file_size, total_time, conversion_time, wrapper_time_pe
     print(tabulate(table, tablefmt='fancy_grid'))
 
 
+# Generates benchmark code for simpleion dump API
 def generate_simpleion_dump_test_code(obj, memory_profiling, binary=True):
     if not memory_profiling:
         def test_func():
@@ -232,6 +245,7 @@ def generate_simpleion_dump_test_code(obj, memory_profiling, binary=True):
     return test_func
 
 
+# Benchmarks simpleion dump API
 def write_micro_benchmark_simpleion(iterations, warmups, c_extension, obj, file, binary, memory_profiling):
     file_size = Path(file).stat().st_size / BYTES_TO_MB
 
@@ -249,10 +263,15 @@ def write_micro_benchmark_simpleion(iterations, warmups, c_extension, obj, file,
     return file_size, result_with_gc
 
 
+# Benchmarks pure python event based write API
 def write_micro_benchmark_event(iterations, warmups, c_extension, obj, binary, file=None):
     pass
 
 
+# Framework for benchmarking write methods, this functions includes
+# 1. profile memory usage,
+# 2. benchmark performance,
+# 3. generate report
 def write_micro_benchmark_and_profiling(write_micro_benchmark_function, iterations, warmups, obj, c_extension, binary, file):
     if not obj:
         raise Exception("Invalid obj: object can not be none.")
@@ -274,6 +293,7 @@ def write_micro_benchmark_and_profiling(write_micro_benchmark_function, iteratio
     return file_size, result_with_gc, write_memory_usage_peak
 
 
+# Generates and prints benchmark report
 def write_generate_report(file_size, total_time, memory_usage_peak):
     table = [['file_size (MB)', 'total_time (s)', 'memory_usage_peak (MB)'],
              [format_decimal(file_size),
