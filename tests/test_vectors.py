@@ -13,6 +13,7 @@
 # License.
 import io
 import struct
+import sys
 from collections import defaultdict
 from decimal import getcontext
 from enum import IntEnum
@@ -30,6 +31,7 @@ from amazon.ion.simpleion import load, dump
 from tests import parametrize
 from amazon.ion.simpleion import c_ext
 
+PYPY = hasattr(sys, 'pypy_translation_info')
 
 # This file lives in the tests/ directory. Up one level is tests/ and up another level is the package root, which
 # contains the vectors/ directory.
@@ -118,6 +120,11 @@ if c_ext:
         _good_file(u'subfieldVarInt.ion'),  # c_ext supports 300 decimal digits while here is a 8000+ decimal digits test..
     )
 
+if PYPY:
+    _SKIP_LIST += (
+        _good_file(u'subfieldVarInt.ion'), # amzn/ion-python#229
+        _bad_file(u'ivmInAnnotationWrapper.10n'), # TODO ion-python#230
+    )
 
 if _PLATFORM_ARCHITECTURE == 32:
     _SKIP_LIST += (
