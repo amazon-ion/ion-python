@@ -1,8 +1,8 @@
 # Amazon Ion Python
-An implementation of [Amazon Ion](https://amzn.github.io/ion-docs/)
+An implementation of [Amazon Ion](https://amazon-ion.github.io/ion-docs/)
 for Python.
 
-[![Build Status](https://travis-ci.org/amzn/ion-python.svg?branch=master)](https://travis-ci.org/amzn/ion-python)
+[![Build Status](https://travis-ci.org/amazon-ion/ion-python.svg?branch=master)](https://travis-ci.org/amazon-ion/ion-python)
 [![Documentation Status](https://readthedocs.org/projects/ion-python/badge/?version=latest)](https://ion-python.readthedocs.io/en/latest/?badge=latest)
 
 This package is designed to work with **Python 3**. It is intended to work with all stable minor versions. Newer language features will be used as deemed valuable. Support may be dropped for versions more than six months past EOL. 
@@ -18,7 +18,7 @@ python3 -m pip install amazon.ion
 
 Start with the [simpleion](https://ion-python.readthedocs.io/en/latest/amazon.ion.html#module-amazon.ion.simpleion)
 module, which provides four APIs (`dump`, `dumps`, `load`, `loads`) that will be familiar to users of Python's
-built-in JSON parsing module. Simpleion module's performance is improved by an optional [C extension](https://github.com/amzn/ion-python/blob/master/C_EXTENSION.md).
+built-in JSON parsing module. Simpleion module's performance is improved by an optional [C extension](https://github.com/amazon-ion/ion-python/blob/master/C_EXTENSION.md).
 
 For example:
 
@@ -31,7 +31,7 @@ For example:
 '$ion_1_0 {abc:123}'
 ```
 
-For additional examples, consult the [cookbook](http://amzn.github.io/ion-docs/guides/cookbook.html).
+For additional examples, consult the [cookbook](https://amazon-ion.github.io/ion-docs/guides/cookbook.html).
 
 ## Git Setup
 This repository contains two [git submodules](https://git-scm.com/docs/git-submodule).
@@ -41,7 +41,7 @@ The easiest way to clone the `ion-python` repository and initialize its `ion-tes
 submodule is to run the following command.
 
 ```
-$ git clone --recursive https://github.com/amzn/ion-python.git ion-python
+$ git clone --recursive https://github.com/amazon-ion/ion-python.git ion-python
 ```
 
 Alternatively, the submodule may be initialized independently from the clone
@@ -116,5 +116,5 @@ The following build, deployment, or release tasks are required:
   with Ion python and provide a client-side Ion playground.
   
 ## Known Issues
-[tests/test_vectors.py](https://github.com/amzn/ion-python/blob/master/tests/test_vectors.py#L95) defines skipList variables
+[tests/test_vectors.py](https://github.com/amazon-ion/ion-python/blob/master/tests/test_vectors.py#L95) defines skipList variables
 referencing test vectors that are not expected to work at this time.

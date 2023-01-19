@@ -32,7 +32,7 @@ from amazon.ion.writer_binary import binary_writer
 from amazon.ion.writer_text import text_writer
 from amazon.ion.simpleion import c_ext
 
-# Tests for the Python examples in the cookbook (http://amzn.github.io/ion-docs/guides/cookbook.html).
+# Tests for the Python examples in the cookbook (https://amazon-ion.github.io/ion-docs/guides/cookbook.html).
 # Changes to these tests should only be made in conjunction with changes to the cookbook examples.
 
 if sys.version_info < (3, 6):
@@ -41,21 +41,21 @@ if sys.version_info < (3, 6):
 
 
 def test_reading_simpleion_loads():
-    # http://amzn.github.io/ion-docs/guides/cookbook.html#reading-and-writing-ion-data
+    # https://amazon-ion.github.io/ion-docs/guides/cookbook.html#reading-and-writing-ion-data
     data = u'{hello: "world"}'
     value = simpleion.loads(data)
     assert u'hello world' == u'hello %s' % value[u'hello']
 
 
 def test_reading_simpleion_load():
-    # http://amzn.github.io/ion-docs/guides/cookbook.html#reading-and-writing-ion-data
+    # https://amazon-ion.github.io/ion-docs/guides/cookbook.html#reading-and-writing-ion-data
     data = BytesIO(b'{hello: "world"}')
     value = simpleion.load(data)
     assert u'hello world' == u'hello %s' % value[u'hello']
 
 
 def test_writing_simpleion_dumps():
-    # http://amzn.github.io/ion-docs/guides/cookbook.html#reading-and-writing-ion-data
+    # https://amazon-ion.github.io/ion-docs/guides/cookbook.html#reading-and-writing-ion-data
     data = u'{hello: "world"}'
     value = simpleion.loads(data)
     ion = simpleion.dumps(value, binary=False)
@@ -63,7 +63,7 @@ def test_writing_simpleion_dumps():
 
 
 def test_writing_simpleion_dump():
-    # http://amzn.github.io/ion-docs/guides/cookbook.html#reading-and-writing-ion-data
+    # https://amazon-ion.github.io/ion-docs/guides/cookbook.html#reading-and-writing-ion-data
     data = u'{hello: "world"}'
     value = simpleion.loads(data)
     ion = BytesIO()
@@ -73,14 +73,14 @@ def test_writing_simpleion_dump():
 
 
 def test_reading_simpleion_loads_multiple_top_level_values():
-    # http://amzn.github.io/ion-docs/guides/cookbook.html#reading-and-writing-ion-data
+    # https://amazon-ion.github.io/ion-docs/guides/cookbook.html#reading-and-writing-ion-data
     data = u'1 2 3'
     value = simpleion.loads(data, single_value=False)
     assert [1, 2, 3] == value
 
 
 def test_writing_simpleion_dumps_multiple_top_level_values():
-    # http://amzn.github.io/ion-docs/guides/cookbook.html#reading-and-writing-ion-data
+    # https://amazon-ion.github.io/ion-docs/guides/cookbook.html#reading-and-writing-ion-data
     data = u'1 2 3'
     value = simpleion.loads(data, single_value=False)
     ion = simpleion.dumps(value, sequence_as_stream=True, binary=False)
@@ -88,7 +88,7 @@ def test_writing_simpleion_dumps_multiple_top_level_values():
 
 
 def test_reading_events_non_blocking():
-    # http://amzn.github.io/ion-docs/guides/cookbook.html#reading-and-writing-ion-data
+    # https://amazon-ion.github.io/ion-docs/guides/cookbook.html#reading-and-writing-ion-data
     reader = managed_reader(text_reader())
     event = reader.send(NEXT_EVENT)
     # No data has been provided, so the reader is at STREAM_END
@@ -125,7 +125,7 @@ def test_reading_events_non_blocking():
 
 
 def test_writing_events_non_blocking():
-    # http://amzn.github.io/ion-docs/guides/cookbook.html#reading-and-writing-ion-data
+    # https://amazon-ion.github.io/ion-docs/guides/cookbook.html#reading-and-writing-ion-data
     def drain_data(incremental_event):
         incremental_data = b''
         while incremental_event.type == WriteEventType.HAS_PENDING:
@@ -146,7 +146,7 @@ def test_writing_events_non_blocking():
 
 
 def test_reading_events_blocking():
-    # http://amzn.github.io/ion-docs/guides/cookbook.html#reading-and-writing-ion-data
+    # https://amazon-ion.github.io/ion-docs/guides/cookbook.html#reading-and-writing-ion-data
     data = BytesIO(b'{hello: "world"}')
     reader = blocking_reader(managed_reader(text_reader()), data)
     event = reader.send(NEXT_EVENT)
@@ -171,7 +171,7 @@ def test_reading_events_blocking():
 
 
 def test_writing_events_blocking():
-    # http://amzn.github.io/ion-docs/guides/cookbook.html#reading-and-writing-ion-data
+    # https://amazon-ion.github.io/ion-docs/guides/cookbook.html#reading-and-writing-ion-data
     data = BytesIO()
     writer = blocking_writer(binary_writer(), data)
     event_type = writer.send(IonEvent(IonEventType.CONTAINER_START, IonType.STRUCT))
@@ -192,7 +192,7 @@ def test_writing_events_blocking():
 def test_pretty_print_simpleion():
     if c_ext:
         return
-    # http://amzn.github.io/ion-docs/guides/cookbook.html#pretty-printing
+    # https://amazon-ion.github.io/ion-docs/guides/cookbook.html#pretty-printing
     unformatted = u'{level1: {level2: {level3: "foo"}, x: 2}, y: [a,b,c]}'
     value = simpleion.loads(unformatted)
     pretty = simpleion.dumps(value, binary=False, indent=u'  ')
@@ -213,14 +213,14 @@ def test_pretty_print_simpleion():
 
 
 def test_pretty_print_events():
-    # http://amzn.github.io/ion-docs/guides/cookbook.html#pretty-printing
+    # https://amazon-ion.github.io/ion-docs/guides/cookbook.html#pretty-printing
     pretty = BytesIO()
     writer = blocking_writer(text_writer(indent=u'  '), pretty)
     writer.send(ION_STREAM_END_EVENT)
 
 
 def test_read_numerics_simpleion():
-    # http://amzn.github.io/ion-docs/guides/cookbook.html#reading-numeric-types
+    # https://amazon-ion.github.io/ion-docs/guides/cookbook.html#reading-numeric-types
     data = u'1.23456 1.2345e6 123456 12345678901234567890'
     values = simpleion.loads(data, single_value=False)
     assert isinstance(values[0], Decimal)
@@ -230,14 +230,14 @@ def test_read_numerics_simpleion():
 
 
 def test_write_numeric_with_annotation_simpleion():
-    # http://amzn.github.io/ion-docs/guides/cookbook.html#reading-numeric-types
+    # https://amazon-ion.github.io/ion-docs/guides/cookbook.html#reading-numeric-types
     value = IonPyFloat.from_value(IonType.FLOAT, 123, (u'abc',))
     data = simpleion.dumps(value, binary=False)
     assert data == u'$ion_1_0 abc::123e+0' or data == u'$ion_1_0 abc::123.0e0'
 
 
 def test_read_numerics_events():
-    # http://amzn.github.io/ion-docs/guides/cookbook.html#reading-numeric-types
+    # https://amazon-ion.github.io/ion-docs/guides/cookbook.html#reading-numeric-types
     data = BytesIO(b'1.23456 1.2345e6 123456 12345678901234567890')
     reader = blocking_reader(managed_reader(text_reader()), data)
     event = reader.send(NEXT_EVENT)
@@ -255,7 +255,7 @@ def test_read_numerics_events():
 
 
 def test_write_numeric_with_annotation_events():
-    # http://amzn.github.io/ion-docs/guides/cookbook.html#reading-numeric-types
+    # https://amazon-ion.github.io/ion-docs/guides/cookbook.html#reading-numeric-types
     event = IonEvent(IonEventType.SCALAR, IonType.FLOAT, annotations=(u'abc',), value=123.0)
     data = BytesIO()
     writer = blocking_writer(text_writer(), data)
@@ -302,7 +302,7 @@ def sparse_reads_data():
 
 
 def test_sparse_reads_simpleion():
-    # http://amzn.github.io/ion-docs/guides/cookbook.html#performing-sparse-reads
+    # https://amazon-ion.github.io/ion-docs/guides/cookbook.html#performing-sparse-reads
     data = sparse_reads_data()  # The binary Ion equivalent of the above data.
     values = simpleion.loads(data, single_value=False)
     sum = 0
@@ -313,7 +313,7 @@ def test_sparse_reads_simpleion():
 
 
 def test_sparse_reads_events():
-    # http://amzn.github.io/ion-docs/guides/cookbook.html#performing-sparse-reads
+    # https://amazon-ion.github.io/ion-docs/guides/cookbook.html#performing-sparse-reads
     data = BytesIO(sparse_reads_data())
     reader = blocking_reader(managed_reader(binary_reader()), data)
     sum = 0
@@ -361,7 +361,7 @@ def get_csv_structs():
 
 
 def test_convert_csv_simpleion():
-    # http://amzn.github.io/ion-docs/guides/cookbook.html#converting-non-hierarchical-data-to-ion
+    # https://amazon-ion.github.io/ion-docs/guides/cookbook.html#converting-non-hierarchical-data-to-ion
     structs = get_csv_structs()
     ion = simpleion.dumps(structs, sequence_as_stream=True)
     assert ion == b'\xe0\x01\x00\xea\xee\x95\x81\x83\xde\x91\x87\xbe\x8e\x82id\x84type\x85state\xde\x8a\x8a!' \
@@ -372,7 +372,7 @@ def test_convert_csv_simpleion():
 
 
 def test_convert_csv_events():
-    # http://amzn.github.io/ion-docs/guides/cookbook.html#converting-non-hierarchical-data-to-ion
+    # https://amazon-ion.github.io/ion-docs/guides/cookbook.html#converting-non-hierarchical-data-to-ion
     structs = get_csv_structs()
     ion = BytesIO()
     writer = blocking_writer(binary_writer(), ion)
@@ -402,7 +402,7 @@ def write_with_shared_symbol_table_simpleion():
 
 
 def test_write_with_shared_symbol_table_simpleion():
-    # http://amzn.github.io/ion-docs/guides/cookbook.html#using-a-shared-symbol-table
+    # https://amazon-ion.github.io/ion-docs/guides/cookbook.html#using-a-shared-symbol-table
     write_with_shared_symbol_table_simpleion()
 
 
@@ -422,12 +422,12 @@ def write_with_shared_symbol_table_events():
 
 
 def test_write_with_shared_symbol_table_events():
-    # http://amzn.github.io/ion-docs/guides/cookbook.html#using-a-shared-symbol-table
+    # https://amazon-ion.github.io/ion-docs/guides/cookbook.html#using-a-shared-symbol-table
     write_with_shared_symbol_table_events()
 
 
 def test_read_with_shared_symbol_table_simpleion():
-    # http://amzn.github.io/ion-docs/guides/cookbook.html#using-a-shared-symbol-table
+    # https://amazon-ion.github.io/ion-docs/guides/cookbook.html#using-a-shared-symbol-table
     data = write_with_shared_symbol_table_simpleion()
     table = shared_symbol_table(u'test.csv.columns', 1, (u'id', u'type', u'state'))
     catalog = SymbolTableCatalog()
@@ -437,7 +437,7 @@ def test_read_with_shared_symbol_table_simpleion():
 
 
 def test_read_with_shared_symbol_table_events():
-    # http://amzn.github.io/ion-docs/guides/cookbook.html#using-a-shared-symbol-table
+    # https://amazon-ion.github.io/ion-docs/guides/cookbook.html#using-a-shared-symbol-table
     table = shared_symbol_table(u'test.csv.columns', 1, (u'id', u'type', u'state'))
     catalog = SymbolTableCatalog()
     catalog.register(table)

@@ -1,8 +1,8 @@
 [submodule "ion-tests"]
 	path = vectors
-	url = https://github.com/amzn/ion-tests
+	url = https://github.com/amazon-ion/ion-tests
 	branch = master
 [submodule "ion-c"]
 	path = ion-c
-	url = https://github.com/amzn/ion-c
+	url = https://github.com/amazon-ion/ion-c
 	branch = master

@@ -704,7 +704,7 @@ def test_dumps_omit_version_marker():
     assert dumps(v, omit_version_marker=True) == b'\xe0\x01\x00\xea\x21\x05'
 
 
-# See issue https://github.com/amzn/ion-python/issues/213
+# See issue https://github.com/amazon-ion/ion-python/issues/213
 def test_loads_unicode_utf8_conversion():
     # Generates test data that more than 1024*32 bytes
     data = "[ '''\u2013''',"

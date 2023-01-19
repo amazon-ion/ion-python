@@ -16,7 +16,7 @@ from decimal import Decimal
 from amazon.ion.simpleion import dumps, loads
 
 
-# regression test for https://github.com/amzn/ion-python/issues/132
+# regression test for https://github.com/amazon-ion/ion-python/issues/132
 def test_decimal_precision():
     from decimal import localcontext
 

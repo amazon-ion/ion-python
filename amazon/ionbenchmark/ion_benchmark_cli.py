@@ -72,7 +72,7 @@ from tabulate import tabulate
 from amazon.ionbenchmark.API import API
 from amazon.ionbenchmark.Format import Format
 from amazon.ionbenchmark.util import str_to_bool, format_percentage, format_decimal, TOOL_VERSION
-# Related pypy incompatible issue - https://github.com/amzn/ion-python/issues/227
+# Related pypy incompatible issue - https://github.com/amazon-ion/ion-python/issues/227
 pypy = platform.python_implementation() == 'PyPy'
 if not pypy:
     import tracemalloc

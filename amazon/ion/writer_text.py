@@ -248,7 +248,7 @@ def _symbol_needs_quotes(text):
     return text in _ADDITIONAL_SYMBOLS_REQUIRING_QUOTES or _UNQUOTED_SYMBOL_REGEX.search(text) is None
 
 def _serialize_symbol_value(value, suffix=b''):
-    # TODO Support not quoting operators in s-expressions: http://amzn.github.io/ion-docs/docs/symbols.html
+    # TODO Support not quoting operators in s-expressions: https://amazon-ion.github.io/ion-docs/docs/symbols.html
     try:
         text = value.text
         if text is None:

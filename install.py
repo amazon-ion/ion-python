@@ -39,7 +39,7 @@ _C_EXT_DEPENDENCY_INCLUDES_LOCATIONS = {
 }
 _CURRENT_ION_C_DIR = './ion-c'
 
-_IONC_REPO_URL = "https://github.com/amzn/ion-c.git"
+_IONC_REPO_URL = "https://github.com/amazon-ion/ion-c.git"
 _IONC_DIR = abspath(join(dirname(os.path.abspath(__file__)), 'ion-c'))
 _IONC_LOCATION = abspath(join(dirname(os.path.abspath(__file__)), 'ion-c', 'build', 'release'))
 _IONC_INCLUDES_LOCATIONS = {
