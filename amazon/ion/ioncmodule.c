@@ -124,7 +124,7 @@ static int int_attr_by_name(PyObject* obj, char* attr_name) {
     return c_int;
 }
 
-// an Alternative to calculate timedelta, see https://github.com/amzn/ion-python/issues/225
+// an Alternative to calculate timedelta, see https://github.com/amazon-ion/ion-python/issues/225
 static int offset_seconds(PyObject* timedelta) {
     PyObject* py_seconds = PyObject_CallMethod(timedelta, "total_seconds", NULL);
     PyObject* py_seconds_int = PyObject_CallMethod(py_seconds, "__int__", NULL);
@@ -1103,7 +1103,7 @@ iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BOOL in_s
         case tid_NULL_INT:
         {
             ION_TYPE null_type;
-            // Hack for ion-c issue https://github.com/amzn/ion-c/issues/223
+            // Hack for ion-c issue https://github.com/amazon-ion/ion-c/issues/223
             if (original_t != tid_SYMBOL_INT) {
                 IONCHECK(ion_reader_read_null(hreader, &null_type));
             }
