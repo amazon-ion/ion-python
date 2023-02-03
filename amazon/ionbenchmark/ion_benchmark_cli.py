@@ -14,10 +14,10 @@
 """A repeatable benchmark tool for ion-python implementation.
 
 Usage:
-    ion_python_benchmark_cli.py write [--api <api>] [--warmups <int>] [--c-extension <bool>] [--iterations <int>]
-    [--format <format>] <input_file>
-    ion_python_benchmark_cli.py read [--api <api>] [--iterator <bool>] [--warmups <int>] [--iterations <int>]
-    [--c-extension <bool>] [--format <format>] <input_file>
+    ion_python_benchmark_cli.py write [--api <api>]... [--warmups <int>] [--c-extension <bool>] [--iterations <int>]
+    [--format <format>]... <input_file>
+    ion_python_benchmark_cli.py read [--api <api>]... [--iterator <bool>] [--warmups <int>] [--iterations <int>]
+    [--c-extension <bool>] [--format <format>]... <input_file>
     ion_python_benchmark_cli.py (-h | --help)
     ion_python_benchmark_cli.py (-v | --version)
 
@@ -31,9 +31,9 @@ Command:
     benchmark reading the resulting log files.
 
 Options:
-     -h, --help                          Show this screen.
+     -h, --help                         Show this screen.
 
-     --api <api>                        The API to exercise (simpleIon, event). `simpleIon` refers to
+     --api <api>                        The API to exercise (simple_ion, event). `simple_ion` refers to
                                         simpleIon's load method. `event` refers to ion-python's event
                                         based non-blocking API. Default to `simpleIon`.
 
@@ -61,6 +61,7 @@ Options:
      -n --limit <int>                   (NOT SUPPORTED YET)
 
 """
+import itertools
 import timeit
 from pathlib import Path
 import platform
@@ -72,11 +73,11 @@ from tabulate import tabulate
 from amazon.ionbenchmark.API import API
 from amazon.ionbenchmark.Format import Format
 from amazon.ionbenchmark.util import str_to_bool, format_percentage, format_decimal, TOOL_VERSION
-# Related pypy incompatible issue - https://github.com/amazon-ion/ion-python/issues/227
+
+# Relate pypy incompatible issue - https://github.com/amazon-ion/ion-python/issues/227
 pypy = platform.python_implementation() == 'PyPy'
 if not pypy:
     import tracemalloc
-
 
 BYTES_TO_MB = 1024 * 1024
 _IVM = b'\xE0\x01\x00\xEA'
@@ -179,15 +180,16 @@ def read_micro_benchmark_simpleion(iterations, warmups, c_extension, file, memor
 
 
 # Benchmarks pure python implementation event based APIs
-def read_micro_benchmark_event(iterations, warmups, c_extension, file=None):
-    pass
+def read_micro_benchmark_event(iterations, warmups, c_extension, file, memory_profiling, iterator=False):
+    return 0, 0, 0
 
 
 # Framework for benchmarking read methods, this functions includes
 # 1. profile memory usage,
 # 2. benchmark performance,
 # 3. generate report
-def read_micro_benchmark_and_profiling(read_micro_benchmark_function, iterations, warmups, file, c_extension, iterator):
+def read_micro_benchmark_and_profiling(table, read_micro_benchmark_function, iterations, warmups, file, c_extension,
+                                       iterator, each_option):
     if not file:
         raise Exception("Invalid file: file can not be none.")
     if not read_micro_benchmark_function:
@@ -195,8 +197,9 @@ def read_micro_benchmark_and_profiling(read_micro_benchmark_function, iterations
 
     # memory profiling
     if not pypy:
-        read_micro_benchmark_function(iterations=1, warmups=0, file=file, c_extension=c_extension, memory_profiling=True,
-                                    iterator=iterator)
+        read_micro_benchmark_function(iterations=1, warmups=0, file=file, c_extension=c_extension,
+                                      memory_profiling=True,
+                                      iterator=iterator)
 
     # performance benchmark
     file_size, result_with_gc, result_with_raw_value = \
@@ -206,7 +209,7 @@ def read_micro_benchmark_and_profiling(read_micro_benchmark_function, iterations
     # calculate metrics
     conversion_time = result_with_gc - result_with_raw_value
     # generate report
-    read_generate_report(file_size, result_with_gc,
+    read_generate_report(table, file_size, each_option, result_with_gc,
                          conversion_time if conversion_time > 0 else 0,
                          (conversion_time / result_with_gc) if conversion_time > 0 else 0,
                          read_memory_usage_peak)
@@ -215,16 +218,13 @@ def read_micro_benchmark_and_profiling(read_micro_benchmark_function, iterations
 
 
 # Generates and prints benchmark report
-def read_generate_report(file_size, total_time, conversion_time, wrapper_time_percentage, memory_usage_peak):
-    table = [['file_size (MB)', 'total_time (s)', 'conversion_\ntime (s)', 'conversion_time/\ntotal_time (%)',
-              'memory_usage_peak (MB)'],
-             [format_decimal(file_size),
-              format_decimal(total_time),
-              format_decimal(conversion_time),
-              format_percentage(wrapper_time_percentage),
-              format_decimal(memory_usage_peak)]]
-    print('\n')
-    print(tabulate(table, tablefmt='fancy_grid'))
+def read_generate_report(table, file_size, each_option, total_time, conversion_time, wrapper_time_percentage, memory_usage_peak):
+    insert_into_report_table(table, [format_decimal(file_size),
+                                     each_option,
+                                     format_decimal(total_time),
+                                     format_decimal(conversion_time),
+                                     format_percentage(wrapper_time_percentage),
+                                     format_decimal(memory_usage_peak)])
 
 
 # Generates benchmark code for simpleion dump API
@@ -264,43 +264,82 @@ def write_micro_benchmark_simpleion(iterations, warmups, c_extension, obj, file,
 
 
 # Benchmarks pure python event based write API
-def write_micro_benchmark_event(iterations, warmups, c_extension, obj, binary, file=None):
-    pass
+def write_micro_benchmark_event(iterations, warmups, c_extension, obj, file, binary, memory_profiling):
+    return 0, 0
 
 
 # Framework for benchmarking write methods, this functions includes
 # 1. profile memory usage,
 # 2. benchmark performance,
 # 3. generate report
-def write_micro_benchmark_and_profiling(write_micro_benchmark_function, iterations, warmups, obj, c_extension, binary, file):
+def write_micro_benchmark_and_profiling(table, write_micro_benchmark_function, iterations, warmups, obj, c_extension,
+                                        binary, file, each_option):
     if not obj:
         raise Exception("Invalid obj: object can not be none.")
     if not write_micro_benchmark_function:
         raise Exception("Invalid micro benchmark function: micro benchmark function can not be none.")
     # Memory Profiling
     if not pypy:
-        write_micro_benchmark_function(iterations=1, warmups=0, obj=obj, c_extension=c_extension, file=file, binary=binary,
+        write_micro_benchmark_function(iterations=1, warmups=0, obj=obj, c_extension=c_extension, file=file,
+                                       binary=binary,
                                        memory_profiling=True)
 
     # Performance Benchmark
     file_size, result_with_gc = \
-        write_micro_benchmark_function(iterations=iterations, warmups=warmups, obj=obj, c_extension=c_extension, file=file,
+        write_micro_benchmark_function(iterations=iterations, warmups=warmups, obj=obj, c_extension=c_extension,
+                                       file=file,
                                        binary=binary, memory_profiling=False)
 
     # generate report
-    write_generate_report(file_size, result_with_gc, write_memory_usage_peak)
+    write_generate_report(table, file_size, each_option, result_with_gc, write_memory_usage_peak)
 
-    return file_size, result_with_gc, write_memory_usage_peak
+    return file_size, each_option, result_with_gc, write_memory_usage_peak
 
 
 # Generates and prints benchmark report
-def write_generate_report(file_size, total_time, memory_usage_peak):
-    table = [['file_size (MB)', 'total_time (s)', 'memory_usage_peak (MB)'],
-             [format_decimal(file_size),
-              format_decimal(total_time),
-              format_decimal(memory_usage_peak)]]
-    print('\n')
-    print(tabulate(table, tablefmt='fancy_grid'))
+def write_generate_report(table, file_size, each_option, total_time, memory_usage_peak):
+    insert_into_report_table(table,
+                             [format_decimal(file_size),
+                              each_option,
+                              format_decimal(total_time),
+                              format_decimal(memory_usage_peak)])
+
+
+# Insert a benchmark result row into the benchmark report (table)
+def insert_into_report_table(table, row):
+    if not isinstance(row, list):
+        raise Exception('row must be a list')
+    table += [row]
+
+
+# Create a report table by given description
+def identify_report_table(command):
+    if command == 'read':
+        return identify_report_table_helper(
+            ['file_size (MB)', 'options', 'total_time (s)', 'conversion_\ntime (s)', 'conversion_time/\ntotal_time (%)',
+             'memory_usage_peak (MB)'])
+    elif command == 'write':
+        return identify_report_table_helper(
+            ['file_size (MB)', 'options', 'total_time (s)', 'memory_usage_peak (MB)']
+        )
+    else:
+        raise Exception('Command should be either read or write.')
+
+
+def identify_report_table_helper(row_description):
+    return [row_description]
+
+
+# reset configuration options for each execution
+def reset_for_each_execution(each_option):
+    global read_memory_usage_peak
+    read_memory_usage_peak = 0
+    global write_memory_usage_peak
+    write_memory_usage_peak = 0
+    api = each_option[0]
+    format_option = each_option[1]
+
+    return api, format_option
 
 
 def ion_python_benchmark_cli(arguments):
@@ -313,35 +352,61 @@ def ion_python_benchmark_cli(arguments):
     iterations = int(arguments['--iterations'])
     warmups = int(arguments['--warmups'])
     c_extension = str_to_bool(arguments['--c-extension']) if not pypy else False
-    binary = arguments['--format'] == Format.ION_BINARY.value
     iterator = str_to_bool(arguments['--iterator'])
 
-    if arguments['read']:
-        api = arguments['--api']
-        if not api or api == API.SIMPLE_ION.value:
-            read_micro_benchmark_function = read_micro_benchmark_simpleion
-        elif api == API.EVENT.value:
-            read_micro_benchmark_function = read_micro_benchmark_event
-        else:
-            raise Exception(f'Invalid API option {api}.')
+    # Note. For future multi-execution options, initialize them as below and added them into option_configuration.
+    # initialize options that might show up multiple times
+    api = [*set(arguments['--api'])] if arguments['--api'] else [API.DEFAULT.value]
+    format_option = [*set(arguments['--format'])] if arguments['--format'] else [Format.DEFAULT.value]
+    # option_configuration is used for tracking multi-execution options
+    option_configuration = [api, format_option]
+    option_configuration_combination = list(itertools.product(*option_configuration))
 
-        return read_micro_benchmark_and_profiling(read_micro_benchmark_function, iterations, warmups, file, c_extension,
-                                                  iterator)
+    print(option_configuration_combination)
+    if arguments['read']:
+        # initialize benchmark report table
+        table = identify_report_table('read')
+
+        for each_option in option_configuration_combination:
+            # reset
+            api, format_option = reset_for_each_execution(each_option)
+
+            if not api or api == API.SIMPLE_ION.value:
+                read_micro_benchmark_function = read_micro_benchmark_simpleion
+            elif api == API.EVENT.value:
+                read_micro_benchmark_function = read_micro_benchmark_event
+            else:
+                raise Exception(f'Invalid API option {api}.')
+
+            file_size, result_with_gc, conversion_time, read_memory_usage_peak = \
+                read_micro_benchmark_and_profiling(table, read_micro_benchmark_function, iterations, warmups, file,
+                                               c_extension, iterator, each_option)
+
+        print(tabulate(table, tablefmt='fancy_grid'))
+
 
     elif arguments['write']:
-        api = arguments['--api']
-        if not api or api == API.SIMPLE_ION.value:
-            write_micro_benchmark_function = write_micro_benchmark_simpleion
-        elif api == API.EVENT.value:
-            write_micro_benchmark_function = write_micro_benchmark_event
-        else:
-            raise Exception(f'Invalid API option {api}.')
+        # initialize benchmark report table
+        table = identify_report_table('write')
 
-        with open(file) as fp:
-            obj = ion.load(fp, parse_eagerly=True, single_value=False)
+        for each_option in option_configuration_combination:
+            # reset
+            api, format_option = reset_for_each_execution(each_option)
+            binary = format_option == Format.ION_BINARY.value
 
-        return write_micro_benchmark_and_profiling(write_micro_benchmark_function, iterations, warmups, obj, c_extension,
-                                                   binary, file)
+            if not api or api == API.SIMPLE_ION.value:
+                write_micro_benchmark_function = write_micro_benchmark_simpleion
+            elif api == API.EVENT.value:
+                write_micro_benchmark_function = write_micro_benchmark_event
+            else:
+                raise Exception(f'Invalid API option {api}.')
+
+            with open(file) as fp:
+                obj = ion.load(fp, parse_eagerly=True, single_value=False)
+
+            write_micro_benchmark_and_profiling(table, write_micro_benchmark_function, iterations, warmups, obj,
+                                                c_extension, binary, file, each_option)
+        print(tabulate(table, tablefmt='fancy_grid'))
 
 
 if __name__ == '__main__':
