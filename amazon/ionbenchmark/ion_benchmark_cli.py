@@ -180,6 +180,7 @@ def read_micro_benchmark_simpleion(iterations, warmups, c_extension, file, memor
 
 
 # Benchmarks pure python implementation event based APIs
+# https://github.com/amazon-ion/ion-python/issues/236
 def read_micro_benchmark_event(iterations, warmups, c_extension, file, memory_profiling, iterator=False):
     return 0, 0, 0
 
@@ -264,6 +265,7 @@ def write_micro_benchmark_simpleion(iterations, warmups, c_extension, obj, file,
 
 
 # Benchmarks pure python event based write API
+# https://github.com/amazon-ion/ion-python/issues/236
 def write_micro_benchmark_event(iterations, warmups, c_extension, obj, file, binary, memory_profiling):
     return 0, 0
 
@@ -354,11 +356,11 @@ def ion_python_benchmark_cli(arguments):
     c_extension = str_to_bool(arguments['--c-extension']) if not pypy else False
     iterator = str_to_bool(arguments['--iterator'])
 
-    # Note. For future multi-execution options, initialize them as below and added them into option_configuration.
+    # For options may show up more than once, initialize them as below and added them into list option_configuration.
     # initialize options that might show up multiple times
     api = [*set(arguments['--api'])] if arguments['--api'] else [API.DEFAULT.value]
     format_option = [*set(arguments['--format'])] if arguments['--format'] else [Format.DEFAULT.value]
-    # option_configuration is used for tracking multi-execution options
+    # option_configuration is used for tracking options may show up multiple times.
     option_configuration = [api, format_option]
     option_configuration_combination = list(itertools.product(*option_configuration))
 
