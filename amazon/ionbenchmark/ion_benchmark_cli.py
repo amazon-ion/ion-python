@@ -410,6 +410,8 @@ def ion_python_benchmark_cli(arguments):
                                                 c_extension, binary, file, each_option)
         print(tabulate(table, tablefmt='fancy_grid'))
 
+    return table
+
 
 if __name__ == '__main__':
     ion_python_benchmark_cli(docopt(__doc__, help=True))

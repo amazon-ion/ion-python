@@ -133,33 +133,49 @@ def test_option_write_iterations(file=generate_test_path('integers.ion')):
     assert time_2 > time_1
 
 
+def gather_all_options_in_list(table):
+    rtn = []
+    count = 1
+    while count < len(table):
+        rtn += [table[count][1]]
+        count += 1
+    return sorted(rtn)
+
+
 def test_read_multi_api(file=generate_test_path('integers.ion')):
-    execution_with_command(['read', file, '--api', 'simple_ion', '--api', 'event'])
+    table = execution_with_command(['read', file, '--api', 'simple_ion', '--api', 'event'])
 
 
 def test_write_multi_api(file=generate_test_path('integers.ion')):
-    execution_with_command(['write', file, '--api', 'simple_ion', '--api', 'event'])
+    table = execution_with_command(['write', file, '--api', 'simple_ion', '--api', 'event'])
+    assert gather_all_options_in_list(table) == sorted([('event', 'ion_binary'), ('simple_ion', 'ion_binary')])
 
 
 def test_read_multi_duplicated_api(file=generate_test_path('integers.ion')):
-    execution_with_command(['read', file, '--api', 'simple_ion', '--api', 'event', '--api', 'event'])
+    table = execution_with_command(['read', file, '--api', 'simple_ion', '--api', 'event', '--api', 'event'])
+    assert gather_all_options_in_list(table) == sorted([('event', 'ion_binary'), ('simple_ion', 'ion_binary')])
 
 
 def test_write_multi_duplicated_api(file=generate_test_path('integers.ion')):
-    execution_with_command(['write', file, '--api', 'simple_ion', '--api', 'event', '--api', 'event'])
+    table = execution_with_command(['write', file, '--api', 'simple_ion', '--api', 'event', '--api', 'event'])
+    assert gather_all_options_in_list(table) == sorted([('event', 'ion_binary'), ('simple_ion', 'ion_binary')])
 
 
 def test_read_multi_format(file=generate_test_path('integers.ion')):
-    execution_with_command(['read', file, '--format', 'ion_text', '--format', 'ion_binary'])
+    table = execution_with_command(['read', file, '--format', 'ion_text', '--format', 'ion_binary'])
+    assert gather_all_options_in_list(table) == sorted([('simple_ion', 'ion_binary'), ('simple_ion', 'ion_text')])
 
 
 def test_write_multi_format(file=generate_test_path('integers.ion')):
-    execution_with_command(['write', file, '--format', 'ion_text', '--format', 'ion_binary'])
+    table = execution_with_command(['write', file, '--format', 'ion_text', '--format', 'ion_binary'])
+    assert gather_all_options_in_list(table) == sorted([('simple_ion', 'ion_text'), ('simple_ion', 'ion_binary')])
 
 
 def test_read_multi_duplicated_format(file=generate_test_path('integers.ion')):
-    execution_with_command(['read', file, '--format', 'ion_text', '--format', 'ion_binary', '--format', 'ion_text'])
+    table = execution_with_command(['read', file, '--format', 'ion_text', '--format', 'ion_binary', '--format', 'ion_text'])
+    assert gather_all_options_in_list(table) == sorted([('simple_ion', 'ion_text'), ('simple_ion', 'ion_binary')])
 
 
 def test_write_multi_duplicated_format(file=generate_test_path('integers.ion')):
-    execution_with_command(['write', file, '--format', 'ion_text', '--format', 'ion_binary', '--format', 'ion_text',])
+    table = execution_with_command(['write', file, '--format', 'ion_text', '--format', 'ion_binary', '--format', 'ion_text',])
+    assert gather_all_options_in_list(table) == sorted([('simple_ion', 'ion_text'), ('simple_ion', 'ion_binary')])
