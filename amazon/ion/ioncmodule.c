@@ -29,7 +29,7 @@ static char _err_msg[ERR_MSG_MAX_LEN];
 #define _FAILWITHMSG(x, msg) { err = x; snprintf(_err_msg, ERR_MSG_MAX_LEN, msg); goto fail; }
 
 #define IONC_BYTES_FORMAT "y#"
-#define IONC_READ_ARGS_FORMAT "OO"
+#define IONC_READ_ARGS_FORMAT "OOO"
 
 static PyObject* _math_module;
 
@@ -1468,9 +1468,11 @@ PyObject* ionc_read(PyObject* self, PyObject *args, PyObject *kwds) {
     iENTER;
     PyObject *py_file = NULL; // TextIOWrapper
     PyObject *emit_bare_values;
+    PyObject *symbol_buffer_threshold;
     ionc_read_Iterator *iterator = NULL;
-    static char *kwlist[] = {"file", "emit_bare_values", NULL};
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, IONC_READ_ARGS_FORMAT, kwlist, &py_file, &emit_bare_values)) {
+    static char *kwlist[] = {"file", "emit_bare_values", "symbol_buffer_threshold", NULL};
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, IONC_READ_ARGS_FORMAT, kwlist, &py_file,
+                                        &emit_bare_values, &symbol_buffer_threshold)) {
         FAILWITH(IERR_INVALID_ARG);
     }
 
@@ -1490,6 +1492,10 @@ PyObject* ionc_read(PyObject* self, PyObject *args, PyObject *kwds) {
     memset(&iterator->reader, 0, sizeof(iterator->reader));
     memset(&iterator->_reader_options, 0, sizeof(iterator->_reader_options));
     iterator->_reader_options.decimal_context = &dec_context;
+    if (symbol_buffer_threshold != Py_None) {
+        int symbol_threshold = PyLong_AsLong(symbol_buffer_threshold);
+        iterator->_reader_options.symbol_threshold = symbol_threshold;
+    }
 
     IONCHECK(ion_reader_open_stream(
         &iterator->reader,
