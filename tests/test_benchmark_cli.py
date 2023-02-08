@@ -136,6 +136,8 @@ def test_option_write_iterations(file=generate_test_path('integers.ion')):
 def gather_all_options_in_list(table):
     rtn = []
     count = 1
+    if len(table) < 1:
+        return []
     while count < len(table):
         rtn += [table[count][1]]
         count += 1
@@ -144,6 +146,7 @@ def gather_all_options_in_list(table):
 
 def test_read_multi_api(file=generate_test_path('integers.ion')):
     table = execution_with_command(['read', file, '--api', 'simple_ion', '--api', 'event'])
+    assert gather_all_options_in_list(table) == sorted([('event', 'ion_binary'), ('simple_ion', 'ion_binary')])
 
 
 def test_write_multi_api(file=generate_test_path('integers.ion')):
