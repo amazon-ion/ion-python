@@ -1,13 +1,13 @@
 import time
 from itertools import chain
-from os.path import abspath, join, dirname, getsize
+from os.path import abspath, join, dirname
 
 from docopt import docopt
 
 from amazon.ion import simpleion
 from amazon.ionbenchmark import ion_benchmark_cli
-from amazon.ionbenchmark.ion_benchmark_cli import generate_simpleion_load_test_code, generate_simpleion_dump_test_code, \
-    BYTES_TO_MB, ion_python_benchmark_cli
+from amazon.ionbenchmark.ion_benchmark_cli import generate_simpleion_load_test_code, generate_simpleion_dump_test_code,\
+    ion_python_benchmark_cli
 from amazon.ionbenchmark.util import str_to_bool, TOOL_VERSION
 from tests import parametrize
 from tests.test_simpleion import generate_scalars_text
@@ -79,44 +79,22 @@ def test_option_version():
 
 
 def test_option_write(file=generate_test_path('integers.ion')):
-    # make sure it reads successfully
-    file_size, result_with_gc, write_memory_usage_peak = \
-        execution_with_command(['write', file])
-
-    assert file_size == getsize(file) / BYTES_TO_MB
-    assert result_with_gc > 0
-    assert write_memory_usage_peak >= 0
+    execution_with_command(['write', file])
 
 
 def test_option_read(file=generate_test_path('integers.ion')):
     # make sure it reads successfully
-    file_size, result_with_gc, conversion_time, read_memory_usage_peak = \
-        execution_with_command(['read', file])
-
-    assert file_size == getsize(file) / BYTES_TO_MB
-    assert result_with_gc > 0
-    assert read_memory_usage_peak >= 0
+    execution_with_command(['read', file])
 
 
 def test_option_write_c_extension(file=generate_test_path('integers.ion')):
-    file_size, result_with_gc, write_memory_usage_peak = \
-        execution_with_command(['write', file, '--c-extension', 'true'])
-
-    file_size_2, result_with_gc_2, write_memory_usage_peak_2 = \
-        execution_with_command(['write', file, '--c-extension', 'false'])
-
-    assert file_size == getsize(file) / BYTES_TO_MB
-    assert file_size_2 == getsize(file) / BYTES_TO_MB
+    execution_with_command(['write', file, '--c-extension', 'true'])
+    execution_with_command(['write', file, '--c-extension', 'false'])
 
 
 def test_option_read_c_extension(file=generate_test_path('integers.ion')):
-    file_size, result_with_gc, conversion_time, read_memory_usage_peak = \
-        execution_with_command(['read', file, '--c-extension', 'true'])
-
-    file_size_2, result_with_gc_2, conversion_time_2, read_memory_usage_peak_2 = \
-        execution_with_command(['read', file, '--c-extension', 'false'])
-
-    assert file_size == getsize(file) / BYTES_TO_MB
+    execution_with_command(['read', file, '--c-extension', 'true'])
+    execution_with_command(['read', file, '--c-extension', 'false'])
 
 
 def test_option_read_iterations(file=generate_test_path('integers.ion')):
@@ -154,3 +132,53 @@ def test_option_write_iterations(file=generate_test_path('integers.ion')):
     # Executing 100 times should be longer than benchmark only once, but don't have to be exact 100x faster.
     assert time_2 > time_1
 
+
+def gather_all_options_in_list(table):
+    rtn = []
+    count = 1
+    if len(table) < 1:
+        return []
+    while count < len(table):
+        rtn += [table[count][1]]
+        count += 1
+    return sorted(rtn)
+
+
+def test_read_multi_api(file=generate_test_path('integers.ion')):
+    table = execution_with_command(['read', file, '--api', 'simple_ion', '--api', 'event'])
+    assert gather_all_options_in_list(table) == sorted([('event', 'ion_binary'), ('simple_ion', 'ion_binary')])
+
+
+def test_write_multi_api(file=generate_test_path('integers.ion')):
+    table = execution_with_command(['write', file, '--api', 'simple_ion', '--api', 'event'])
+    assert gather_all_options_in_list(table) == sorted([('event', 'ion_binary'), ('simple_ion', 'ion_binary')])
+
+
+def test_read_multi_duplicated_api(file=generate_test_path('integers.ion')):
+    table = execution_with_command(['read', file, '--api', 'simple_ion', '--api', 'event', '--api', 'event'])
+    assert gather_all_options_in_list(table) == sorted([('event', 'ion_binary'), ('simple_ion', 'ion_binary')])
+
+
+def test_write_multi_duplicated_api(file=generate_test_path('integers.ion')):
+    table = execution_with_command(['write', file, '--api', 'simple_ion', '--api', 'event', '--api', 'event'])
+    assert gather_all_options_in_list(table) == sorted([('event', 'ion_binary'), ('simple_ion', 'ion_binary')])
+
+
+def test_read_multi_format(file=generate_test_path('integers.ion')):
+    table = execution_with_command(['read', file, '--format', 'ion_text', '--format', 'ion_binary'])
+    assert gather_all_options_in_list(table) == sorted([('simple_ion', 'ion_binary'), ('simple_ion', 'ion_text')])
+
+
+def test_write_multi_format(file=generate_test_path('integers.ion')):
+    table = execution_with_command(['write', file, '--format', 'ion_text', '--format', 'ion_binary'])
+    assert gather_all_options_in_list(table) == sorted([('simple_ion', 'ion_text'), ('simple_ion', 'ion_binary')])
+
+
+def test_read_multi_duplicated_format(file=generate_test_path('integers.ion')):
+    table = execution_with_command(['read', file, '--format', 'ion_text', '--format', 'ion_binary', '--format', 'ion_text'])
+    assert gather_all_options_in_list(table) == sorted([('simple_ion', 'ion_text'), ('simple_ion', 'ion_binary')])
+
+
+def test_write_multi_duplicated_format(file=generate_test_path('integers.ion')):
+    table = execution_with_command(['write', file, '--format', 'ion_text', '--format', 'ion_binary', '--format', 'ion_text',])
+    assert gather_all_options_in_list(table) == sorted([('simple_ion', 'ion_text'), ('simple_ion', 'ion_binary')])
