@@ -494,7 +494,7 @@ def dump_extension(obj, fp, binary=True, sequence_as_stream=False, tuple_as_sexp
     fp.write(res)
 
 
-def load_extension(fp, single_value=True, parse_eagerly=True, symbol_buffer_threshold=512):
+def load_extension(fp, single_value=True, parse_eagerly=True, symbol_buffer_threshold=None):
     """
     Args:
         fp (str): A string representation of Ion data.
@@ -544,7 +544,7 @@ def dump(obj, fp, imports=None, binary=True, sequence_as_stream=False, skipkeys=
 
 def load(fp, catalog=None, single_value=True, encoding='utf-8', cls=None, object_hook=None, parse_float=None,
          parse_int=None, parse_constant=None, object_pairs_hook=None, use_decimal=None, parse_eagerly=True,
-         symbol_buffer_threshold=512, **kw):
+         symbol_buffer_threshold=None, **kw):
     if c_ext and catalog is None:
         return load_extension(fp, parse_eagerly=parse_eagerly, single_value=single_value,
                               symbol_buffer_threshold=symbol_buffer_threshold)
@@ -552,4 +552,4 @@ def load(fp, catalog=None, single_value=True, encoding='utf-8', cls=None, object
         return load_python(fp, catalog=catalog, single_value=single_value, encoding=encoding, cls=cls,
                            object_hook=object_hook, parse_float=parse_float, parse_int=parse_int,
                            parse_constant=parse_constant, object_pairs_hook=object_pairs_hook,
-                           use_decimal=use_decimal, parse_eagerly=parse_eagerly, symbol_buffer_threshold=512, **kw)
+                           use_decimal=use_decimal, parse_eagerly=parse_eagerly, **kw)
