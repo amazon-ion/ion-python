@@ -46,6 +46,15 @@ e_end_list = partial(e_end, IonType.LIST)
 e_end_sexp = partial(e_end, IonType.SEXP)
 e_end_struct = partial(e_end, IonType.STRUCT)
 
+
+def _good_container(start, end, *events):
+    return (start(),) + events + (end(),)
+
+_good_sexp = partial(_good_container, e_start_sexp, e_end_sexp)
+_good_struct = partial(_good_container, e_start_struct, e_end_struct)
+_good_list = partial(_good_container, e_start_list, e_end_list)
+
+
 NEXT = NEXT_EVENT
 SKIP = SKIP_EVENT
 e_read = read_data_event

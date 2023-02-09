@@ -30,4 +30,6 @@ __all__ = [
     'writer_binary_raw_fields',
     'writer_buffer',
     'writer_text',
+    'data_analyzer',
+    'protonic_text_reader'
 ]

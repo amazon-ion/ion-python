@@ -117,6 +117,10 @@ class BufferQueue(object):
         self.__segments.append(_EOF)
         self.__size += 1
 
+    def peek(self, length):
+        """Peeks at, without consuming, the next `length` bytes."""
+
+
     def read(self, length, skip=False):
         """Consumes the first ``length`` bytes from the accumulator."""
         if length > self.__size:
@@ -312,7 +316,7 @@ def reader_trampoline(start, allow_flush=False):
     """
     data_event = yield
     if data_event is None or data_event.type is not ReadEventType.NEXT:
-        raise TypeError('Reader must be started with NEXT')
+        raise TypeError(f'Reader must be started with NEXT, found {data_event.type}')
     trans = Transition(None, start)
     while True:
         trans = trans.delegate.send(Transition(data_event, trans.delegate))
@@ -350,8 +354,12 @@ def blocking_reader(reader, input, buffer_size=_DEFAULT_BUFFER_SIZE):
     """
     ion_event = None
     while True:
+        # print(f"ion_event: {ion_event}")
         read_event = (yield ion_event)
+        # print(f"read_event: {read_event}")
         ion_event = reader.send(read_event)
+        # print(f"ion_event: {ion_event}")
+
         while ion_event is not None and ion_event.event_type.is_stream_signal:
             data = input.read(buffer_size)
             if len(data) == 0:
@@ -363,3 +371,5 @@ def blocking_reader(reader, input, buffer_size=_DEFAULT_BUFFER_SIZE):
                     yield ION_STREAM_END_EVENT
                     return
             ion_event = reader.send(read_data_event(data))
+            # print(f"ion_event: {ion_event}")
+

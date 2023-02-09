@@ -68,10 +68,11 @@ _generate_empty_containers = partial(generate_containers, _EMPTY_CONTAINER_MAP)
 _SIMPLE_ANNOTATIONS = (
     SymbolToken(None, 4), # System symbol 'name'.
     u'\x00',
-    u'\uff4e', # An full-width latin 'n' code point.
+    u'\uff4e', # A full-width latin 'n' code point.
+    u'\ud55c', # The korean 'han' code point
     u'\U0001f4a9', # A 'pile of poo' emoji code point.
 )
-_SIMPLE_ANNOTATIONS_ENCODED = br"$4::'\x00'::'\uff4e'::'\U0001f4a9'::"
+_SIMPLE_ANNOTATIONS_ENCODED = br"$4::'\x00'::'\uff4e'::'\ud55c'::'\U0001f4a9'::"
 
 
 def _generate_annotated_values():
@@ -292,3 +293,7 @@ def test_quote_symbols(p):
     assert needs_quotes == quoted
     assert len(ion_value.ion_annotations) == 1
     assert ion_value.ion_annotations[0].text == symbol_text
+
+
+def test_write_unicode():
+    print(u'\ud55c'.encode("ascii"))

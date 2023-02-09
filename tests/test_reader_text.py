@@ -399,15 +399,6 @@ _BAD_FLUSH = (
     [(e_read(b'$10'), INC), (NEXT, e_symbol(_sid(10))), _NEXT_END, (e_read(b'::123 '), IonException)],
 )
 
-
-def _good_container(start, end, *events):
-    return (start(),) + events + (end(),)
-
-_good_sexp = partial(_good_container, e_start_sexp, e_end_sexp)
-_good_struct = partial(_good_container, e_start_struct, e_end_struct)
-_good_list = partial(_good_container, e_start_list, e_end_list)
-
-
 _GOOD = (
     (b'$ion_1_0 42 ', IVM, e_int(42)),
     (b'$ion_1_0_ 42 ', e_symbol(_st(u'$ion_1_0_')), e_int(42)),

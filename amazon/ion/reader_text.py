@@ -1898,7 +1898,6 @@ _IMMEDIATE_FLUSH_TABLE = _defaultdict(
     fallback=lambda: False
 )
 
-
 @coroutine
 def _container_handler(c, ctx):
     """Coroutine for container values. Delegates to other coroutines to tokenize all child values."""
@@ -2121,7 +2120,7 @@ def _container_handler(c, ctx):
 @coroutine
 def _skip_trampoline(handler):
     """Intercepts events from container handlers, emitting them only if they should not be skipped."""
-    data_event, self = (yield None)
+    data_event, self = (yield)
     delegate = handler
     event = None
     depth = 0
@@ -2236,8 +2235,18 @@ def _next_code_point_handler(whence, ctx):
         yield Transition(None, whence)
 
 
+def trace_decorator(coro):
+    @coroutine
+    def wrapper(*args, **kwargs):
+        g = coro(*args, **kwargs)
+        while True:
+            e = (yield)
+            yield g.send(e)
+    return wrapper
+
+
 def reader(queue=None, is_unicode=False):
-    """Returns a raw binary reader co-routine.
+    """Returns a raw text reader co-routine.
 
     Args:
         queue (Optional[BufferQueue]): The buffer read data for parsing, if ``None`` a
@@ -2315,6 +2324,7 @@ def reader(queue=None, is_unicode=False):
         ion_type=None,  # Top level
         pending_symbol=None
     )
+
     return reader_trampoline(_skip_trampoline(_container_handler(None, ctx)), allow_flush=True)
 
 text_reader = reader

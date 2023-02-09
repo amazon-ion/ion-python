@@ -228,11 +228,15 @@ def _dump(obj, writer, from_type, field=None, in_struct=False, depth=0):
     writer.send(event)
 
 
-def dumps(obj, imports=None, binary=True, sequence_as_stream=False, skipkeys=False, ensure_ascii=True, check_circular=True,
-          allow_nan=True, cls=None, indent=None, separators=None, encoding='utf-8', default=None, use_decimal=True,
-          namedtuple_as_object=True, tuple_as_array=True, bigint_as_string=False, sort_keys=False, item_sort_key=None,
-          for_json=None, ignore_nan=False, int_as_string_bitcount=None, iterable_as_array=False, tuple_as_sexp=False,
-          omit_version_marker=False, **kw):
+def dumps(obj: object, imports: object = None, binary: object = True, sequence_as_stream: object = False, skipkeys: object = False, ensure_ascii: object = True,
+          check_circular: object = True,
+          allow_nan: object = True, cls: object = None, indent: object = None, separators: object = None, encoding: object = 'utf-8', default: object = None,
+          use_decimal: object = True,
+          namedtuple_as_object: object = True, tuple_as_array: object = True, bigint_as_string: object = False, sort_keys: object = False,
+          item_sort_key: object = None,
+          for_json: object = None, ignore_nan: object = False, int_as_string_bitcount: object = None, iterable_as_array: object = False,
+          tuple_as_sexp: object = False,
+          omit_version_marker: object = False, **kw: object) -> object:
     """Serialize ``obj`` as Python ``string`` or ``bytes`` object, using the conversion table used by ``dump`` (above).
 
     Args:
