@@ -717,7 +717,7 @@ def test_loads_unicode_utf8_conversion():
 # See issue https://github.com/amazon-ion/ion-python/issues/232
 def test_loads_large_string():
     # This function only tests c extension
-    if c_ext:
+    if not c_ext:
         return
 
     data = "a"*100000
