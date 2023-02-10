@@ -457,9 +457,9 @@ def loads(ion_str, catalog=None, single_value=True, encoding='utf-8', cls=None, 
             ``sequence_as_stream=True``, it must be loaded using ``single_value=False``. Default: True.
         parse_eagerly: (Optional[True|False]) Used in conjunction with ``single_value=False`` to return the result as list
             or an iterator
-        text_buffer_size_limit: The size maximum size allowed for text, 512 bytes is the default. This option only works
-            when C extension is enabled (and it is enabled by default). Raising text buffer limit is required for text
-            values that exceed 512 bytes. Refer to https://github.com/amazon-ion/ion-python/pull/238 for details
+        text_buffer_size_limit (int): The maximum byte size allowed for text values when the C extension is enabled
+            (default: 512 bytes). This option only has an effect when the C extension is enabled (and it is enabled by
+            default). When the C extension is disabled, there is no limit on the size of text values.
         encoding: NOT IMPLEMENTED
         cls: NOT IMPLEMENTED
         object_hook: NOT IMPLEMENTED
@@ -509,9 +509,9 @@ def load_extension(fp, single_value=True, parse_eagerly=True, text_buffer_size_l
             ``sequence_as_stream=True``, it must be loaded using ``single_value=False``. Default: True.
         parse_eagerly: (Optional[True|False]) Used in conjunction with ``single_value=False`` to return the result as list
             or an iterator
-        text_buffer_size_limit: The size maximum size allowed for text, 512 bytes is the default. This option only works
-            when C extension is enabled (and it is enabled by default). Raising text buffer limit is required for text
-            values that exceed 512 bytes. Refer to https://github.com/amazon-ion/ion-python/pull/238 for details
+        text_buffer_size_limit (int): The maximum byte size allowed for text values when the C extension is enabled
+            (default: 512 bytes). This option only has an effect when the C extension is enabled (and it is enabled by
+            default). When the C extension is disabled, there is no limit on the size of text values.
     """
     iterator = ionc.ionc_read(fp, emit_bare_values=False, text_buffer_size_limit=text_buffer_size_limit)
     if single_value:
