@@ -713,3 +713,22 @@ def test_loads_unicode_utf8_conversion():
     # Loads API should convert it to UTF-8 without illegal bytes number read exception.
     loads(data, parse_eagerly=True)
 
+
+# See issue https://github.com/amazon-ion/ion-python/issues/232
+def test_loads_large_string():
+    data = "a"*100000
+
+    # Without symbol_buffer_threshold setup, it should fail due to BUFFER_TOO_SMALL
+    try:
+        loads(data)
+    except Exception:
+        pass
+    else:
+        assert False
+
+    # With symbol_buffer_threshold setup, it should have enough buffer size to handle "a"*100000
+    try:
+        loads(data, symbol_buffer_threshold=200000)
+    except Exception:
+        assert False
+

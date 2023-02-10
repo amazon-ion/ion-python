@@ -443,7 +443,8 @@ def _load(out, reader, end_type=IonEventType.STREAM_END, in_struct=False):
 
 
 def loads(ion_str, catalog=None, single_value=True, encoding='utf-8', cls=None, object_hook=None, parse_float=None,
-          parse_int=None, parse_constant=None, object_pairs_hook=None, use_decimal=None, parse_eagerly=True, **kw):
+          parse_int=None, parse_constant=None, object_pairs_hook=None, use_decimal=None, parse_eagerly=True,
+          symbol_buffer_threshold=None, **kw):
     """Deserialize ``ion_str``, which is a string representation of an Ion object, to a Python object using the
     conversion table used by load (above).
 
@@ -482,7 +483,8 @@ def loads(ion_str, catalog=None, single_value=True, encoding='utf-8', cls=None, 
 
     return load(ion_buffer, catalog=catalog, single_value=single_value, encoding=encoding, cls=cls,
                 object_hook=object_hook, parse_float=parse_float, parse_int=parse_int, parse_constant=parse_constant,
-                object_pairs_hook=object_pairs_hook, use_decimal=use_decimal, parse_eagerly=parse_eagerly)
+                object_pairs_hook=object_pairs_hook, use_decimal=use_decimal, parse_eagerly=parse_eagerly,
+                symbol_buffer_threshold=symbol_buffer_threshold)
 
 
 def dump_extension(obj, fp, binary=True, sequence_as_stream=False, tuple_as_sexp=False, omit_version_marker=False):
