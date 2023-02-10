@@ -444,7 +444,7 @@ def _load(out, reader, end_type=IonEventType.STREAM_END, in_struct=False):
 
 def loads(ion_str, catalog=None, single_value=True, encoding='utf-8', cls=None, object_hook=None, parse_float=None,
           parse_int=None, parse_constant=None, object_pairs_hook=None, use_decimal=None, parse_eagerly=True,
-          symbol_buffer_threshold=None, **kw):
+          text_buffer_size_limit=None, **kw):
     """Deserialize ``ion_str``, which is a string representation of an Ion object, to a Python object using the
     conversion table used by load (above).
 
@@ -457,6 +457,7 @@ def loads(ion_str, catalog=None, single_value=True, encoding='utf-8', cls=None, 
             ``sequence_as_stream=True``, it must be loaded using ``single_value=False``. Default: True.
         parse_eagerly: (Optional[True|False]) Used in conjunction with ``single_value=False`` to return the result as list
             or an iterator
+        text_buffer_size_limit: The size maximum size allowed for text, 512 bytes is the default
         encoding: NOT IMPLEMENTED
         cls: NOT IMPLEMENTED
         object_hook: NOT IMPLEMENTED
@@ -484,7 +485,7 @@ def loads(ion_str, catalog=None, single_value=True, encoding='utf-8', cls=None, 
     return load(ion_buffer, catalog=catalog, single_value=single_value, encoding=encoding, cls=cls,
                 object_hook=object_hook, parse_float=parse_float, parse_int=parse_int, parse_constant=parse_constant,
                 object_pairs_hook=object_pairs_hook, use_decimal=use_decimal, parse_eagerly=parse_eagerly,
-                symbol_buffer_threshold=symbol_buffer_threshold)
+                text_buffer_size_limit=text_buffer_size_limit)
 
 
 def dump_extension(obj, fp, binary=True, sequence_as_stream=False, tuple_as_sexp=False, omit_version_marker=False):
@@ -496,7 +497,7 @@ def dump_extension(obj, fp, binary=True, sequence_as_stream=False, tuple_as_sexp
     fp.write(res)
 
 
-def load_extension(fp, single_value=True, parse_eagerly=True, symbol_buffer_threshold=None):
+def load_extension(fp, single_value=True, parse_eagerly=True, text_buffer_size_limit=None):
     """
     Args:
         fp (str): A string representation of Ion data.
@@ -506,9 +507,9 @@ def load_extension(fp, single_value=True, parse_eagerly=True, symbol_buffer_thre
             ``sequence_as_stream=True``, it must be loaded using ``single_value=False``. Default: True.
         parse_eagerly: (Optional[True|False]) Used in conjunction with ``single_value=False`` to return the result as list
             or an iterator
-        symbol_buffer_threshold: The size maximum size allowed for symbols, 512 bytes is the default
+        text_buffer_size_limit: The size maximum size allowed for text, 512 bytes is the default
     """
-    iterator = ionc.ionc_read(fp, emit_bare_values=False, symbol_buffer_threshold=symbol_buffer_threshold)
+    iterator = ionc.ionc_read(fp, emit_bare_values=False, text_buffer_size_limit=text_buffer_size_limit)
     if single_value:
         try:
             value = next(iterator)
@@ -546,10 +547,10 @@ def dump(obj, fp, imports=None, binary=True, sequence_as_stream=False, skipkeys=
 
 def load(fp, catalog=None, single_value=True, encoding='utf-8', cls=None, object_hook=None, parse_float=None,
          parse_int=None, parse_constant=None, object_pairs_hook=None, use_decimal=None, parse_eagerly=True,
-         symbol_buffer_threshold=None, **kw):
+         text_buffer_size_limit=None, **kw):
     if c_ext and catalog is None:
         return load_extension(fp, parse_eagerly=parse_eagerly, single_value=single_value,
-                              symbol_buffer_threshold=symbol_buffer_threshold)
+                              text_buffer_size_limit=text_buffer_size_limit)
     else:
         return load_python(fp, catalog=catalog, single_value=single_value, encoding=encoding, cls=cls,
                            object_hook=object_hook, parse_float=parse_float, parse_int=parse_int,
