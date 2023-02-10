@@ -39,17 +39,19 @@ try:
 except ModuleNotFoundError:
     c_ext = False
 
-
 _ION_CONTAINER_END_EVENT = IonEvent(IonEventType.CONTAINER_END)
 _IVM = b'\xe0\x01\x00\xea'
 _TEXT_TYPES = (TextIOBase, io.StringIO)
 
 
 def dump_python(obj, fp, imports=None, binary=True, sequence_as_stream=False, skipkeys=False, ensure_ascii=True,
-         check_circular=True, allow_nan=True, cls=None, indent=None, separators=None, encoding='utf-8', default=None,
-         use_decimal=True, namedtuple_as_object=True, tuple_as_array=True, bigint_as_string=False, sort_keys=False,
-         item_sort_key=None, for_json=None, ignore_nan=False, int_as_string_bitcount=None, iterable_as_array=False,
-         tuple_as_sexp=False, omit_version_marker=False, **kw):
+                check_circular=True, allow_nan=True, cls=None, indent=None, separators=None, encoding='utf-8',
+                default=None,
+                use_decimal=True, namedtuple_as_object=True, tuple_as_array=True, bigint_as_string=False,
+                sort_keys=False,
+                item_sort_key=None, for_json=None, ignore_nan=False, int_as_string_bitcount=None,
+                iterable_as_array=False,
+                tuple_as_sexp=False, omit_version_marker=False, **kw):
     """Serialize ``obj`` as an Ion-formatted stream to ``fp`` (a file-like object), using the following conversion
     table::
         +-------------------+-------------------+
@@ -214,10 +216,10 @@ def _dump(obj, writer, from_type, field=None, in_struct=False, depth=0):
         writer.send(event)
         if ion_type is IonType.STRUCT:
             for field, val in iter(obj.items()):
-                _dump(val, writer, from_type, field, in_struct=True, depth=depth+1)
+                _dump(val, writer, from_type, field, in_struct=True, depth=depth + 1)
         else:
             for elem in obj:
-                _dump(elem, writer, from_type, depth=depth+1)
+                _dump(elem, writer, from_type, depth=depth + 1)
         event = _ION_CONTAINER_END_EVENT
     else:
         # obj is a scalar value
@@ -228,7 +230,8 @@ def _dump(obj, writer, from_type, field=None, in_struct=False, depth=0):
     writer.send(event)
 
 
-def dumps(obj, imports=None, binary=True, sequence_as_stream=False, skipkeys=False, ensure_ascii=True, check_circular=True,
+def dumps(obj, imports=None, binary=True, sequence_as_stream=False, skipkeys=False, ensure_ascii=True,
+          check_circular=True,
           allow_nan=True, cls=None, indent=None, separators=None, encoding='utf-8', default=None, use_decimal=True,
           namedtuple_as_object=True, tuple_as_array=True, bigint_as_string=False, sort_keys=False, item_sort_key=None,
           for_json=None, ignore_nan=False, int_as_string_bitcount=None, iterable_as_array=False, tuple_as_sexp=False,
@@ -293,7 +296,8 @@ def dumps(obj, imports=None, binary=True, sequence_as_stream=False, skipkeys=Fal
 
 
 def load_python(fp, catalog=None, single_value=True, encoding='utf-8', cls=None, object_hook=None, parse_float=None,
-        parse_int=None, parse_constant=None, object_pairs_hook=None, use_decimal=None, parse_eagerly=True, **kw):
+                parse_int=None, parse_constant=None, object_pairs_hook=None, use_decimal=None, parse_eagerly=True,
+                **kw):
     """Deserialize ``fp`` (a file-like object), which contains a text or binary Ion stream, to a Python object using the
     following conversion table::
         +-------------------+-------------------+
@@ -397,6 +401,7 @@ _FROM_ION_TYPE = [
     IonPyDict
 ]
 
+
 def _load_iteratively(reader, end_type=IonEventType.STREAM_END):
     event = reader.send(NEXT_EVENT)
     while event.event_type is not end_type:
@@ -413,8 +418,8 @@ def _load_iteratively(reader, end_type=IonEventType.STREAM_END):
             yield scalar
         event = reader.send(NEXT_EVENT)
 
-def _load(out, reader, end_type=IonEventType.STREAM_END, in_struct=False):
 
+def _load(out, reader, end_type=IonEventType.STREAM_END, in_struct=False):
     def add(obj):
         if in_struct:
             out.add_item(event.field_name.text, obj)
@@ -438,7 +443,8 @@ def _load(out, reader, end_type=IonEventType.STREAM_END, in_struct=False):
 
 
 def loads(ion_str, catalog=None, single_value=True, encoding='utf-8', cls=None, object_hook=None, parse_float=None,
-          parse_int=None, parse_constant=None, object_pairs_hook=None, use_decimal=None, parse_eagerly=True, **kw):
+          parse_int=None, parse_constant=None, object_pairs_hook=None, use_decimal=None, parse_eagerly=True,
+          text_buffer_size_limit=None, **kw):
     """Deserialize ``ion_str``, which is a string representation of an Ion object, to a Python object using the
     conversion table used by load (above).
 
@@ -451,6 +457,9 @@ def loads(ion_str, catalog=None, single_value=True, encoding='utf-8', cls=None, 
             ``sequence_as_stream=True``, it must be loaded using ``single_value=False``. Default: True.
         parse_eagerly: (Optional[True|False]) Used in conjunction with ``single_value=False`` to return the result as list
             or an iterator
+        text_buffer_size_limit (int): The maximum byte size allowed for text values when the C extension is enabled
+            (default: 512 bytes). This option only has an effect when the C extension is enabled (and it is enabled by
+            default). When the C extension is disabled, there is no limit on the size of text values.
         encoding: NOT IMPLEMENTED
         cls: NOT IMPLEMENTED
         object_hook: NOT IMPLEMENTED
@@ -477,7 +486,8 @@ def loads(ion_str, catalog=None, single_value=True, encoding='utf-8', cls=None, 
 
     return load(ion_buffer, catalog=catalog, single_value=single_value, encoding=encoding, cls=cls,
                 object_hook=object_hook, parse_float=parse_float, parse_int=parse_int, parse_constant=parse_constant,
-                object_pairs_hook=object_pairs_hook, use_decimal=use_decimal, parse_eagerly=parse_eagerly)
+                object_pairs_hook=object_pairs_hook, use_decimal=use_decimal, parse_eagerly=parse_eagerly,
+                text_buffer_size_limit=text_buffer_size_limit)
 
 
 def dump_extension(obj, fp, binary=True, sequence_as_stream=False, tuple_as_sexp=False, omit_version_marker=False):
@@ -489,8 +499,21 @@ def dump_extension(obj, fp, binary=True, sequence_as_stream=False, tuple_as_sexp
     fp.write(res)
 
 
-def load_extension(fp, single_value=True, parse_eagerly=True):
-    iterator = ionc.ionc_read(fp, emit_bare_values=False)
+def load_extension(fp, single_value=True, parse_eagerly=True, text_buffer_size_limit=None):
+    """
+    Args:
+        fp (str): A string representation of Ion data.
+        single_value (Optional[True|False]): When True, the data in ``ion_str`` is interpreted as a single Ion value,
+            and will be returned without an enclosing container. If True and there are multiple top-level values in
+            the Ion stream, IonException will be raised. NOTE: this means that when data is dumped using
+            ``sequence_as_stream=True``, it must be loaded using ``single_value=False``. Default: True.
+        parse_eagerly: (Optional[True|False]) Used in conjunction with ``single_value=False`` to return the result as list
+            or an iterator
+        text_buffer_size_limit (int): The maximum byte size allowed for text values when the C extension is enabled
+            (default: 512 bytes). This option only has an effect when the C extension is enabled (and it is enabled by
+            default). When the C extension is disabled, there is no limit on the size of text values.
+    """
+    iterator = ionc.ionc_read(fp, emit_bare_values=False, text_buffer_size_limit=text_buffer_size_limit)
     if single_value:
         try:
             value = next(iterator)
@@ -517,21 +540,23 @@ def dump(obj, fp, imports=None, binary=True, sequence_as_stream=False, skipkeys=
                               tuple_as_sexp=tuple_as_sexp, omit_version_marker=omit_version_marker)
     else:
         return dump_python(obj, fp, imports=imports, binary=binary, sequence_as_stream=sequence_as_stream,
-                         skipkeys=skipkeys, ensure_ascii=ensure_ascii,check_circular=check_circular,
-                         allow_nan=allow_nan, cls=cls, indent=indent, separators=separators, encoding=encoding,
-                         default=default, use_decimal=use_decimal, namedtuple_as_object=namedtuple_as_object,
-                         tuple_as_array=tuple_as_array, bigint_as_string=bigint_as_string, sort_keys=sort_keys,
-                         item_sort_key=item_sort_key, for_json=for_json, ignore_nan=ignore_nan,
-                         int_as_string_bitcount=int_as_string_bitcount, iterable_as_array=iterable_as_array,
-                         tuple_as_sexp=tuple_as_sexp, omit_version_marker=omit_version_marker, **kw)
+                           skipkeys=skipkeys, ensure_ascii=ensure_ascii, check_circular=check_circular,
+                           allow_nan=allow_nan, cls=cls, indent=indent, separators=separators, encoding=encoding,
+                           default=default, use_decimal=use_decimal, namedtuple_as_object=namedtuple_as_object,
+                           tuple_as_array=tuple_as_array, bigint_as_string=bigint_as_string, sort_keys=sort_keys,
+                           item_sort_key=item_sort_key, for_json=for_json, ignore_nan=ignore_nan,
+                           int_as_string_bitcount=int_as_string_bitcount, iterable_as_array=iterable_as_array,
+                           tuple_as_sexp=tuple_as_sexp, omit_version_marker=omit_version_marker, **kw)
 
 
 def load(fp, catalog=None, single_value=True, encoding='utf-8', cls=None, object_hook=None, parse_float=None,
-         parse_int=None, parse_constant=None, object_pairs_hook=None, use_decimal=None, parse_eagerly=True, **kw):
+         parse_int=None, parse_constant=None, object_pairs_hook=None, use_decimal=None, parse_eagerly=True,
+         text_buffer_size_limit=None, **kw):
     if c_ext and catalog is None:
-        return load_extension(fp, parse_eagerly=parse_eagerly, single_value=single_value)
+        return load_extension(fp, parse_eagerly=parse_eagerly, single_value=single_value,
+                              text_buffer_size_limit=text_buffer_size_limit)
     else:
         return load_python(fp, catalog=catalog, single_value=single_value, encoding=encoding, cls=cls,
-                         object_hook=object_hook, parse_float=parse_float, parse_int=parse_int,
-                         parse_constant=parse_constant, object_pairs_hook=object_pairs_hook,
-                         use_decimal=use_decimal, parse_eagerly=parse_eagerly, **kw)
+                           object_hook=object_hook, parse_float=parse_float, parse_int=parse_int,
+                           parse_constant=parse_constant, object_pairs_hook=object_pairs_hook,
+                           use_decimal=use_decimal, parse_eagerly=parse_eagerly, **kw)
