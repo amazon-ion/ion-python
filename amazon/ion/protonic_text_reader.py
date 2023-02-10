@@ -1,6 +1,6 @@
 from collections import deque
 
-from amazon.ion.core import IonEvent, IonEventType, IonType, DataEvent, Transition, ION_STREAM_INCOMPLETE_EVENT, \
+from amazon.ion.core import IonEvent, IonEventType, IonType, Transition, ION_STREAM_INCOMPLETE_EVENT, \
     ION_STREAM_END_EVENT
 from amazon.ion.exceptions import IonException
 from amazon.ion.reader import ReadEventType
@@ -14,7 +14,7 @@ from amazon.protonic.protons import one_of, delim, tag, alt, value, terminated, 
 def wrap_parser(parser_factory):
     """
     Acts as intermediary between the text_parser that is a generator and knows nothing
-    of ReadEvents and the Ion general coroutine based components.
+    of ReadEvents and the Ion parser coroutine based components.
 
     Intercepts data handling events to deal with the growing and marking end of the buffer.
 
@@ -31,6 +31,9 @@ def wrap_parser(parser_factory):
 
     ion_event_type = None
     while True:
+        # A user may call NEXT on INCOMPLETE and force a "flush"
+        # of any completed token (consider `true` or `null` which are not
+        # complete until we see a termination char _or_ EOF.
         if not read_event or read_event.type is ReadEventType.NEXT:
             if ion_event_type is IonEventType.INCOMPLETE:
                 data_source.eof()
@@ -38,6 +41,9 @@ def wrap_parser(parser_factory):
             ion_event = next(parser)
             ion_event_type = ion_event.event_type
 
+            # After the "flush" case above they may call NEXT and get STREAM_END
+            # and then send more data. Therefore we clear the data source, and
+            # allow them to start fresh.
             if ion_event_type is IonEventType.STREAM_END:
                 data_source.clear()
 
@@ -51,8 +57,10 @@ def wrap_parser(parser_factory):
             raise ValueError("Only ReadEventTypes of NEXT or DATA handled here!")
 
 
-def parse_text(ctx):
+def parse_text(ctx: ParserContext):
     """
+    Produce an IonEvent generator for the given ctx
+
     A note about streaming, incremental production and state...
     We could model the stepping into containers within the combinators and the
     combinators as generators. Then the stack of combinators at runtime mirrors
@@ -106,8 +114,7 @@ def parse_text(ctx):
         else:
             ctx = result.context
             event: IonEvent = result.value
-            # todo: a fully functional slicing buffer would be great
-            #       this is the best I can do for now.
+            # todo: a totally functional slicing buffer would be preferable.
             ctx.advance()
 
         if event.event_type is IonEventType.CONTAINER_START:
@@ -123,9 +130,12 @@ def parse_text(ctx):
 
 
 """
-*** Rules below here ***
+***** Rules below here *****
 """
 
+# NOTE: I have mixed feelings about defining a logical EOF as a rule
+#       it seems like it adds branching complexity at runtime but it
+#       makes the rule writing really clean (imo).
 stop = peek(
     alt(
         one_of(b" \n\t\r\f{}[](),"),
@@ -133,12 +143,12 @@ stop = peek(
     )
 )
 
-whitespace = take_while(lambda b: b in bytearray(b" \n\t\r\f"))
+whitespace = take_while(lambda b: b in bytearray(b" \f\n\r\t\v"))
 
 # todo: obviously this is just ascii and doesn't handle unicode escapes
 #       also doesn't handle escaped double quotes!
 string = delim(tag(b'"'), take_while(lambda b: 0 <= b <= 127 and b != 34), tag(b'"'))
-# todo: unquoted symbols, escaping of single quotes?
+# todo: unquoted symbols, escaping of single quotes!
 # todo: integer symbol Ids!
 symbol = delim(tag(b"'"), take_while(lambda b: 0 <= b <= 127 and b != 39), tag(b"'"))
 
@@ -152,6 +162,7 @@ tlv = preceded(
         value(terminated(tag(b"null"), stop), IonEvent(IonEventType.SCALAR, IonType.NULL, None)),
         value(terminated(tag(b"true"), stop), IonEvent(IonEventType.SCALAR, IonType.BOOL, True)),
         value(terminated(tag(b"false"), stop), IonEvent(IonEventType.SCALAR, IonType.BOOL, False)),
+        # todo: these should be a "thunk" that only decodes when the value is accessed
         map_value(string, lambda v: IonEvent(IonEventType.SCALAR, IonType.STRING, v.tobytes().decode("utf-8"))),
         map_value(symbol, lambda v: IonEvent(IonEventType.SCALAR, IonType.SYMBOL, v.tobytes().decode("utf-8"))),
 

@@ -39,9 +39,9 @@ class ParserContext:
 
     FIXME: As implemented now this is super dangerous because if you
      advance the underlying buffer it silently invalidates all of your
-     outstanding ParserContexts. I need to fix this but for now I am
+     outstanding ParserContexts. We should fix this but for now I am
      doing this because it gives me the api in the combinators that i
-     want without either a bunch of data copying or doing something
+     want without either a bunch of ref copying or doing something
      more complex like weakrefs.
     """
 
@@ -62,8 +62,11 @@ class ParserContext:
 
     def advance(self):
         """
-        drop anything from the buffer before cursor and reset cursor
-        to start of current buffer
+        Drop anything from the buffer before cursor and reset cursor
+        to start of current buffer.
+
+        NOTE: once you have done this any and all outstanding ParserContexts
+              sharing the same DataSource will be invalid!
         """
         self.source.advance(self.cursor)
         self.cursor = 0
@@ -330,7 +333,7 @@ def ignore(parser: Parser) -> Parser:
 
 def peek(parser: Parser) -> Parser:
     """
-    Peek at the stream, result propagates but the context doesn't move.
+    Peek at the stream, result propagates but the context doesn't move forward.
     """
     def p(ctx):
         result = parser(ctx)
