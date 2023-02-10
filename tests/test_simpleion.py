@@ -732,7 +732,7 @@ def test_loads_large_string():
 
     # With symbol_buffer_threshold setup, it should have enough buffer size to handle "a"*100000
     try:
-        loads(data, symbol_buffer_threshold=200000)
+        loads(data, text_buffer_size_limit=200000)
     except Exception:
         assert False
 
