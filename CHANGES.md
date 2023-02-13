@@ -1,3 +1,10 @@
+### 0.10.0 (2023-02-13)
+* Drops Python 2 support.
+* Adds a benchmark tool with essential options. (#228)
+* Adds support for multi-options execution for benchmark CLI. (#235)
+* Adds two tests to the skip list for pypy compatibility. (#231)
+* Adds support for flexible symbol buffer threshold. (#238)
+
 ### 0.9.3 (2022-08-18)
 * Fixes a timestamp precision check issue. (#211)
 * Changes bytes read size to avoid unicode/UTF-8 conversion issue. (#216)
