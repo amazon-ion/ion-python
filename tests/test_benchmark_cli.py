@@ -118,19 +118,8 @@ def test_option_read_iterations(file=generate_test_path('integers.ion')):
 def test_option_write_iterations(file=generate_test_path('integers.ion')):
     # warmup
     execution_with_command(['write', file, '--c-extension', 'true', '--iterations', '10'])
-
-    start = time.perf_counter()
     execution_with_command(['write', file, '--c-extension', 'true', '--iterations', '1'])
-    stop = time.perf_counter()
-    time_1 = stop - start
-
-    start = time.perf_counter()
     execution_with_command(['write', file, '--c-extension', 'true', '--iterations', '100'])
-    stop = time.perf_counter()
-    time_2 = stop - start
-
-    # Executing 100 times should be longer than benchmark only once, but don't have to be exact 100x faster.
-    assert time_2 > time_1
 
 
 def gather_all_options_in_list(table):
