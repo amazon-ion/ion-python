@@ -5,9 +5,9 @@ from os.path import abspath, join, dirname
 from docopt import docopt
 
 from amazon.ion import simpleion
-from amazon.ionbenchmark import ion_benchmark_cli
-from amazon.ionbenchmark.ion_benchmark_cli import generate_simpleion_load_test_code, generate_simpleion_dump_test_code,\
-    ion_python_benchmark_cli
+from amazon.ionbenchmark import ion_benchmark_cli, Format, Io_type
+from amazon.ionbenchmark.ion_benchmark_cli import generate_simpleion_read_test_code, \
+    generate_simpleion_write_test_code, ion_python_benchmark_cli
 from amazon.ionbenchmark.util import str_to_bool, TOOL_VERSION
 from tests import parametrize
 from tests.test_simpleion import generate_scalars_text
@@ -44,8 +44,9 @@ def generate_test_path(p):
 @parametrize(
     generate_test_path('integers.ion')
 )
-def test_generate_simpleion_load_test_code(path):
-    actual = generate_simpleion_load_test_code(path, memory_profiling=False, single_value=False, emit_bare_values=False)
+def test_generate_simpleion_read_test_code(path):
+    actual = generate_simpleion_read_test_code(path, memory_profiling=False, single_value=False,
+                                               emit_bare_values=False, io_type='buffer')
 
     # make sure we generated the desired load function
     with open(path) as fp:
@@ -60,8 +61,8 @@ def test_generate_simpleion_load_test_code(path):
         generate_scalars_text(SIMPLE_SCALARS_MAP_TEXT),
     ))
 )
-def test_generate_simpleion_dump_test_code(obj):
-    actual = generate_simpleion_dump_test_code(obj, memory_profiling=False, binary=False)
+def test_generate_simpleion_write_test_code(obj):
+    actual = generate_simpleion_write_test_code(obj, memory_profiling=False, binary=False, io_type='buffer')
 
     # make sure we generated the desired dumps function
     expect = simpleion.dumps(obj, binary=False)
@@ -135,39 +136,87 @@ def gather_all_options_in_list(table):
 
 def test_read_multi_api(file=generate_test_path('integers.ion')):
     table = execution_with_command(['read', file, '--api', 'simple_ion', '--api', 'event'])
-    assert gather_all_options_in_list(table) == sorted([('event', 'ion_binary'), ('simple_ion', 'ion_binary')])
+    assert gather_all_options_in_list(table) == sorted([('event', 'ion_binary', 'file'), ('simple_ion', 'ion_binary', 'file')])
 
 
 def test_write_multi_api(file=generate_test_path('integers.ion')):
     table = execution_with_command(['write', file, '--api', 'simple_ion', '--api', 'event'])
-    assert gather_all_options_in_list(table) == sorted([('event', 'ion_binary'), ('simple_ion', 'ion_binary')])
+    assert gather_all_options_in_list(table) == sorted([('event', 'ion_binary', 'file'), ('simple_ion', 'ion_binary', 'file')])
 
 
 def test_read_multi_duplicated_api(file=generate_test_path('integers.ion')):
     table = execution_with_command(['read', file, '--api', 'simple_ion', '--api', 'event', '--api', 'event'])
-    assert gather_all_options_in_list(table) == sorted([('event', 'ion_binary'), ('simple_ion', 'ion_binary')])
+    assert gather_all_options_in_list(table) == sorted([('event', 'ion_binary', 'file'), ('simple_ion', 'ion_binary', 'file')])
 
 
 def test_write_multi_duplicated_api(file=generate_test_path('integers.ion')):
     table = execution_with_command(['write', file, '--api', 'simple_ion', '--api', 'event', '--api', 'event'])
-    assert gather_all_options_in_list(table) == sorted([('event', 'ion_binary'), ('simple_ion', 'ion_binary')])
+    assert gather_all_options_in_list(table) == sorted([('event', 'ion_binary', 'file'), ('simple_ion', 'ion_binary', 'file')])
 
 
 def test_read_multi_format(file=generate_test_path('integers.ion')):
     table = execution_with_command(['read', file, '--format', 'ion_text', '--format', 'ion_binary'])
-    assert gather_all_options_in_list(table) == sorted([('simple_ion', 'ion_binary'), ('simple_ion', 'ion_text')])
+    assert gather_all_options_in_list(table) == sorted([('simple_ion', 'ion_binary', 'file'), ('simple_ion', 'ion_text', 'file')])
 
 
 def test_write_multi_format(file=generate_test_path('integers.ion')):
     table = execution_with_command(['write', file, '--format', 'ion_text', '--format', 'ion_binary'])
-    assert gather_all_options_in_list(table) == sorted([('simple_ion', 'ion_text'), ('simple_ion', 'ion_binary')])
+    assert gather_all_options_in_list(table) == sorted([('simple_ion', 'ion_text', 'file'), ('simple_ion', 'ion_binary', 'file')])
 
 
 def test_read_multi_duplicated_format(file=generate_test_path('integers.ion')):
     table = execution_with_command(['read', file, '--format', 'ion_text', '--format', 'ion_binary', '--format', 'ion_text'])
-    assert gather_all_options_in_list(table) == sorted([('simple_ion', 'ion_text'), ('simple_ion', 'ion_binary')])
+    assert gather_all_options_in_list(table) == sorted([('simple_ion', 'ion_text', 'file'), ('simple_ion', 'ion_binary', 'file')])
 
 
 def test_write_multi_duplicated_format(file=generate_test_path('integers.ion')):
     table = execution_with_command(['write', file, '--format', 'ion_text', '--format', 'ion_binary', '--format', 'ion_text',])
-    assert gather_all_options_in_list(table) == sorted([('simple_ion', 'ion_text'), ('simple_ion', 'ion_binary')])
+    assert gather_all_options_in_list(table) == sorted([('simple_ion', 'ion_text', 'file'), ('simple_ion', 'ion_binary', 'file')])
+
+
+@parametrize(
+    *tuple((f.value for f in Format.Format if Format.format_is_json(f.value)))
+)
+def test_write_json_format(f):
+    table = execution_with_command(['write', generate_test_path('integers.ion'), '--format', f'{f}'])
+    assert gather_all_options_in_list(table) == sorted([('simple_ion', f'{f}', 'file')])
+
+
+@parametrize(
+    *tuple((f.value for f in Format.Format if Format.format_is_json(f.value)))
+)
+def test_read_json_format(f):
+    table = execution_with_command(['read', generate_test_path('integers.ion'), '--format', f'{f}'])
+    assert gather_all_options_in_list(table) == sorted([('simple_ion', f'{f}', 'file')])
+
+
+@parametrize(
+    *tuple((f.value for f in Format.Format if Format.format_is_json(f.value)))
+)
+def test_write_json_format(f):
+    table = execution_with_command(['write', generate_test_path('integers.ion'), '--format', f'{f}'])
+    assert gather_all_options_in_list(table) == sorted([('simple_ion', f'{f}', 'file')])
+
+
+@parametrize(
+    *tuple((f.value for f in Format.Format if Format.format_is_cbor(f.value)))
+)
+def test_read_cbor_format(f):
+    table = execution_with_command(['read', generate_test_path('integers.ion'), '--format', f'{f}'])
+    assert gather_all_options_in_list(table) == sorted([('simple_ion', f'{f}', 'file')])
+
+
+@parametrize(
+    *tuple((io.value for io in Io_type.Io_type))
+)
+def test_write_io_type(f):
+    table = execution_with_command(['write', generate_test_path('integers.ion'), '--io-type', f'{f}', '--format', 'json'])
+    assert gather_all_options_in_list(table) == sorted([('simple_ion', 'json', f'{f}')])
+
+
+@parametrize(
+    *tuple((io.value for io in Io_type.Io_type))
+)
+def test_read_io_type(f):
+    table = execution_with_command(['read', generate_test_path('integers.ion'), '--io-type', f'{f}', '--format', 'json', '--format', 'ion_binary'])
+    assert gather_all_options_in_list(table) == sorted([('simple_ion', 'json', f'{f}'), ('simple_ion', 'ion_binary', f'{f}')])
