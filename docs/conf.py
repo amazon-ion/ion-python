@@ -24,9 +24,9 @@ copyright = '2018, Amazon Ion Team'
 author = 'Amazon Ion Team'
 
 # The short X.Y version
-version = ''
+version = '0.10'
 # The full version, including alpha/beta/rc tags
-release = '0.3.2'
+release = '0.10.0'
 
 
 # -- General configuration ---------------------------------------------------
