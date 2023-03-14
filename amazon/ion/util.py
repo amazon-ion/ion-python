@@ -242,7 +242,9 @@ total_seconds.__doc__ = 'Timedelta ``total_seconds`` with backported support in 
 
 
 class _EnumMetaClass(type):
-    """Metaclass for simple enumerations.
+    """This is a deprecated, internal-only class in ion-python; do NOT use it for any reason.
+
+    Metaclass for simple enumerations.
 
     Specifically provides the machinery necessary to emulate simplified Python 3.4 enumerations.
     """
@@ -273,7 +275,9 @@ class _EnumMetaClass(type):
 
 
 class Enum(int, metaclass=_EnumMetaClass):
-    """Simple integer based enumeration type.
+    """This is a deprecated, internal-only class in ion-python; do NOT use it for any reason
+
+    Simple integer based enumeration type.
 
     Examples:
         The typical declaration looks like::
@@ -304,18 +308,18 @@ class Enum(int, metaclass=_EnumMetaClass):
         return int.__new__(cls, value)
 
     def __init__(self, name, value):
-        warn(f'{self.__class__.__name__} was deprecated in favor of the deprecation of `amazon.ion.Enum`. However, for '
-             f'compatibility reasons, `amazon.ion.Enum` has been placed here. We recommend considering using `IntEnum` '
-             f'as an alternative.',
+        warn(f'{self.__class__.__name__} is an internal-only class in ion-python; do not use it for any reason. This '
+             f'class is deprecated and may be removed without further warning in any future release. Use `IntEnum` '
+             f'instead.',
              DeprecationWarning, stacklevel=2)
         super().__init__()
         self.name = name
         self.value = value
 
     def __init_subclass__(cls, **kwargs):
-        warn(f'{cls.__name__} was deprecated in favor of the deprecation of `amazon.ion.Enum`. However, for '
-             f'compatibility reasons, `amazon.ion.Enum` has been placed here. We recommend considering using `IntEnum` '
-             f'as an alternative.',
+        warn(f'{cls.__name__} is an internal-only class in ion-python; do not use it for any reason. This '
+             f'class is deprecated and may be removed without further warning in any future release. Use `IntEnum` '
+             f'instead.',
              DeprecationWarning, stacklevel=2)
         super().__init_subclass__(**kwargs)
 
