@@ -19,8 +19,6 @@ import sys
 from collections import namedtuple
 from warnings import warn
 
-import six
-
 
 class _RecordMetaClass(type):
     """Metaclass for defining named-tuple based immutable record types."""
