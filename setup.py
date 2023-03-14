@@ -19,6 +19,7 @@ from install import _install_ionc
 C_EXT = True if not hasattr(sys, 'pypy_translation_info') else False
 
 
+#just a test
 def run_setup():
     if C_EXT and _install_ionc():
         print('C extension is enabled!')
