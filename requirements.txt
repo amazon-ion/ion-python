@@ -16,4 +16,11 @@ virtualenv==20.4.7
 setuptools<=60.5.0
 docopt==0.6.2
 tabulate==0.9.0
-simplejson
+simplejson~=3.18.3
+pip~=23.0
+six~=1.16.0
+cbor~=1.0.0
+orjson~=3.8.6
+cbor2~=5.4.6
+python-rapidjson~=1.9
+ujson~=5.7.0
