@@ -46,8 +46,9 @@ Options:
      -c --c-extension <bool>            If the C extension is enabled, note that it only applies to simpleIon module.
                                         [default: True]
 
-     -f --format <format>               Format to benchmark, from the set (ion_binary | ion_text). May be specified
-                                        multiple times to compare different formats. [default: ion_binary]
+     -f --format <format>               Format to benchmark, from the set (ion_binary | ion_text | json | simplejson |
+                                        ujson | rapidjson | orjson | cbor | cbor2). May be specified multiple times to
+                                        compare different formats. [default: ion_binary]
 
      -p --profile                       (NOT SUPPORTED YET) Initiates a single iteration that repeats indefinitely until
                                         terminated, allowing users to attach profiling tools. If this option is

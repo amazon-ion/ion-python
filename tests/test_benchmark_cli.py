@@ -191,9 +191,9 @@ def test_read_json_format(f):
 
 
 @parametrize(
-    *tuple((f.value for f in Format.Format if Format.format_is_json(f.value)))
+    *tuple((f.value for f in Format.Format if Format.format_is_cbor(f.value)))
 )
-def test_write_json_format(f):
+def test_write_cbor_format(f):
     table = execution_with_command(['write', generate_test_path('integers.ion'), '--format', f'{f}'])
     assert gather_all_options_in_list(table) == sorted([('simple_ion', f'{f}', 'file')])
 
