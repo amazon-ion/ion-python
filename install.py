@@ -89,6 +89,9 @@ def _download_ionc():
 
         os.chdir(_CURRENT_ION_C_DIR)
 
+        # TODO Use ion-c 1.1.0 for now - https://github.com/amazon-ion/ion-python/issues/249
+        check_call(['git', 'reset', '--hard', 'v1.1.0'])
+
         # Initialize submodule.
         check_call(['git', 'submodule', 'update', '--init'])
 
