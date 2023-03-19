@@ -33,9 +33,9 @@ Command:
 Options:
      -h, --help                         Show this screen.
 
-     --api <api>                        The API to exercise (simple_ion, event). `simple_ion` refers to
-                                        simpleIon's load method. `event` refers to ion-python's event
-                                        based non-blocking API. Default to `simpleIon`.
+     --api <api>                        The API to exercise (load_dump, streaming). `load_dump` refers to
+                                        the load/dump method. `streaming` refers to ion-python's event
+                                        based non-blocking API specifically. Default to `load_dump`.
 
      -t --iterator <bool>               If returns an iterator for simpleIon C extension read API. [default: False]
 
@@ -74,7 +74,6 @@ from pathlib import Path
 import platform
 
 import cbor2
-import orjson
 import rapidjson
 import simplejson
 import ujson
@@ -95,6 +94,9 @@ from amazon.ionbenchmark.Io_type import Io_type
 pypy = platform.python_implementation() == 'PyPy'
 if not pypy:
     import tracemalloc
+    import orjson
+else:
+    import json as orjson
 
 BYTES_TO_MB = 1024 * 1024
 _IVM = b'\xE0\x01\x00\xEA'
@@ -107,99 +109,97 @@ CBOR_PRIMARY_BASELINE = Format.CBOR2
 output_file = 'dump_output'
 
 
-# Generates benchmark code for simpleion load/loads APIs
-def generate_simpleion_read_test_code(file, memory_profiling, io_type, iterator=False, single_value=False,
-                                      emit_bare_values=False):
-    if io_type == Io_type.BUFFER.value:
-        with open(file, "br") as fp:
-            benchmark_data = fp.read()
-        if not memory_profiling:
-            if not iterator:
-                def test_func():
-                    data = ion.loads(benchmark_data, single_value=single_value, emit_bare_values=emit_bare_values)
-                    return data
-            else:
-                def test_func():
-                    it = ion.loads(benchmark_data, single_value=single_value, emit_bare_values=emit_bare_values,
-                                   parse_eagerly=False)
-                    while True:
-                        try:
-                            next(it)
-                        except StopIteration:
-                            break
-                    return it
-        else:
-            if not iterator:
-                def test_func():
-                    tracemalloc.start()
-                    data = ion.loads(benchmark_data, single_value=single_value, emit_bare_values=emit_bare_values)
-                    global read_memory_usage_peak
-                    read_memory_usage_peak = tracemalloc.get_traced_memory()[1] / BYTES_TO_MB
-                    tracemalloc.stop()
-                    return data
-            else:
-                def test_func():
-                    tracemalloc.start()
-                    it = ion.loads(benchmark_data, single_value=single_value, emit_bare_values=emit_bare_values,
-                                   parse_eagerly=False)
-                    while True:
-                        try:
-                            next(it)
-                        except StopIteration:
-                            break
-                    global read_memory_usage_peak
-                    read_memory_usage_peak = tracemalloc.get_traced_memory()[1] / BYTES_TO_MB
-                    tracemalloc.stop()
-                    return it
-    else:
-        if not memory_profiling:
-            if not iterator:
-                def test_func():
-                    with open(file, "br") as fp:
-                        data = ion.load(fp, single_value=single_value, emit_bare_values=emit_bare_values)
-                    return data
-            else:
-                def test_func():
-                    with open(file, "br") as fp:
-                        it = ion.load(fp, single_value=single_value, emit_bare_values=emit_bare_values,
-                                      parse_eagerly=False)
+# Generates benchmark code for json/cbor/Ion load/loads APIs
+def generate_read_test_code(file, memory_profiling, format_option, binary, io_type, iterator=False, single_value=False,
+                            emit_bare_values=False):
+    # if format_option == Format.ION_TEXT.value or format_option == Format.ION_BINARY.value:
+    if format_is_ion(format_option):
+        if io_type == Io_type.BUFFER.value:
+            with open(file, "br") as fp:
+                benchmark_data = fp.read()
+            if not memory_profiling:
+                if not iterator:
+                    def test_func():
+                        data = ion.loads(benchmark_data, single_value=single_value, emit_bare_values=emit_bare_values)
+                        return data
+                else:
+                    def test_func():
+                        it = ion.loads(benchmark_data, single_value=single_value, emit_bare_values=emit_bare_values,
+                                       parse_eagerly=False)
                         while True:
                             try:
                                 next(it)
                             except StopIteration:
                                 break
-                    return it
-        else:
-            if not iterator:
-                def test_func():
-                    tracemalloc.start()
-                    with open(file, "br") as fp:
-                        data = ion.load(fp, single_value=single_value, emit_bare_values=emit_bare_values)
-                    global read_memory_usage_peak
-                    read_memory_usage_peak = tracemalloc.get_traced_memory()[1] / BYTES_TO_MB
-                    tracemalloc.stop()
-                    return data
+                        return it
             else:
-                def test_func():
-                    tracemalloc.start()
-                    with open(file, "br") as fp:
-                        it = ion.load(fp, single_value=single_value, emit_bare_values=emit_bare_values,
-                                      parse_eagerly=False)
+                if not iterator:
+                    def test_func():
+                        tracemalloc.start()
+                        data = ion.loads(benchmark_data, single_value=single_value, emit_bare_values=emit_bare_values)
+                        global read_memory_usage_peak
+                        read_memory_usage_peak = tracemalloc.get_traced_memory()[1] / BYTES_TO_MB
+                        tracemalloc.stop()
+                        return data
+                else:
+                    def test_func():
+                        tracemalloc.start()
+                        it = ion.loads(benchmark_data, single_value=single_value, emit_bare_values=emit_bare_values,
+                                       parse_eagerly=False)
                         while True:
                             try:
                                 next(it)
                             except StopIteration:
                                 break
-                    global read_memory_usage_peak
-                    read_memory_usage_peak = tracemalloc.get_traced_memory()[1] / BYTES_TO_MB
-                    tracemalloc.stop()
-                    return it
-    return test_func
-
-
-# Generates benchmark code for json/cbor load/loads APIs
-def generate_read_test_code(file, memory_profiling, format_option, binary, io_type):
-    if format_option == Format.JSON.value:
+                        global read_memory_usage_peak
+                        read_memory_usage_peak = tracemalloc.get_traced_memory()[1] / BYTES_TO_MB
+                        tracemalloc.stop()
+                        return it
+        else:
+            if not memory_profiling:
+                if not iterator:
+                    def test_func():
+                        with open(file, "br") as fp:
+                            data = ion.load(fp, single_value=single_value, emit_bare_values=emit_bare_values)
+                        return data
+                else:
+                    def test_func():
+                        with open(file, "br") as fp:
+                            it = ion.load(fp, single_value=single_value, emit_bare_values=emit_bare_values,
+                                          parse_eagerly=False)
+                            while True:
+                                try:
+                                    next(it)
+                                except StopIteration:
+                                    break
+                        return it
+            else:
+                if not iterator:
+                    def test_func():
+                        tracemalloc.start()
+                        with open(file, "br") as fp:
+                            data = ion.load(fp, single_value=single_value, emit_bare_values=emit_bare_values, parse_eagerly=True)
+                        global read_memory_usage_peak
+                        read_memory_usage_peak = tracemalloc.get_traced_memory()[1] / BYTES_TO_MB
+                        tracemalloc.stop()
+                        return data
+                else:
+                    def test_func():
+                        tracemalloc.start()
+                        with open(file, "br") as fp:
+                            it = ion.load(fp, single_value=single_value, emit_bare_values=emit_bare_values,
+                                          parse_eagerly=False)
+                            while True:
+                                try:
+                                    next(it)
+                                except StopIteration:
+                                    break
+                        global read_memory_usage_peak
+                        read_memory_usage_peak = tracemalloc.get_traced_memory()[1] / BYTES_TO_MB
+                        tracemalloc.stop()
+                        return it
+        return test_func
+    elif format_option == Format.JSON.value:
         benchmark_api = json.loads if io_type == Io_type.BUFFER.value else json.load
     elif format_option == Format.SIMPLEJSON.value:
         benchmark_api = simplejson.loads if io_type == Io_type.BUFFER.value else simplejson.load
@@ -215,7 +215,7 @@ def generate_read_test_code(file, memory_profiling, format_option, binary, io_ty
     elif format_option == Format.CBOR2.value:
         benchmark_api = cbor2.loads if io_type == Io_type.BUFFER.value else cbor2.load
     else:
-        raise Exception('unknown JSON/CBOR format to generate setup code.')
+        raise Exception(f'unknown JSON/CBOR/Ion format {format_option} to generate setup code.')
 
     if io_type == Io_type.BUFFER.value:
         with open(file, 'br') as fp:
@@ -272,22 +272,18 @@ def generate_event_test_code(file):
     pass
 
 
-# Generates setup code for simpleion benchmark code
-def generate_simpleion_setup(c_extension, gc=False):
-    rtn = f'import amazon.ion.simpleion as ion;from amazon.ion.simple_types import IonPySymbol; ion.c_ext = ' \
-          f'{c_extension}; import tracemalloc'
-    if gc:
-        rtn += '; import gc; gc.enable()'
-
-    return rtn
-
-
 # Generates setup code for json/cbor benchmark code
-def generate_setup(gc=False):
-    rtn = 'import tracemalloc'
+def generate_setup(format_option, c_extension=False, gc=False):
+    if format_is_ion(format_option):
+        rtn = f'import amazon.ion.simpleion as ion;from amazon.ion.simple_types import IonPySymbol; ion.c_ext = ' \
+              f'{c_extension}; import tracemalloc'
+    else:
+        rtn = 'import tracemalloc'
+
     if gc:
         rtn += '; import gc; gc.enable()'
-
+    else:
+        rtn += '; import gc; gc.disable()'
     return rtn
 
 
@@ -301,7 +297,7 @@ def read_micro_benchmark(iterations, warmups, c_extension, file, memory_profilin
                          iterator=False):
     file_size = Path(file).stat().st_size / BYTES_TO_MB
 
-    setup_with_gc = generate_setup(gc=False)
+    setup_with_gc = generate_setup(format_option=format_option, gc=False)
 
     test_code = generate_read_test_code(file, memory_profiling=memory_profiling,
                                         format_option=format_option, io_type=io_type, binary=binary)
@@ -320,10 +316,11 @@ def read_micro_benchmark_simpleion(iterations, warmups, c_extension, file, memor
                                    io_type, iterator=False):
     file_size = Path(file).stat().st_size / BYTES_TO_MB
 
-    setup_with_gc = generate_simpleion_setup(c_extension=c_extension, gc=False)
+    setup_with_gc = generate_setup(format_option=format_option, c_extension=c_extension, gc=False)
 
-    test_code = generate_simpleion_read_test_code(file, emit_bare_values=False, memory_profiling=memory_profiling,
-                                                  iterator=iterator, io_type=io_type)
+    test_code = generate_read_test_code(file, format_option=format_option, emit_bare_values=False,
+                                        memory_profiling=memory_profiling, iterator=iterator, io_type=io_type,
+                                        binary=binary)
 
     # warm up
     timeit.timeit(stmt=test_code, setup=setup_with_gc, number=warmups)
@@ -378,39 +375,7 @@ def read_generate_report(table, file_size, each_option, total_time, memory_usage
                                      format_decimal(memory_usage_peak)])
 
 
-# Generates benchmark code for simpleion dump API
-def generate_simpleion_write_test_code(obj, memory_profiling, io_type, binary):
-    if io_type == Io_type.BUFFER.value:
-        if not memory_profiling:
-            def test_func():
-                return ion.dumps(obj=obj, binary=binary)
-        else:
-            def test_func():
-                tracemalloc.start()
-                data = ion.dumps(obj=obj, binary=binary)
-                global write_memory_usage_peak
-                write_memory_usage_peak = tracemalloc.get_traced_memory()[1] / BYTES_TO_MB
-                tracemalloc.stop()
-
-                return data
-    else:
-        if not memory_profiling:
-            def test_func():
-                with open(output_file, 'bw') as fp:
-                    ion.dump(obj, fp, binary=binary)
-        else:
-            def test_func():
-                tracemalloc.start()
-                with open(output_file, 'bw') as fp:
-                    ion.dump(obj, fp, binary=binary)
-                global write_memory_usage_peak
-                write_memory_usage_peak = tracemalloc.get_traced_memory()[1] / BYTES_TO_MB
-                tracemalloc.stop()
-
-    return test_func
-
-
-# Benchmarks simpleion dump API
+# Benchmarks simpleion dump/dumps API
 def write_micro_benchmark_simpleion(iterations, warmups, c_extension, file, binary, memory_profiling,
                                     format_option, io_type):
     file_size = Path(file).stat().st_size / BYTES_TO_MB
@@ -418,10 +383,10 @@ def write_micro_benchmark_simpleion(iterations, warmups, c_extension, file, bina
         obj = ion.load(fp, parse_eagerly=True, single_value=False)
 
     # GC refers to reference cycles, not reference count
-    setup_with_gc = generate_simpleion_setup(gc=False, c_extension=c_extension)
+    setup_with_gc = generate_setup(format_option=format_option, gc=False, c_extension=c_extension)
 
-    test_func = generate_simpleion_write_test_code(obj, memory_profiling=memory_profiling, binary=binary,
-                                                   io_type=io_type)
+    test_func = generate_write_test_code(obj, memory_profiling=memory_profiling, binary=binary,
+                                         io_type=io_type, format_option=format_option)
 
     # warm up
     timeit.timeit(stmt=test_func, setup=setup_with_gc, number=warmups)
@@ -432,12 +397,12 @@ def write_micro_benchmark_simpleion(iterations, warmups, c_extension, file, bina
     return file_size, result_with_gc
 
 
-# Benchmarks JSON/CBOR APIs
+# Benchmarks JSON/CBOR dump/dumps APIs
 def write_micro_benchmark(iterations, warmups, c_extension, file, binary, memory_profiling, format_option, io_type):
     file_size = Path(file).stat().st_size / BYTES_TO_MB
     obj = generate_json_and_cbor_obj_for_write(file, format_option)
     # GC refers to reference cycles, not reference count
-    setup_with_gc = generate_setup(gc=False)
+    setup_with_gc = generate_setup(format_option=format_option, gc=False)
 
     test_func = generate_write_test_code(obj, memory_profiling=memory_profiling, format_option=format_option,
                                          io_type=io_type, binary=binary)
@@ -451,9 +416,38 @@ def write_micro_benchmark(iterations, warmups, c_extension, file, binary, memory
     return file_size, result_with_gc
 
 
-# Generates benchmark code for json dump API
+# Generates benchmark code for json/cbor/Ion dump/dumps API
 def generate_write_test_code(obj, memory_profiling, format_option, io_type, binary):
-    if format_option == Format.JSON.value:
+    if format_is_ion(format_option):
+        if io_type == Io_type.BUFFER.value:
+            if not memory_profiling:
+                def test_func():
+                    return ion.dumps(obj=obj, binary=binary)
+            else:
+                def test_func():
+                    tracemalloc.start()
+                    data = ion.dumps(obj=obj, binary=binary)
+                    global write_memory_usage_peak
+                    write_memory_usage_peak = tracemalloc.get_traced_memory()[1] / BYTES_TO_MB
+                    tracemalloc.stop()
+
+                    return data
+        else:
+            if not memory_profiling:
+                def test_func():
+                    with open(output_file, 'bw') as fp:
+                        ion.dump(obj, fp, binary=binary)
+            else:
+                def test_func():
+                    tracemalloc.start()
+                    with open(output_file, 'bw') as fp:
+                        ion.dump(obj, fp, binary=binary)
+                    global write_memory_usage_peak
+                    write_memory_usage_peak = tracemalloc.get_traced_memory()[1] / BYTES_TO_MB
+                    tracemalloc.stop()
+
+        return test_func
+    elif format_option == Format.JSON.value:
         benchmark_api = json.dumps if io_type == Io_type.BUFFER.value else json.dump
     elif format_option == Format.SIMPLEJSON.value:
         benchmark_api = simplejson.dumps if io_type == Io_type.BUFFER.value else simplejson.dump
@@ -468,7 +462,7 @@ def generate_write_test_code(obj, memory_profiling, format_option, io_type, bina
     elif format_option == Format.CBOR2.value:
         benchmark_api = cbor2.dumps if io_type == Io_type.BUFFER.value else cbor2.dump
     else:
-        raise Exception('unknown JSON/CBOR format to generate setup code.')
+        raise Exception(f'unknown JSON/CBOR/Ion format {format_option} to generate setup code.')
 
     if io_type == Io_type.BUFFER.value:
         if not memory_profiling:
@@ -515,15 +509,6 @@ def generate_write_test_code(obj, memory_profiling, format_option, io_type, bina
                 tracemalloc.stop()
 
     return test_func
-
-
-# Generates setup code for json benchmark code
-def generate_setup(gc=False):
-    rtn = 'import tracemalloc; import gc'
-    if gc:
-        rtn += '; gc.enable()'
-
-    return rtn
 
 
 # Benchmarks pure python event based write API
@@ -630,6 +615,10 @@ def clean_up():
         os.remove(output_file)
 
 
+def options_validation(format_options):
+    return True
+
+
 def ion_python_benchmark_cli(arguments):
     if arguments['--version'] or arguments['-v']:
         print(TOOL_VERSION)
@@ -660,17 +649,17 @@ def ion_python_benchmark_cli(arguments):
         # reset each option configuration
         api, format_option, io_type = reset_for_each_execution(each_option)
         binary = format_is_binary(format_option)
-        # TODO. currently, we must provide the tool a corresponding file format for read benchmarking. For example,
-        #  we must provide a CBOR file for CBOR APIs benchmarking. We cannot benchmark CBOR APIs by giving a JSON
-        #  file. Lack of format conversion prevents us from benchmarking different formats concurrently.
+        # TODO. currently, we must provide the tool to convert to a corresponding file format for read benchmarking.
+        #  For example, we must provide a CBOR file for CBOR APIs benchmarking. We cannot benchmark CBOR APIs by giving
+        #  a JSON file. Lack of format conversion prevents us from benchmarking different formats concurrently.
         file = rewrite_file_to_format(file, format_option)
 
         # Generate microbenchmark API according to read/write command
         if format_is_ion(format_option):
-            if not api or api == API.SIMPLE_ION.value:
+            if not api or api == API.LOAD_DUMP.value:
                 micro_benchmark_function = read_micro_benchmark_simpleion if command == 'read' \
                     else write_micro_benchmark_simpleion
-            elif api == API.EVENT.value:
+            elif api == API.STREAMING.value:
                 micro_benchmark_function = read_micro_benchmark_event if command == 'read' \
                     else write_micro_benchmark_event
             else:
