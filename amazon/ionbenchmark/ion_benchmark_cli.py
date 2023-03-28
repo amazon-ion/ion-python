@@ -47,7 +47,7 @@ Options:
                                         [default: True]
 
      -f --format <format>               Format to benchmark, from the set (ion_binary | ion_text | json | simplejson |
-                                        ujson | rapidjson | orjson | cbor | cbor2). May be specified multiple times to
+                                        ujson | rapidjson | cbor | cbor2). May be specified multiple times to
                                         compare different formats. [default: ion_binary]
 
      -p --profile                       (NOT SUPPORTED YET) Initiates a single iteration that repeats indefinitely until
@@ -94,9 +94,6 @@ from amazon.ionbenchmark.Io_type import Io_type
 pypy = platform.python_implementation() == 'PyPy'
 if not pypy:
     import tracemalloc
-    import orjson
-else:
-    import json as orjson
 
 BYTES_TO_MB = 1024 * 1024
 _IVM = b'\xE0\x01\x00\xEA'
@@ -112,7 +109,6 @@ output_file = 'dump_output'
 # Generates benchmark code for json/cbor/Ion load/loads APIs
 def generate_read_test_code(file, memory_profiling, format_option, binary, io_type, iterator=False, single_value=False,
                             emit_bare_values=False):
-    # if format_option == Format.ION_TEXT.value or format_option == Format.ION_BINARY.value:
     if format_is_ion(format_option):
         if io_type == Io_type.BUFFER.value:
             with open(file, "br") as fp:
@@ -207,9 +203,6 @@ def generate_read_test_code(file, memory_profiling, format_option, binary, io_ty
         benchmark_api = ujson.loads if io_type == Io_type.BUFFER.value else ujson.load
     elif format_option == Format.RAPIDJSON.value:
         benchmark_api = rapidjson.loads if io_type == Io_type.BUFFER.value else rapidjson.load
-    elif format_option == Format.ORJSON.value:
-        # orjson doesn't provide load API, so use loads for both file and buffer io_types.
-        benchmark_api = orjson.loads
     elif format_option == Format.CBOR.value:
         benchmark_api = cbor.loads if io_type == Io_type.BUFFER.value else cbor.load
     elif format_option == Format.CBOR2.value:
@@ -229,21 +222,6 @@ def generate_read_test_code(file, memory_profiling, format_option, binary, io_ty
             def test_func():
                 tracemalloc.start()
                 data = benchmark_api(benchmark_data)
-                global read_memory_usage_peak
-                read_memory_usage_peak = tracemalloc.get_traced_memory()[1] / BYTES_TO_MB
-                tracemalloc.stop()
-                return data
-    elif format_option == Format.ORJSON.value:
-        if not memory_profiling:
-            def test_func():
-                with open(file, 'br') as benchmark_file:
-                    data = benchmark_api(benchmark_file.read())
-                return data
-        else:
-            def test_func():
-                tracemalloc.start()
-                with open(file, 'br') as benchmark_file:
-                    data = benchmark_api(benchmark_file.read())
                 global read_memory_usage_peak
                 read_memory_usage_peak = tracemalloc.get_traced_memory()[1] / BYTES_TO_MB
                 tracemalloc.stop()
@@ -273,17 +251,21 @@ def generate_event_test_code(file):
 
 
 # Generates setup code for json/cbor benchmark code
-def generate_setup(format_option, c_extension=False, gc=False):
+def generate_setup(format_option, c_extension=False, gc=False, memory_profiling=False):
     if format_is_ion(format_option):
-        rtn = f'import amazon.ion.simpleion as ion;from amazon.ion.simple_types import IonPySymbol; ion.c_ext = ' \
-              f'{c_extension}; import tracemalloc'
+        rtn = f'import gc; import amazon.ion.simpleion as ion;from amazon.ion.simple_types import IonPySymbol; ' \
+              f'ion.c_ext = {c_extension}'
     else:
-        rtn = 'import tracemalloc'
+        rtn = 'import gc'
 
     if gc:
-        rtn += '; import gc; gc.enable()'
+        rtn += '; gc.enable()'
     else:
-        rtn += '; import gc; gc.disable()'
+        rtn += '; gc.disable()'
+
+    if memory_profiling:
+        rtn += '; import tracemalloc'
+
     return rtn
 
 
@@ -297,7 +279,7 @@ def read_micro_benchmark(iterations, warmups, c_extension, file, memory_profilin
                          iterator=False):
     file_size = Path(file).stat().st_size / BYTES_TO_MB
 
-    setup_with_gc = generate_setup(format_option=format_option, gc=False)
+    setup_with_gc = generate_setup(format_option=format_option, gc=False, memory_profiling=memory_profiling)
 
     test_code = generate_read_test_code(file, memory_profiling=memory_profiling,
                                         format_option=format_option, io_type=io_type, binary=binary)
@@ -316,7 +298,8 @@ def read_micro_benchmark_simpleion(iterations, warmups, c_extension, file, memor
                                    io_type, iterator=False):
     file_size = Path(file).stat().st_size / BYTES_TO_MB
 
-    setup_with_gc = generate_setup(format_option=format_option, c_extension=c_extension, gc=False)
+    setup_with_gc = generate_setup(format_option=format_option, c_extension=c_extension, gc=False,
+                                   memory_profiling=memory_profiling)
 
     test_code = generate_read_test_code(file, format_option=format_option, emit_bare_values=False,
                                         memory_profiling=memory_profiling, iterator=iterator, io_type=io_type,
@@ -383,7 +366,8 @@ def write_micro_benchmark_simpleion(iterations, warmups, c_extension, file, bina
         obj = ion.load(fp, parse_eagerly=True, single_value=False)
 
     # GC refers to reference cycles, not reference count
-    setup_with_gc = generate_setup(format_option=format_option, gc=False, c_extension=c_extension)
+    setup_with_gc = generate_setup(format_option=format_option, gc=False, c_extension=c_extension,
+                                   memory_profiling=memory_profiling)
 
     test_func = generate_write_test_code(obj, memory_profiling=memory_profiling, binary=binary,
                                          io_type=io_type, format_option=format_option)
@@ -400,9 +384,9 @@ def write_micro_benchmark_simpleion(iterations, warmups, c_extension, file, bina
 # Benchmarks JSON/CBOR dump/dumps APIs
 def write_micro_benchmark(iterations, warmups, c_extension, file, binary, memory_profiling, format_option, io_type):
     file_size = Path(file).stat().st_size / BYTES_TO_MB
-    obj = generate_json_and_cbor_obj_for_write(file, format_option)
+    obj = generate_json_and_cbor_obj_for_write(file, format_option, binary=binary)
     # GC refers to reference cycles, not reference count
-    setup_with_gc = generate_setup(format_option=format_option, gc=False)
+    setup_with_gc = generate_setup(format_option=format_option, gc=False, memory_profiling=memory_profiling)
 
     test_func = generate_write_test_code(obj, memory_profiling=memory_profiling, format_option=format_option,
                                          io_type=io_type, binary=binary)
@@ -455,8 +439,6 @@ def generate_write_test_code(obj, memory_profiling, format_option, io_type, bina
         benchmark_api = ujson.dumps if io_type == Io_type.BUFFER.value else ujson.dump
     elif format_option == Format.RAPIDJSON.value:
         benchmark_api = rapidjson.dumps if io_type == Io_type.BUFFER.value else rapidjson.dump
-    elif format_option == Format.ORJSON.value:
-        benchmark_api = orjson.dumps
     elif format_option == Format.CBOR.value:
         benchmark_api = cbor.dumps if io_type == Io_type.BUFFER.value else cbor.dump
     elif format_option == Format.CBOR2.value:
@@ -472,23 +454,6 @@ def generate_write_test_code(obj, memory_profiling, format_option, io_type, bina
             def test_func():
                 tracemalloc.start()
                 data = benchmark_api(obj)
-                global write_memory_usage_peak
-                write_memory_usage_peak = tracemalloc.get_traced_memory()[1] / BYTES_TO_MB
-                tracemalloc.stop()
-
-                return data
-    elif format_option == Format.ORJSON.value:
-        if not memory_profiling:
-            def test_func():
-                with open(output_file, 'bw' if binary else 'w') as fp:
-                    data = benchmark_api(obj)
-                    fp.write(data)
-        else:
-            def test_func():
-                tracemalloc.start()
-                with open(output_file, 'bw' if binary else 'w') as fp:
-                    data = benchmark_api(obj)
-                    fp.write(data)
                 global write_memory_usage_peak
                 write_memory_usage_peak = tracemalloc.get_traced_memory()[1] / BYTES_TO_MB
                 tracemalloc.stop()
@@ -590,8 +555,8 @@ def reset_for_each_execution(each_option):
     return api, format_option, io_type
 
 
-def generate_json_and_cbor_obj_for_write(file, format_option):
-    with open(file) as fp:
+def generate_json_and_cbor_obj_for_write(file, format_option, binary):
+    with open(file, 'br' if binary else 'r') as fp:
         if format_option == Format.JSON.value:
             return json.load(fp)
         elif format_option == Format.SIMPLEJSON.value:
@@ -600,8 +565,6 @@ def generate_json_and_cbor_obj_for_write(file, format_option):
             return ujson.load(fp)
         elif format_option == Format.RAPIDJSON.value:
             return rapidjson.load(fp)
-        elif format_option == Format.ORJSON.value:
-            return orjson.loads(fp.read())
         elif format_option == Format.CBOR.value:
             return cbor.load(fp)
         elif format_option == Format.CBOR2.value:

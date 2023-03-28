@@ -82,10 +82,10 @@ def test_generate_json_read_test_code(path):
 def test_generate_cbor_read_test_code(path):
     actual = generate_read_test_code(path, memory_profiling=False, single_value=False,
                                      format_option=Format.Format.CBOR2.value, emit_bare_values=False,
-                                     io_type=Io_type.Io_type.FILE, binary=False)
+                                     io_type=Io_type.Io_type.FILE, binary=True)
 
     # make sure we generated the desired load function
-    with open(path) as fp:
+    with open(path, 'br') as fp:
         expect = cbor2.load(fp)
 
     # make sure the return values are same
@@ -109,7 +109,7 @@ def test_generate_simpleion_write_test_code(obj):
 
 
 @parametrize(
-    generate_test_path('./json/object.json'),
+    generate_test_path('json/object.json'),
 )
 def test_generate_json_write_test_code(file):
     with open(file) as fp:
@@ -125,7 +125,7 @@ def test_generate_json_write_test_code(file):
 
 
 @parametrize(
-    generate_test_path('./cbor/sample')
+    generate_test_path('cbor/sample')
 )
 def test_generate_cbor_write_test_code(file):
     with open(file, 'br') as fp:
@@ -257,7 +257,7 @@ def test_write_multi_duplicated_format(file=generate_test_path('integers.ion')):
     *tuple((f.value for f in Format.Format if Format.format_is_json(f.value)))
 )
 def test_write_json_format(f):
-    table = execution_with_command(['write', generate_test_path('integers.ion'), '--format', f'{f}'])
+    table = execution_with_command(['write', generate_test_path('json/object.json'), '--format', f'{f}'])
     assert gather_all_options_in_list(table) == sorted([('load_dump', f'{f}', 'file')])
 
 
@@ -265,7 +265,7 @@ def test_write_json_format(f):
     *tuple((f.value for f in Format.Format if Format.format_is_json(f.value)))
 )
 def test_read_json_format(f):
-    table = execution_with_command(['read', generate_test_path('integers.ion'), '--format', f'{f}'])
+    table = execution_with_command(['read', generate_test_path('json/object.json'), '--format', f'{f}'])
     assert gather_all_options_in_list(table) == sorted([('load_dump', f'{f}', 'file')])
 
 
@@ -273,7 +273,7 @@ def test_read_json_format(f):
     *tuple((f.value for f in Format.Format if Format.format_is_cbor(f.value)))
 )
 def test_write_cbor_format(f):
-    table = execution_with_command(['write', generate_test_path('integers.ion'), '--format', f'{f}'])
+    table = execution_with_command(['write', generate_test_path('cbor/sample'), '--format', f'{f}'])
     assert gather_all_options_in_list(table) == sorted([('load_dump', f'{f}', 'file')])
 
 
@@ -281,7 +281,7 @@ def test_write_cbor_format(f):
     *tuple((f.value for f in Format.Format if Format.format_is_cbor(f.value)))
 )
 def test_read_cbor_format(f):
-    table = execution_with_command(['read', generate_test_path('integers.ion'), '--format', f'{f}'])
+    table = execution_with_command(['read', generate_test_path('cbor/sample'), '--format', f'{f}'])
     assert gather_all_options_in_list(table) == sorted([('load_dump', f'{f}', 'file')])
 
 

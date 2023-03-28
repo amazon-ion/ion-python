@@ -7,8 +7,7 @@ def format_is_ion(format_option):
 
 def format_is_json(format_option):
     return (format_option == Format.JSON.value) or (format_option == Format.SIMPLEJSON.value) \
-           or (format_option == Format.UJSON.value) or (format_option == Format.RAPIDJSON.value) or \
-           (format_option == Format.ORJSON.value)
+           or (format_option == Format.UJSON.value) or (format_option == Format.RAPIDJSON.value)
 
 
 def format_is_cbor(format_option):
@@ -16,8 +15,7 @@ def format_is_cbor(format_option):
 
 
 def format_is_binary(format_option):
-    return format_is_cbor(format_option) or (format_option == Format.ION_BINARY.value) \
-           or (format_option == Format.ORJSON.value)
+    return format_is_cbor(format_option) or (format_option == Format.ION_BINARY.value)
 
 
 def rewrite_file_to_format(file, format_option):
@@ -32,7 +30,6 @@ class Format(Enum):
     SIMPLEJSON = 'simplejson'
     UJSON = 'ujson'
     RAPIDJSON = 'rapidjson'
-    ORJSON = 'orjson'
     CBOR = 'cbor'
     CBOR2 = 'cbor2'
     DEFAULT = 'ion_binary'
