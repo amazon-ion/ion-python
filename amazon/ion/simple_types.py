@@ -145,7 +145,6 @@ def _ion_type_for(name, base_cls, ion_type=None):
 
 
 IonPyInt = _ion_type_for('IonPyInt', int)
-IonPyBool = IonPyInt
 IonPyFloat = _ion_type_for('IonPyFloat', float, IonType.FLOAT)
 IonPyDecimal = _ion_type_for('IonPyDecimal', Decimal, IonType.DECIMAL)
 IonPyText = _ion_type_for('IonPyText', str)
@@ -183,6 +182,24 @@ class IonPyTimestamp(Timestamp, _IonNature):
             args = (ts.year, ts.month, ts.day, ts.hour, ts.minute, ts.second, ts.microsecond, ts.tzinfo)
             kwargs = {TIMESTAMP_PRECISION_FIELD: TimestampPrecision.SECOND}
         return args, kwargs
+
+
+class IonPyBool(_IonNature):
+    """Representation of True|False.
+
+    python's bool cannot be sub-classed as True and False are singletons.
+    """
+    def __init__(self, *args, **kwargs):
+        super(IonPyBool, self).__init__(*args, **kwargs)
+        self.ion_type = IonType.BOOL
+        self.value = args[0]
+
+    def __bool__(self):
+        return self.value
+
+    @staticmethod
+    def _to_constructor_args(value):
+        return (value,), {}
 
 
 class IonPyNull(_IonNature):

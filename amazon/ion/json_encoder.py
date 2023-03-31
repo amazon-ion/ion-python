@@ -38,8 +38,8 @@ class IonToJSONEncoder(JSONExtendedEncoder):
         return isinstance(obj, cls)
 
     def default(self, o):
-        if (isinstance(o, IonPyInt) or isinstance(o, IonPyBool)) and o.ion_type == IonType.BOOL:
-            return True if o == 1 else False
+        if isinstance(o, IonPyBool) and o.ion_type == IonType.BOOL:
+            return True if o else False
         elif isinstance(o, IonPyInt) and o.ion_type == IonType.INT:
             return int(o)
         elif isinstance(o, IonPyList) and (o.ion_type == IonType.LIST or o.ion_type == IonType.SEXP):
