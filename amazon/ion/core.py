@@ -23,7 +23,7 @@ try:
     from collections import OrderedDict
 except:
     from collections import MutableMapping, MutableSequence, OrderedDict
-    
+
 from datetime import datetime, timedelta, tzinfo
 from decimal import Decimal, ROUND_FLOOR, Context, Inexact
 from math import isnan
@@ -635,10 +635,7 @@ class Multimap(MutableMapping):
         return repr(self)
 
     def __repr__(self):
-        str_repr = '{'
-        for key, value in self.items():
-            str_repr += '%r: %r, ' % (key, value)
-        return str_repr[:len(str_repr) - 2] + '}'
+        return '{%s}' % ', '.join(['%r: %r' % (k, v) for k, v in self.items()])
 
     def add_item(self, key, value):
         if key in self.__store:
