@@ -144,12 +144,22 @@ def _ion_type_for(name, base_cls, ion_type=None):
     return IonPyValueType
 
 
-IonPyInt = _ion_type_for('IonPyInt', int)
-IonPyBool = IonPyInt
+IonPyInt = _ion_type_for('IonPyInt', int, IonType.INT)
 IonPyFloat = _ion_type_for('IonPyFloat', float, IonType.FLOAT)
 IonPyDecimal = _ion_type_for('IonPyDecimal', Decimal, IonType.DECIMAL)
 IonPyText = _ion_type_for('IonPyText', str)
 IonPyBytes = _ion_type_for('IonPyBytes', bytes)
+
+# All of our ion value types inherit from their python value types, for good or
+# ill. Python's builtin `bool` cannot be sub-classed and is itself a sub-class
+# of int so we just sub-class int directly for our Ion Boolean.
+# Considering that True == 1 and False == 0 this works as expected.
+IonPyBool = _ion_type_for('IonPyBool', int, IonType.BOOL)
+
+# We override __repr__ so Booleans show up as True|False and not 1|0.
+# The representation is consistent with other primitives in that it returns a
+# string repr of the value but not annotations.
+IonPyBool.__repr__ = lambda self: str(bool(self))
 
 
 class IonPySymbol(SymbolToken, _IonNature):
