@@ -149,12 +149,14 @@ _EQUIVS_INSTANTS = (
 )
 
 _NONEQUIVS = (
-    # For each tuple, each element is not equivalent to any other element equivalent under the Ion data model.
+    # For each tuple, each element is not equivalent to any other element
+    # under the Ion data model.
     (None, 0, _null(_IT.BOOL)),
     (True, False),
     (True, _bool(False)),
     (_bool(True), False),
     (_bool(True), _bool(False)),
+    (_bool(True), _int(1)),  # True == 1 in python but not in the ion datamodel
     (1, -1, 1.),
     (1, _int(-1), _float(1)),
     (_int(1), _int(-1)),
