@@ -358,8 +358,9 @@ def load_python(fp, catalog=None, single_value=True, encoding='utf-8', cls=None,
     if isinstance(fp, _TEXT_TYPES):
         raw_reader = text_reader(is_unicode=True)
     else:
+        pos = fp.tell()
         maybe_ivm = fp.read(4)
-        fp.seek(0)
+        fp.seek(pos)
         if maybe_ivm == _IVM:
             raw_reader = binary_reader()
         else:
