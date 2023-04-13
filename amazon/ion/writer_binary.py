@@ -14,13 +14,14 @@
 
 """Binary Ion writer with symbol table management."""
 from enum import IntEnum
+from typing import Optional, NamedTuple
 
-from .core import ION_STREAM_END_EVENT, IonEventType, IonType, IonEvent, DataEvent, Transition
+from .core import ION_STREAM_END_EVENT, IonEventType, IonType, IonEvent, DataEvent, Transition, SymbolTokenOrStr
 from .exceptions import IonException
 from .symbols import SID_ION_SYMBOL_TABLE, SID_IMPORTS, SHARED_TABLE_TYPE, \
                      SID_NAME, SID_VERSION, SID_MAX_ID, SID_SYMBOLS, LOCAL_TABLE_TYPE, \
                      SymbolTable, _SYSTEM_SYMBOL_TOKENS
-from .util import coroutine, record
+from .util import coroutine
 from .writer import NOOP_WRITER_EVENT, writer_trampoline, partial_transition, WriteEventType, \
                     _drain
 from .writer_binary_raw import _WRITER_EVENT_NEEDS_INPUT_EMPTY, _raw_binary_writer
@@ -43,7 +44,7 @@ class _SymbolEventType(IntEnum):
     FINISH = 2
 
 
-class _SymbolEvent(record('event_type', ('symbol', None))):
+class _SymbolEvent(NamedTuple):
     """Symbol event used by the managed writer coroutine to trigger an action in the symbol
     table coroutine.
 
@@ -51,8 +52,10 @@ class _SymbolEvent(record('event_type', ('symbol', None))):
 
     Args:
         event_type (_SymbolEventType): The type of symbol event.
-        symbol (Optional[SymbolToken | unicode]): The symbol token or text associated with the event.
+        symbol (Optional[SymbolTokenOrStr]): The symbol token or text associated with the event.
     """
+    event_type: _SymbolEventType
+    symbol: Optional[SymbolTokenOrStr] = None
 
 
 def _system_token(sid):

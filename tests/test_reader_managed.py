@@ -13,6 +13,7 @@
 # License.
 
 from itertools import chain
+from typing import Sequence, Any, NamedTuple
 
 from tests import parametrize, listify
 from tests.reader_util import reader_scaffold, add_depths
@@ -27,7 +28,7 @@ from amazon.ion.symbols import shared_symbol_table, local_symbol_table, \
                                TEXT_ION, TEXT_ION_1_0, TEXT_ION_SYMBOL_TABLE, \
                                TEXT_NAME, TEXT_VERSION, TEXT_MAX_ID, \
                                TEXT_IMPORTS, TEXT_SYMBOLS
-from amazon.ion.util import coroutine, record
+from amazon.ion.util import coroutine
 
 _DATA = e_read(b'DUMMY')
 
@@ -159,7 +160,12 @@ def _predefined_reader(event_pairs):
         output = next(output_iter)
 
 
-class _P(record('desc', 'outer', 'inner', ('catalog', None))):
+class _P(NamedTuple):
+    desc: str
+    outer: Sequence
+    inner: Sequence
+    catalog: Any = None
+
     def __str__(self):
         return self.desc
 

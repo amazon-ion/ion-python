@@ -18,12 +18,13 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 
 import sys
+from typing import NamedTuple, Sequence, Any
+
 from pytest import raises
 
 from amazon.ion.core import ION_STREAM_END_EVENT, IonEventType, IonEvent, IonType, timestamp, OffsetTZInfo, \
     TimestampPrecision
 from amazon.ion.symbols import SYMBOL_ZERO_TOKEN, SymbolToken
-from amazon.ion.util import record
 from amazon.ion.writer import WriteEventType
 from tests import is_exception
 from tests import noop_manager
@@ -38,7 +39,11 @@ _DT = datetime
 _IT = IonType
 
 
-class WriterParameter(record('desc', 'events', 'expected')):
+class WriterParameter(NamedTuple):
+    desc: str
+    events: Sequence[IonEvent]
+    expected: Any
+
     def __str__(self):
         return self.desc
 

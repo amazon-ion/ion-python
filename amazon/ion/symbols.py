@@ -17,9 +17,9 @@ import itertools
 from itertools import chain
 from itertools import islice
 from itertools import repeat
+from typing import NamedTuple, Optional
 
 from .exceptions import CannotSubstituteTable
-from .util import record
 
 TEXT_ION = u'$ion'
 TEXT_ION_1_0 = u'$ion_1_0'
@@ -42,7 +42,7 @@ SID_MAX_ID = 8
 SID_ION_SHARED_SYMBOL_TABLE = 9
 
 
-class ImportLocation(record('name', 'position')):
+class ImportLocation(NamedTuple):
     """Represents the import location of a symbol token.
 
     An import location can be thought of as a position independent address of an imported symbol.
@@ -57,9 +57,11 @@ class ImportLocation(record('name', 'position')):
         name (unicode): The name of the shared symbol table.
         position (int): The position in the shared symbol table.
     """
+    name: str
+    position: int
 
 
-class SymbolToken(record('text', 'sid', 'location')):
+class SymbolToken(NamedTuple):
     """Representation of a *symbolic token*.
 
     A symbolic token may be a *part* of an Ion value in several contexts:
@@ -71,15 +73,14 @@ class SymbolToken(record('text', 'sid', 'location')):
     Args:
         text (Optional[unicode]): The text image of the token.
         sid  (Optional[int]): The local symbol ID of the token.
-        location (Optional[ImportTableLocation]): The import source of the token.
+        location (Optional[ImportLocation]): The import source of the token.
 
     Note:
         At least one of ``text`` or ``sid`` should be non-``None``
     """
-    def __new__(cls, text, sid, location=None):
-        if text is None and sid is None:
-            raise ValueError('SymbolToken must specify at least one of text or sid')
-        return super(SymbolToken, cls).__new__(cls, text, sid, location)
+    text: Optional[str]
+    sid: Optional[int]
+    location: Optional[ImportLocation] = None
 
 
 def _system_symbol_token(text, sid):
@@ -102,7 +103,7 @@ _SYSTEM_SYMBOL_TOKENS = (
 )
 
 
-class _SymbolTableType(record('is_system', 'is_shared', 'is_local')):
+class _SymbolTableType(NamedTuple):
     """A set of flags indicating attributes of a symbol table.
 
     Args:
@@ -110,6 +111,9 @@ class _SymbolTableType(record('is_system', 'is_shared', 'is_local')):
         is_shared (bool): Whether or not the symbol table is a is_shared table.
         is_local (bool): Whether or not the symbol table is is_local.
     """
+    is_system: bool
+    is_shared: bool
+    is_local: bool
 
 SYSTEM_TABLE_TYPE = _SymbolTableType(is_system=True, is_shared=True, is_local=False)
 SHARED_TABLE_TYPE = _SymbolTableType(is_system=False, is_shared=True, is_local=False)

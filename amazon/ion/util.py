@@ -21,9 +21,17 @@ from warnings import warn
 
 
 class _RecordMetaClass(type):
-    """Metaclass for defining named-tuple based immutable record types."""
+    """Metaclass for defining named-tuple based immutable record types.
+
+        Deprecated: prefer the built-in NamedTuple
+    """
 
     def __new__(cls, name, bases, attrs):
+        warn(f'{cls.__name__} is an internal-only class in ion-python; do not use it for any reason. This '
+             f'class is deprecated and may be removed without further warning in any future release. Use `NamedTuple` '
+             f'instead.',
+             DeprecationWarning, stacklevel=2)
+
         if attrs.get('_record_sentinel') is None:
             field_declarations = []
             has_record_sentinel = False
@@ -328,6 +336,4 @@ class Enum(int, metaclass=_EnumMetaClass):
         return '<%s.%s: %s>' % (type(self).__name__, self.name, self.value)
 
     __repr__ = __str__
-
-
 

@@ -18,12 +18,13 @@ from enum import IntEnum
 from functools import partial
 from io import BytesIO
 from struct import unpack
+from typing import NamedTuple, Optional, Sequence, Coroutine
 
 from .core import ION_STREAM_INCOMPLETE_EVENT, ION_STREAM_END_EVENT, ION_VERSION_MARKER_EVENT,\
                   IonEventType, IonType, IonEvent, IonThunkEvent, Transition, \
                   TimestampPrecision, Timestamp, OffsetTZInfo
 from .exceptions import IonException
-from .util import coroutine, record
+from .util import coroutine
 from .reader import reader_trampoline, BufferQueue, ReadEventType
 from .symbols import SYMBOL_ZERO_TOKEN, SymbolToken
 
@@ -207,9 +208,7 @@ def _parse_sid_iter(data):
         yield SymbolToken(None, sid)
 
 
-class _HandlerContext(record(
-        'position', 'limit', 'queue', 'field_name', 'annotations', 'depth', 'whence'
-    )):
+class _HandlerContext(NamedTuple):
     """A context for a handler co-routine.
 
     Args:
@@ -224,6 +223,15 @@ class _HandlerContext(record(
         whence (Coroutine): The reference to the co-routine that this handler should delegate
             back to when the handler is logically done.
     """
+    position: int
+    limit: Optional[int]
+    queue: BufferQueue
+    field_name: Optional[SymbolToken]
+    annotations: Optional[Sequence[SymbolToken]]
+    depth: int
+    whence: Coroutine
+
+
     @property
     def remaining(self):
         """Determines how many bytes are remaining in the current context."""

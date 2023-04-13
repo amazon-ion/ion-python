@@ -13,6 +13,7 @@
 # License.
 
 """Provides symbol table managed processing for Ion readers."""
+from typing import NamedTuple
 
 from .core import IonEventType, IonType, IonThunkEvent, MemoizingThunk, Transition, \
                   ION_VERSION_MARKER_EVENT
@@ -22,16 +23,19 @@ from .symbols import SymbolTable, SymbolTableCatalog, \
                      LOCAL_TABLE_TYPE, SYSTEM_SYMBOL_TABLE, \
                      TEXT_ION, TEXT_ION_1_0, TEXT_ION_SYMBOL_TABLE, TEXT_SYMBOLS, TEXT_IMPORTS, \
                      TEXT_NAME, TEXT_VERSION, TEXT_MAX_ID
-from .util import coroutine, record
+from .util import coroutine
 
 
-class _ManagedContext(record('catalog', ('symbol_table', SYSTEM_SYMBOL_TABLE))):
+class _ManagedContext(NamedTuple):
     """Context for the managed reader.
 
     Args:
         catalog (SymbolTableCatalog): The catalog for this context.
         symbol_table (SymbolTable): The symbol table.
     """
+    catalog: SymbolTableCatalog
+    symbol_table: SymbolTable = SYSTEM_SYMBOL_TABLE
+
     def resolve(self, token):
         """Attempts to resolve the :class:`SymbolToken` against the current table.
 

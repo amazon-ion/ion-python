@@ -19,9 +19,9 @@ from io import BytesIO
 from itertools import chain
 
 from decimal import Decimal
+from typing import NamedTuple
 
 from amazon.ion.core import OffsetTZInfo, IonEvent, IonType, IonEventType
-from amazon.ion.core import record
 from amazon.ion.exceptions import IonException
 
 from tests import parametrize
@@ -243,7 +243,11 @@ def test_valid_indent_strs(p):
         ion_val = loads('[a, {x:2, y: height::17}]')
         assert ion_val == loads(dumps(ion_val, binary=False, indent=indent))
 
-class _P_Q(record('symbol', 'needs_quotes', ('backslash_required', False))):
+class _P_Q(NamedTuple):
+    symbol: str
+    needs_quotes: bool
+    backslash_required: bool = False
+
     pass
 
 @parametrize(

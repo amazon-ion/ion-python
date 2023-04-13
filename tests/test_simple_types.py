@@ -14,16 +14,16 @@
 
 from datetime import datetime
 from decimal import Decimal
+from typing import Type, NamedTuple
 
 from tests import parametrize, listify
 from tests.event_aliases import *
 
 from amazon.ion.core import Timestamp, TimestampPrecision
-from amazon.ion.util import record
 from amazon.ion.symbols import SymbolToken
 from amazon.ion.simple_types import is_null, IonPyNull, IonPyBool, IonPyInt, IonPyFloat, \
-                                    IonPyDecimal, IonPyTimestamp, IonPyText, IonPyBytes, \
-                                    IonPyList, IonPyDict, IonPySymbol
+    IonPyDecimal, IonPyTimestamp, IonPyText, IonPyBytes, \
+    IonPyList, IonPyDict, IonPySymbol, _IonNature
 from amazon.ion.equivalence import ion_equals
 from amazon.ion.simpleion import _ion_type, _FROM_TYPE
 
@@ -31,7 +31,11 @@ _TEST_FIELD_NAME = SymbolToken('foo', 10)
 _TEST_ANNOTATIONS = (SymbolToken('bar', 11),)
 
 
-class _P(record('desc', 'type', 'event')):
+class _P(NamedTuple):
+    desc: str
+    type: Type[_IonNature]
+    event: IonEvent
+
     def __str__(self):
         return self.desc
 

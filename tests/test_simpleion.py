@@ -20,6 +20,8 @@ from itertools import chain
 from math import isnan
 
 import re
+from typing import NamedTuple, Any, Sequence, Optional
+
 from pytest import raises
 
 from amazon.ion.exceptions import IonException
@@ -31,7 +33,6 @@ from amazon.ion.simple_types import IonPyDict, IonPyText, IonPyList, IonPyNull, 
 from amazon.ion.equivalence import ion_equals
 from amazon.ion.simpleion import dump, dumps, load, loads, _ion_type, _FROM_ION_TYPE, _FROM_TYPE_TUPLE_AS_SEXP, \
     _FROM_TYPE
-from amazon.ion.util import record
 from amazon.ion.writer_binary_raw import _serialize_symbol, _write_length
 from tests.writer_util import VARUINT_END_BYTE, ION_ENCODED_INT_ZERO, SIMPLE_SCALARS_MAP_BINARY, SIMPLE_SCALARS_MAP_TEXT
 from tests import parametrize
@@ -40,14 +41,25 @@ from amazon.ion.simpleion import c_ext
 _st = partial(SymbolToken, sid=None, location=None)
 
 
-class _Parameter(record('desc', 'obj', 'expected', 'has_symbols', ('stream', False), ('tuple_as_sexp', False))):
+class _Parameter(NamedTuple):
+    desc: str
+    obj: Any
+    expected: Any
+    has_symbols: bool
+    stream: bool = False
+    tuple_as_sexp: bool = False
+
     def __str__(self):
         return self.desc
 
 
-class _Expected(record('binary', 'text')):
-    def __new__(cls, binary, text):
-        return super(_Expected, cls).__new__(cls, (binary,), (text,))
+class _Expected(NamedTuple):
+    binary: Sequence[bytes]
+    text: Sequence[bytes]
+
+
+def expected(binary, text):
+    return _Expected((binary,), (text,))
 
 
 def bytes_of(*args, **kwargs):
@@ -58,19 +70,19 @@ _SIMPLE_CONTAINER_MAP = {
     IonType.LIST: (
         (
             [[], ],
-            (_Expected(b'\xB0', b'[]'),)
+            (expected(b'\xB0', b'[]'),)
         ),
         (
             [(), ],
-            (_Expected(b'\xB0', b'[]'),)
+            (expected(b'\xB0', b'[]'),)
         ),
         (
             [IonPyList.from_value(IonType.LIST, []), ],
-            (_Expected(b'\xB0', b'[]'),)
+            (expected(b'\xB0', b'[]'),)
         ),
         (
             [[0], ],
-            (_Expected(
+            (expected(
                 bytes_of([
                     0xB0 | 0x01,  # Int value 0 fits in 1 byte.
                     ION_ENCODED_INT_ZERO
@@ -80,7 +92,7 @@ _SIMPLE_CONTAINER_MAP = {
         ),
         (
             [(0,), ],
-            (_Expected(
+            (expected(
                 bytes_of([
                     0xB0 | 0x01,  # Int value 0 fits in 1 byte.
                     ION_ENCODED_INT_ZERO
@@ -90,7 +102,7 @@ _SIMPLE_CONTAINER_MAP = {
         ),
         (
             [IonPyList.from_value(IonType.LIST, [0]), ],
-            (_Expected(
+            (expected(
                 bytes_of([
                     0xB0 | 0x01,  # Int value 0 fits in 1 byte.
                     ION_ENCODED_INT_ZERO
@@ -102,11 +114,11 @@ _SIMPLE_CONTAINER_MAP = {
     IonType.SEXP: (
         (
             [IonPyList.from_value(IonType.SEXP, []), ],
-            (_Expected(b'\xC0', b'()'),)
+            (expected(b'\xC0', b'()'),)
         ),
         (
             [IonPyList.from_value(IonType.SEXP, [0]), ],
-            (_Expected(
+            (expected(
                 bytes_of([
                     0xC0 | 0x01,  # Int value 0 fits in 1 byte.
                     ION_ENCODED_INT_ZERO
@@ -116,21 +128,21 @@ _SIMPLE_CONTAINER_MAP = {
         ),
         (
             [(), ],  # NOTE: the generators will detect this and set 'tuple_as_sexp' to True for this case.
-            (_Expected(b'\xC0', b'()'),)
+            (expected(b'\xC0', b'()'),)
         )
     ),
     IonType.STRUCT: (
         (
             [{}, ],
-            (_Expected(b'\xD0', b'{}'),)
+            (expected(b'\xD0', b'{}'),)
         ),
         (
             [IonPyDict.from_value(IonType.STRUCT, {}), ],
-            (_Expected(b'\xD0', b'{}'),)
+            (expected(b'\xD0', b'{}'),)
         ),
         (
             [{u'': u''}, ],
-            (_Expected(
+            (expected(
                 bytes_of([
                     0xDE,  # The lower nibble may vary. It does not indicate actual length unless it's 0.
                     VARUINT_END_BYTE | 2,  # Field name 10 and value 0 each fit in 1 byte.
@@ -139,7 +151,7 @@ _SIMPLE_CONTAINER_MAP = {
                 ]),
                 b"{'':\"\"}"
             ),
-             _Expected(
+             expected(
                  bytes_of([
                      0xD2,
                      VARUINT_END_BYTE | 10,
@@ -151,7 +163,7 @@ _SIMPLE_CONTAINER_MAP = {
         ),
         (
             [{u'foo': 0}, ],
-            (_Expected(
+            (expected(
                 bytes_of([
                     0xDE,  # The lower nibble may vary. It does not indicate actual length unless it's 0.
                     VARUINT_END_BYTE | 2,  # Field name 10 and value 0 each fit in 1 byte.
@@ -160,7 +172,7 @@ _SIMPLE_CONTAINER_MAP = {
                 ]),
                 b"{foo:0}"
             ),
-             _Expected(
+             expected(
                  bytes_of([
                      0xD2,
                      VARUINT_END_BYTE | 10,
@@ -172,7 +184,7 @@ _SIMPLE_CONTAINER_MAP = {
         ),
         (
             [IonPyDict.from_value(IonType.STRUCT, {u'foo': 0}), ],
-            (_Expected(
+            (expected(
                 bytes_of([
                     0xDE,  # The lower nibble may vary. It does not indicate actual length unless it's 0.
                     VARUINT_END_BYTE | 2,  # Field name 10 and value 0 each fit in 1 byte.
@@ -181,7 +193,7 @@ _SIMPLE_CONTAINER_MAP = {
                 ]),
                 b"{foo:0}"
             ),
-             _Expected(
+             expected(
                  bytes_of([
                      0xD2,
                      VARUINT_END_BYTE | 10,
@@ -646,8 +658,12 @@ def test_unknown_object_type_fails(is_binary):
     with raises(TypeError):
         dump(Dummy(), out, binary=is_binary)
 
-class PrettyPrintParams(record('ion_text', 'indent', ('exact_text', None), ('regexes', []))):
-    pass
+
+class PrettyPrintParams(NamedTuple):
+    ion_text: str
+    indent: str
+    exact_text: Optional[str] = None
+    regexes: Sequence = []
 
 @parametrize(
         PrettyPrintParams(ion_text='a', indent='  ', exact_text="$ion_1_0\na"),

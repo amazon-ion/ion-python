@@ -12,8 +12,10 @@
 # specific language governing permissions and limitations under the
 # License.
 
-"""Ion core types."""
 from enum import IntEnum
+from typing import NamedTuple, Optional, Any, Union, Sequence, Coroutine
+
+from amazon.ion.symbols import SymbolToken
 
 # in Python 3.10, abstract collections have moved into their own module
 # for compatibility with 3.10+, first try imports from the new location
@@ -27,8 +29,6 @@ except:
 from datetime import datetime, timedelta, tzinfo
 from decimal import Decimal, ROUND_FLOOR, Context, Inexact
 from math import isnan
-
-from .util import record
 
 
 class IonType(IntEnum):
@@ -105,27 +105,30 @@ class IonEventType(IntEnum):
         return self < 0
 
 
-class IonEvent(record(
-        'event_type',
-        ('ion_type', None),
-        ('value', None),
-        ('field_name', None),
-        ('annotations', ()),
-        ('depth', None)
-    )):
-    """An parse or serialization event.
+SymbolTokenOrStr = Union[SymbolToken, str]
+
+
+class IonEvent(NamedTuple):
+    """A parse or serialization event.
 
     Args:
         event_type (IonEventType): The type of event.
         ion_type (Optional(amazon.ion.core.IonType)): The Ion data model type
             associated with the event.
         value (Optional[any]): The data value associated with the event.
-        field_name (Optional[Union[amazon.ion.symbols.SymbolToken, unicode]]): The field name
+        field_name (Optional[SymbolTokenOrStr]): The field name
             associated with the event.
-        annotations (Sequence[Union[amazon.ion.symbols.SymbolToken, unicode]]): The annotations
+        annotations (Sequence[SymbolTokenOrStr]): The annotations
             associated with the event.
         depth (Optional[int]): The tree depth of the event if applicable.
     """
+    event_type: IonEventType
+    ion_type: Optional[IonType] = None
+    value: Optional[Any] = None
+    field_name: Optional[SymbolTokenOrStr] = None
+    annotations: Sequence[SymbolTokenOrStr] = ()
+    depth: Optional[int] = None
+
     def __eq__(self, other):
         if not isinstance(other, IonEvent):
             return False
@@ -293,7 +296,7 @@ ION_VERSION_MARKER_EVENT = IonEvent(
 )
 
 
-class DataEvent(record('type', 'data')):
+class DataEvent(NamedTuple):
     """Event generated as a result of the writer or as input into the reader.
 
     Args:
@@ -301,9 +304,11 @@ class DataEvent(record('type', 'data')):
         data (bytes):  The serialized data returned.  If no data is to be serialized,
             this should be the empty byte string.
     """
+    type: IntEnum
+    data: bytes
 
 
-class Transition(record('event', 'delegate')):
+class Transition(NamedTuple):
     """A pair of event and co-routine delegate.
 
     This is generally used as a result of a state-machine.
@@ -313,6 +318,9 @@ class Transition(record('event', 'delegate')):
         delegate (Coroutine): The co-routine delegate which can be the same routine from
             whence this transition came.
     """
+    event: DataEvent
+    delegate: Coroutine
+
 
 _MIN_OFFSET = timedelta(hours=-24)
 _MAX_OFFSET = timedelta(hours=24)

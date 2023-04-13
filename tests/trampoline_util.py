@@ -11,12 +11,13 @@
 # OF ANY KIND, either express or implied. See the License for the
 # specific language governing permissions and limitations under the
 # License.
+from typing import Coroutine, Any, NamedTuple
 
 from pytest import raises
 
 from tests import is_exception
 
-from amazon.ion.util import coroutine, record
+from amazon.ion.util import coroutine
 
 
 @coroutine
@@ -46,7 +47,12 @@ def yields_iter(*seq):
         yield val
 
 
-class TrampolineParameters(record('desc', 'coroutine', 'input', 'expected')):
+class TrampolineParameters(NamedTuple):
+    desc: str
+    coroutine: Coroutine
+    input: Any
+    expected: Any
+
     def __str__(self):
         return self.desc
 
