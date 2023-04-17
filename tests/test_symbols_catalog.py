@@ -11,6 +11,7 @@
 # OF ANY KIND, either express or implied. See the License for the
 # specific language governing permissions and limitations under the
 # License.
+from typing import Any, NamedTuple
 
 from pytest import raises
 
@@ -19,8 +20,6 @@ from tests import parametrize, is_exception
 import amazon.ion.symbols as symbols
 
 from amazon.ion.exceptions import CannotSubstituteTable
-from amazon.ion.util import record
-
 
 FOO_1_TEXTS = (u'aa', u'bb', u'cc')
 FOO_1_TABLE = symbols.shared_symbol_table(
@@ -52,7 +51,13 @@ REGISTER_TABLES = (
 )
 
 
-class _P(record('desc', 'name', 'version', 'max_id', 'expected')):
+class _P(NamedTuple):
+    desc: str
+    name: str
+    version: int
+    max_id: int
+    expected: Any
+
     def __str__(self):
         return '{p.desc} - {p.name}, {p.version}, {p.max_id}'.format(p=self)
 
@@ -136,7 +141,11 @@ def test_catalog(p):
         assert p.expected == resolved
 
 
-class _P(record('desc', 'table', ('expected', ValueError))):
+class _P(NamedTuple):
+    desc: str
+    table: symbols.SymbolTable
+    expected: Any = ValueError
+
     def __str__(self):
         return self.desc
 

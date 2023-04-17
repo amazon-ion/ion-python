@@ -17,13 +17,14 @@ from decimal import Decimal
 from collections import defaultdict
 from enum import IntEnum
 from functools import partial
+from typing import Optional, NamedTuple
 
 from amazon.ion.core import Transition, ION_STREAM_INCOMPLETE_EVENT, ION_STREAM_END_EVENT, IonType, IonEvent, \
     IonEventType, IonThunkEvent, TimestampPrecision, timestamp, ION_VERSION_MARKER_EVENT
 from amazon.ion.exceptions import IonException
 from amazon.ion.reader import BufferQueue, reader_trampoline, ReadEventType, CodePointArray, CodePoint
 from amazon.ion.symbols import SymbolToken, TEXT_ION_1_0
-from amazon.ion.util import record, coroutine, _next_code_point, CodePoint
+from amazon.ion.util import coroutine, _next_code_point, CodePoint
 
 
 def _illegal_character(c, ctx, message=''):
@@ -235,9 +236,7 @@ _NULL_STARTS = {
 }
 
 
-class _ContainerContext(record(
-    'end', 'delimiter', 'ion_type', 'is_delimited'
-)):
+class _ContainerContext(NamedTuple):
     """A description of an Ion container, including the container's IonType and its textual delimiter and end character,
     if applicable.
 
@@ -251,6 +250,10 @@ class _ContainerContext(record(
         ion_type (Optional[IonType]): The container's IonType, if any.
         is_delimited (bool): True if delimiter is not empty; otherwise, False.
     """
+    end: tuple
+    delimiter: tuple
+    ion_type: Optional[IonType]
+    is_delimited: bool
 
 _C_TOP_LEVEL = _ContainerContext((), (), None, False)
 _C_STRUCT = _ContainerContext((_CLOSE_BRACE,), (_COMMA,), IonType.STRUCT, True)

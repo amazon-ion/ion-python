@@ -14,6 +14,7 @@
 
 from functools import partial
 from io import BytesIO
+from typing import NamedTuple, Coroutine, Sequence, Any
 
 from pytest import raises
 
@@ -27,7 +28,7 @@ from amazon.ion.core import ION_VERSION_MARKER_EVENT
 from amazon.ion.core import ION_STREAM_INCOMPLETE_EVENT, ION_STREAM_END_EVENT
 from amazon.ion.reader import read_data_event, reader_trampoline, blocking_reader
 from amazon.ion.reader import NEXT_EVENT, SKIP_EVENT
-from amazon.ion.util import coroutine, record
+from amazon.ion.util import coroutine
 
 
 _TRIVIAL_ION_EVENT = e_int(0)
@@ -38,7 +39,13 @@ _end_transition = partial(Transition, ION_STREAM_END_EVENT)
 _event_transition = partial(Transition, _TRIVIAL_ION_EVENT)
 
 
-class ReaderTrampolineParameters(record('desc', 'coroutine', 'input', 'expected', ('allow_flush', False))):
+class ReaderTrampolineParameters(NamedTuple):
+    desc: str
+    coroutine: Coroutine
+    input: Sequence[Any]
+    expected: Sequence[Any]
+    allow_flush: bool = False
+
     def __str__(self):
         return self.desc
 
@@ -134,7 +141,13 @@ def test_trampoline(p):
     trampoline_scaffold(reader_trampoline, p, p.allow_flush)
 
 
-class _P(record('desc', 'coroutine', 'data', 'input', 'expected')):
+class _P(NamedTuple):
+    desc: str
+    coroutine: Coroutine
+    data: Any
+    input: Any
+    expected: Any
+
     def __str__(self):
         return self.desc
 

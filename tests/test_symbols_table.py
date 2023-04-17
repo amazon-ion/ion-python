@@ -14,18 +14,13 @@
 
 import functools
 import itertools
+from typing import NamedTuple, Sequence, Optional, Type
+
 import pytest
 
 import tests
 
 import amazon.ion.symbols as symbols
-
-from amazon.ion.util import record
-
-
-def test_symbol_token_no_text_or_sid():
-    with pytest.raises(ValueError):
-        symbols.SymbolToken(None, None)
 
 
 def test_system_symbols():
@@ -56,9 +51,14 @@ def test_system_symbols():
         )
 
 
-class _P(record('name', 'version', 'symbols', ('exc', ValueError))):
+class _P(NamedTuple):
+    name: Optional[str]
+    version: Optional[int]
+    symbols: Sequence[str]
+    exc: Type[Exception] = ValueError
+
     def __str__(self):
-        return  '{p.name!r}, {p.version}, {p.symbols!r}'.format(p = self)
+        return '{p.name!r}, {p.version}, {p.symbols!r}'.format(p = self)
 
 
 @tests.parametrize(
@@ -70,7 +70,7 @@ class _P(record('name', 'version', 'symbols', ('exc', ValueError))):
     _P(name=b'my_shared', version=1, symbols=[], exc=TypeError),
     _P(name=u'my_shared', version=1, symbols=[b'a'], exc=TypeError),
 )
-def test_shared_symbls_malformed(p):
+def test_shared_symbols_malformed(p):
     with pytest.raises(p.exc):
         symbols.shared_symbol_table(p.name, p.version, p.symbols)
 
@@ -104,7 +104,14 @@ SUB_SOURCE_EQUAL_SYMBOLS = symbols.substitute_symbol_table(BAR_TABLE, 2, 6)
 SUB_SOURCE_EQUAL_TEXTS = BAR_TEXTS
 
 
-class _P(record('desc', 'table', 'name', 'version', 'is_substitute', 'symbol_texts')):
+class _P(NamedTuple):
+    desc: str
+    table: symbols.SymbolTable
+    name: str
+    version: int
+    is_substitute: bool
+    symbol_texts: Sequence[Optional[str]]
+
     def __str__(self):
         return  self.desc
 
@@ -203,7 +210,10 @@ def test_shared_symbols_intern():
         FOO_TABLE.intern(u'hello')
 
 
-class _P(record('name', 'version')):
+class _P(NamedTuple):
+    name: Optional[str]
+    version: Optional[int]
+
     def __str__(self):
         return '{p.name!r} {p.version!r}'.format(p=self)
 
@@ -235,7 +245,13 @@ _SID_START = len(symbols.SYSTEM_SYMBOL_TABLE) + 1
 _COLLIDE_SID_START = len(symbols.SYSTEM_SYMBOL_TABLE) + len(COLLIDE_TABLE) + 1
 
 
-class _P(record('desc', 'symbol_texts', 'tokens', ('imports', ()), ('symbol_count_override', None))):
+class _P(NamedTuple):
+    desc: str
+    symbol_texts: Sequence[str]
+    tokens: Sequence[symbols.SymbolToken]
+    imports: Sequence = ()
+    symbol_count_override: Optional[int] = None
+
     def __str__(self):
         return self.desc
 

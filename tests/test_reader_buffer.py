@@ -11,13 +11,13 @@
 # OF ANY KIND, either express or implied. See the License for the
 # specific language governing permissions and limitations under the
 # License.
+from typing import Callable, Sequence, NamedTuple
 
 from pytest import raises
 
 from tests import parametrize
 
 from amazon.ion.reader import BufferQueue, CodePointArray
-from amazon.ion.util import record
 
 
 def read(expected):
@@ -100,7 +100,11 @@ def expect_eof(is_eof):
     return action
 
 
-class _P(record('desc', 'actions', ('is_unicode', False))):
+class _P(NamedTuple):
+    desc: str
+    actions: Sequence[Callable]
+    is_unicode: bool = False
+
     def __str__(self):
         return self.desc
 

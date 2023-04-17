@@ -1,9 +1,16 @@
-from amazon.ion.core import Multimap, record
+from typing import Sequence, NamedTuple
+
+from amazon.ion.core import Multimap
 
 from tests import parametrize
 
 
-class _P(record('pairs', 'expected_all_values', 'expected_single_value', 'expected_total_len')):
+class _P(NamedTuple):
+    pairs: Sequence
+    expected_all_values: Sequence
+    expected_single_value: Sequence
+    expected_total_len: int
+
     def __str__(self):
         return '{name}'.format(name=self.pairs)
 

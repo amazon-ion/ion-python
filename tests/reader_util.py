@@ -11,13 +11,13 @@
 # OF ANY KIND, either express or implied. See the License for the
 # specific language governing permissions and limitations under the
 # License.
+from typing import NamedTuple, Sequence
 
 from pytest import raises
 
 from tests import is_exception, listify
 
 from amazon.ion.core import IonEventType
-from amazon.ion.util import record
 from tests.event_aliases import END
 from tests.event_aliases import NEXT
 
@@ -42,7 +42,11 @@ def add_depths(events):
                 depth += 1
 
 
-class ReaderParameter(record('desc', 'event_pairs', ('is_unicode', False))):
+class ReaderParameter(NamedTuple):
+    desc: str
+    event_pairs: Sequence
+    is_unicode: bool = False
+
     def __str__(self):
         return self.desc
 

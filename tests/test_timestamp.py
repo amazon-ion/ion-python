@@ -16,7 +16,7 @@ from decimal import Decimal
 
 import pytest
 
-from amazon.ion.core import Timestamp, TimestampPrecision, record, TIMESTAMP_MICROSECOND_FIELD
+from amazon.ion.core import Timestamp, TimestampPrecision, TIMESTAMP_MICROSECOND_FIELD
 from amazon.ion.equivalence import ion_equals
 from tests import parametrize, listify
 

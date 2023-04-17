@@ -11,19 +11,24 @@
 # OF ANY KIND, either express or implied. See the License for the
 # specific language governing permissions and limitations under the
 # License.
+from typing import NamedTuple, Any
 
 from pytest import raises
 
 from tests import parametrize, is_exception, noop_manager
 
-from amazon.ion.util import record, unicode_iter
+from amazon.ion.util import unicode_iter
 
 
 def _unichr_list(val):
     return list(ord(x) for x in val)
 
 
-class _P(record('desc', 'input', 'expected')):
+class _P(NamedTuple):
+    desc: str
+    input: str
+    expected: Any
+
     def __str__(self):
         return self.desc
 

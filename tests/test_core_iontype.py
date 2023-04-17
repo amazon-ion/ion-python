@@ -13,13 +13,17 @@
 # License.
 
 import itertools
+from typing import NamedTuple, Any
+
 import tests
 
 from amazon.ion.core import IonType
-from amazon.ion.util import record
 
 
-class _P(record('type', 'expected')):
+class _P(NamedTuple):
+    type: str
+    expected: Any
+
     def __str__(self):
         return '{name} - {expected}'.format(name=self.type.name, expected=str(self.expected).upper())
 
