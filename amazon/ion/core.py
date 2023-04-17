@@ -314,11 +314,11 @@ class Transition(NamedTuple):
     This is generally used as a result of a state-machine.
 
     Args:
-        event (Union[DataEvent]): The event associated with the transition.
+        event (Optional[DataEvent]): The event associated with the transition.
         delegate (Coroutine): The co-routine delegate which can be the same routine from
             whence this transition came.
     """
-    event: DataEvent
+    event: Optional[DataEvent]
     delegate: Coroutine
 
 
