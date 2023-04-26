@@ -1,4 +1,5 @@
 import json
+import os
 import time
 from itertools import chain
 from os.path import abspath, join, dirname
@@ -10,13 +11,14 @@ from amazon.ion import simpleion
 from amazon.ionbenchmark import ion_benchmark_cli, Format, Io_type
 from amazon.ionbenchmark.Format import format_is_ion, format_is_cbor, format_is_json
 from amazon.ionbenchmark.ion_benchmark_cli import generate_read_test_code, \
-    generate_write_test_code, ion_python_benchmark_cli
+    generate_write_test_code, ion_python_benchmark_cli, output_result_table, REGRESSION_THRESHOLD
 from amazon.ionbenchmark.util import str_to_bool, TOOL_VERSION
 from tests import parametrize
 from tests.test_simpleion import generate_scalars_text
 from tests.writer_util import SIMPLE_SCALARS_MAP_TEXT
 
 doc = ion_benchmark_cli.__doc__
+result_table_option_idx = 3
 
 
 @parametrize(
@@ -198,7 +200,7 @@ def gather_all_options_in_list(table):
     if len(table) < 1:
         return []
     while count < len(table):
-        rtn += [table[count][1]]
+        rtn += [table[count][result_table_option_idx]]
         count += 1
     return sorted(rtn)
 
@@ -328,3 +330,82 @@ def test_format_is_json(f):
 )
 def test_format_is_cbor(f):
     assert format_is_cbor(f.value) is True
+
+
+def test_output_result_table_none():
+    test_table = [['field1', 'field2'], [1, 2], [3, 4]]
+    results_output = None
+    res = output_result_table(results_output, test_table)
+    # Should print as expected and return None
+    assert res is None
+
+
+def test_output_result_table_output():
+    test_table = [['field1', 'field2'], [1, 2], [3, 4]]
+    results_output = 'test'
+    res = output_result_table(results_output, test_table)
+    # Clean up the output file generated
+    if os.path.exists(results_output):
+        os.remove(results_output)
+    assert simpleion.dumps(res, binary=False) == \
+           "$ion_1_0 [{field1:1,field2:2},{field1:3,field2:4}]"
+
+
+def test_compare():
+    # Generates test files and result report
+    test_file_list = ['f1', 'f2', 'f3']
+    execution_with_command(['read', generate_test_path('integers.ion'), '-o', test_file_list[0]])
+    execution_with_command(['read', generate_test_path('integers.ion'), '-o', test_file_list[1]])
+    execution_with_command(['compare', '--benchmark-result-previous', test_file_list[0], '--benchmark-result-new',
+                            test_file_list[1], test_file_list[2]])
+    # Collects results and clean up resources
+    with open(test_file_list[2], 'br') as f3:
+        res = simpleion.load(f3)
+    # clean up resources
+    for f in test_file_list:
+        if os.path.exists(f):
+            os.remove(f)
+    # Makes sure the results includes required fields
+    assert res[0].get('relative_difference_score') is not None
+    assert res[0].get('command') is not None
+    assert res[0].get('input') is not None
+    assert res[0].get('options') is not None
+
+
+def test_compare_without_regression():
+    test_file_list = [generate_test_path('compare/f1'), generate_test_path('compare/f2'), generate_test_path('compare_output')]
+    reg_f = execution_with_command(
+        ['compare', '--benchmark-result-previous', test_file_list[1], '--benchmark-result-new',
+         test_file_list[0], test_file_list[2]])
+    # only clean up output results
+    if os.path.exists(generate_test_path('compare_output')):
+        os.remove(generate_test_path('compare_output'))
+    assert reg_f is None
+
+
+def test_compare_with_regression():
+    test_file_list = [generate_test_path('compare/f1'), generate_test_path('compare/f2'), generate_test_path('compare_output')]
+    reg_f = execution_with_command(
+        ['compare', '--benchmark-result-previous', test_file_list[0], '--benchmark-result-new',
+         test_file_list[1], test_file_list[2]])
+    with open(test_file_list[2], 'br') as f3:
+        res = simpleion.load(f3)
+    # only clean up output results
+    if os.path.exists(generate_test_path('compare_output')):
+        os.remove(generate_test_path('compare_output'))
+    assert res[0].get('relative_difference_score').get('total_time (s)') > REGRESSION_THRESHOLD
+    assert reg_f == 'integers.ion'
+
+
+def test_compare_big_gap_with_regression():
+    test_file_list = [generate_test_path('compare/f1'), generate_test_path('compare/f3'), generate_test_path('compare_output')]
+    reg_f = execution_with_command(
+        ['compare', '--benchmark-result-previous', test_file_list[0], '--benchmark-result-new',
+         test_file_list[1], test_file_list[2]])
+    with open(test_file_list[2], 'br') as f3:
+        res = simpleion.load(f3)
+    # only clean up output results
+    if os.path.exists(generate_test_path('compare_output')):
+        os.remove(generate_test_path('compare_output'))
+    assert res[0].get('relative_difference_score').get('total_time (s)') > REGRESSION_THRESHOLD
+    assert reg_f == 'integers.ion'
