@@ -11,7 +11,6 @@
 # OF ANY KIND, either express or implied. See the License for the
 # specific language governing permissions and limitations under the
 # License.
-
 from enum import IntEnum
 from typing import NamedTuple, Optional, Any, Union, Sequence, Coroutine
 
@@ -272,21 +271,20 @@ class MemoizingThunk(object):
 
 
 class IonThunkEvent(IonEvent):
-    """An :class:`IonEvent` whose ``value`` field is a thunk."""
-    def __new__(cls, *args, **kwargs):
-        if len(args) >= 3:
-            args = list(args)
-            args[2] = MemoizingThunk(args[2])
-        else:
-            value = kwargs.get('value')
-            if value is not None:
-                kwargs['value'] = MemoizingThunk(kwargs['value'])
-        return super(IonThunkEvent, cls).__new__(cls, *args, **kwargs)
+    """
+    A lazy `IonEvent` whose ``value`` field is a thunk.
+
+    The `value` will be materialized on first access and cached.
+
+    Accessing the value by it's slot: ``event[2]`` will avoid materialization.
+    """
 
     @property
     def value(self):
-        # We're masking the value field, this gets around that.
-        return self[2]()
+        if hasattr(self, 'cached_value'):
+            return self.cached_value
+        self.cached_value = self[2]()
+        return self.cached_value
 
 # Singletons for structural events
 ION_STREAM_END_EVENT = IonEvent(IonEventType.STREAM_END)
@@ -314,11 +312,11 @@ class Transition(NamedTuple):
     This is generally used as a result of a state-machine.
 
     Args:
-        event (Optional[DataEvent]): The event associated with the transition.
+        event (Union[DataEvent, IonEvent]): The event associated with the transition.
         delegate (Coroutine): The co-routine delegate which can be the same routine from
             whence this transition came.
     """
-    event: Optional[DataEvent]
+    event: Union[DataEvent, IonEvent, None]
     delegate: Coroutine
 
 

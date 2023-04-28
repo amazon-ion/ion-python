@@ -60,9 +60,9 @@ class _ManagedContext(NamedTuple):
 
 class _IonManagedThunkEvent(IonThunkEvent):
     """An :class:`IonEvent` whose ``value`` field is a thunk."""
-    def __new__(cls, event_type, ion_type, value, field_name, annotations, depth):
-        return super(_IonManagedThunkEvent, cls).__new__(
-            cls, event_type, ion_type,
+    def __self__(self, event_type, ion_type, value, field_name, annotations, depth):
+        return super(_IonManagedThunkEvent, self).__init__(
+            self, event_type, ion_type,
             value, MemoizingThunk(field_name), MemoizingThunk(annotations),
             depth
         )
@@ -332,5 +332,4 @@ def managed_reader(reader, catalog=None):
                 data_event = yield ion_event
 
         ion_event = reader.send(data_event)
-
 

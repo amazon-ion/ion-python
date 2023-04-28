@@ -23,7 +23,7 @@ from tests.event_aliases import *
 from amazon.ion.core import IonType, timestamp, TimestampPrecision, OffsetTZInfo
 from amazon.ion.exceptions import IonException
 from amazon.ion.reader import read_data_event, ReadEventType
-from amazon.ion.reader_binary import raw_reader, _TypeID, _CONTAINER_TIDS, _TID_VALUE_TYPE_TABLE
+from amazon.ion.reader_binary import _TypeID, _CONTAINER_TIDS, _TID_VALUE_TYPE_TABLE, stream_handler
 from amazon.ion.symbols import SYMBOL_ZERO_TOKEN, SymbolToken
 
 _PREC_YEAR = TimestampPrecision.YEAR
@@ -80,6 +80,24 @@ _BASIC_PARAMS = (
         ],
     ),
     _P(
+        desc='SINGLE BYTE NOP',
+        event_pairs=[
+            (NEXT, END),
+            (e_read(b'\xE0\x01\x00\xEA\x00'), IVM),
+            (NEXT, END),
+        ],
+    ),
+    _P(
+        desc='LONG NOP',
+        event_pairs=[
+            (NEXT, END),
+                                      # 0E is no-op with "l" 14 which means VarUint for length
+            (e_read(b'\xE0\x01\x00\xEA\x0E' + \
+                    b'\x8E' + (b'\x00' * 14)), IVM),
+            (NEXT, END),
+        ],
+    ),
+    _P(
         desc='NO START IVM',
         event_pairs=[
             (NEXT, END),
@@ -99,6 +117,9 @@ _BAD_VALUES = (
     (b'\xe4\x81\x84\xb2\x21\x01', 'ANNOT LENGTH TOO SHORT - CONTAINER'),
     # The annotation wrapper declares 3 octets, but the subfields (including an int) take up four.
     (b'\xe3\x81\x84\x21\x01', 'ANNOT LENGTH TOO SHORT - SCALAR'),
+    # TODO: annnotated nop is a fail
+
+    # TODO: value within container is longer than container.
 )
 
 
@@ -408,4 +429,4 @@ def _containerize_params(params, with_skip=True):
     _prepend_ivm(all_top_level_as_one_stream_params(_top_level_iter)),
 ))
 def test_raw_reader(p):
-    reader_scaffold(raw_reader(), p.event_pairs)
+    reader_scaffold(stream_handler(), p.event_pairs)

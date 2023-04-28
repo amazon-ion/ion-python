@@ -60,7 +60,10 @@ def reader_scaffold(reader, event_pairs):
                 reader.send(read_event).value  # Forces evaluation of all value thunks.
         else:
             actual = reader.send(read_event)
+            if expected != actual:
+                print("huh")
             assert expected == actual
+            print(actual)
 
 
 def value_iter(event_func, values, *args):
