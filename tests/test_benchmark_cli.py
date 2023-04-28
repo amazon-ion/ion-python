@@ -344,7 +344,7 @@ def test_output_result_table_output():
     test_table = [['field1', 'field2'], [1, 2], [3, 4]]
     results_output = 'test'
     res = output_result_table(results_output, test_table)
-    # Clean up the output file generated
+    # Cleans up the output file generated
     if os.path.exists(results_output):
         os.remove(results_output)
     assert simpleion.dumps(res, binary=False) == \
@@ -361,11 +361,11 @@ def test_compare():
     # Collects results and clean up resources
     with open(test_file_list[2], 'br') as f3:
         res = simpleion.load(f3)
-    # clean up resources
+    # Cleans up resources
     for f in test_file_list:
         if os.path.exists(f):
             os.remove(f)
-    # Makes sure the results includes required fields
+    # Makes sure the result includes required fields
     assert res[0].get('relative_difference_score') is not None
     assert res[0].get('command') is not None
     assert res[0].get('input') is not None
@@ -377,7 +377,7 @@ def test_compare_without_regression():
     reg_f = execution_with_command(
         ['compare', '--benchmark-result-previous', test_file_list[1], '--benchmark-result-new',
          test_file_list[0], test_file_list[2]])
-    # only clean up output results
+    # Only clean up output results
     if os.path.exists(generate_test_path('compare_output')):
         os.remove(generate_test_path('compare_output'))
     assert reg_f is None
@@ -390,7 +390,7 @@ def test_compare_with_regression():
          test_file_list[1], test_file_list[2]])
     with open(test_file_list[2], 'br') as f3:
         res = simpleion.load(f3)
-    # only clean up output results
+    # Only clean up output results
     if os.path.exists(generate_test_path('compare_output')):
         os.remove(generate_test_path('compare_output'))
     assert res[0].get('relative_difference_score').get('total_time (s)') > REGRESSION_THRESHOLD
@@ -404,7 +404,7 @@ def test_compare_big_gap_with_regression():
          test_file_list[1], test_file_list[2]])
     with open(test_file_list[2], 'br') as f3:
         res = simpleion.load(f3)
-    # only clean up output results
+    # Only clean up output results
     if os.path.exists(generate_test_path('compare_output')):
         os.remove(generate_test_path('compare_output'))
     assert res[0].get('relative_difference_score').get('total_time (s)') > REGRESSION_THRESHOLD
