@@ -8,6 +8,7 @@ import cbor2
 from docopt import docopt
 
 from amazon.ion import simpleion
+from amazon.ion.equivalence import ion_equals
 from amazon.ionbenchmark import ion_benchmark_cli, Format, Io_type
 from amazon.ionbenchmark.Format import format_is_ion, format_is_cbor, format_is_json
 from amazon.ionbenchmark.ion_benchmark_cli import generate_read_test_code, \
@@ -332,6 +333,10 @@ def test_format_is_cbor(f):
     assert format_is_cbor(f.value) is True
 
 
+def assert_ion_string_equals(act, exp):
+    assert ion_equals(simpleion.loads(act), simpleion.loads(exp))
+
+
 def test_output_result_table_none():
     test_table = [['field1', 'field2'], [1, 2], [3, 4]]
     results_output = None
@@ -347,8 +352,9 @@ def test_output_result_table_output():
     # Cleans up the output file generated
     if os.path.exists(results_output):
         os.remove(results_output)
-    assert simpleion.dumps(res, binary=False) == \
-           "$ion_1_0 [{field1:1,field2:2},{field1:3,field2:4}]"
+    act = simpleion.dumps(res, binary=False)
+    exp = "[{field1:1,field2:2},{field1:3,field2:4}]"
+    assert_ion_string_equals(act, exp)
 
 
 def test_compare():
