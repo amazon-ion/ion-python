@@ -10,6 +10,8 @@ jobs:
 
   detect-regression:
     name: Detect Regression
+    needs: PR-Content-Check
+    if: ${{ needs.PR-Content-Check.outputs.result == 'pass' }}
     runs-on: ubuntu-latest
     strategy:
       matrix:
