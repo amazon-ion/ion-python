@@ -6,7 +6,7 @@ on:
 
 jobs:
   pr-content-check:
-    uses: amazon-ion/ion-java/.github/workflows/PR-content-check.yml@master
+    uses: cheqianh/ion-java/.github/workflows/PR-content-check.yml@gha
 
   detect-regression:
     name: Detect Regression
