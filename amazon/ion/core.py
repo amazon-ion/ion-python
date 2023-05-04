@@ -30,7 +30,6 @@ from datetime import datetime, timedelta, tzinfo
 from decimal import Decimal, Context, Inexact
 from math import isnan
 
-
 class IonType(IntEnum):
     """Enumeration of the Ion data types."""
     NULL = 0
