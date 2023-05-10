@@ -32,6 +32,7 @@ from .symbols import SymbolToken
 from .writer import blocking_writer
 from .writer_binary import binary_writer
 
+
 # Using C extension as default, and original python implementation if C extension doesn't exist.
 c_ext = True
 try:

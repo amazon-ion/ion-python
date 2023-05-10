@@ -27,7 +27,7 @@ except:
     from collections import MutableMapping, MutableSequence, OrderedDict
 
 from datetime import datetime, timedelta, tzinfo
-from decimal import Decimal, ROUND_FLOOR, Context, Inexact
+from decimal import Decimal, Context, Inexact
 from math import isnan
 
 

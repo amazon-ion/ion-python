@@ -1,0 +1,152 @@
+name: Performance Regression Detector
+
+on:
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  pr-content-check:
+    uses: ./.github/workflows/PR-content-check.yml
+
+  detect-regression:
+    name: Detect Regression
+    needs: PR-Content-Check
+    if: ${{ needs.PR-Content-Check.outputs.result == 'pass' }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.9', '3.10', 'pypy-3.7', 'pypy-3.8']
+    steps:
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      # Generates data used for benchmarking
+      - name: Checkout ion-data-generator
+        uses: actions/checkout@v3
+        with:
+          repository: amazon-ion/ion-data-generator
+          ref: main
+          path: ion-data-generator
+
+      - name: Build ion-data-generator
+        run: cd ion-data-generator && mvn clean install
+
+      - name: Generate test Ion Data
+        run: |
+          mkdir -p testData
+          java -jar ion-data-generator/target/ion-data-generator-1.0-SNAPSHOT.jar  generate -S 50000 --input-ion-schema ion-data-generator/tst/com/amazon/ion/workflow/nestedStruct.isl testData/testStructs.10n
+          java -jar ion-data-generator/target/ion-data-generator-1.0-SNAPSHOT.jar  generate -S 50000 --input-ion-schema ion-data-generator/tst/com/amazon/ion/workflow/nestedList.isl testData/testLists.10n
+          java -jar ion-data-generator/target/ion-data-generator-1.0-SNAPSHOT.jar  generate -S 50000 --input-ion-schema ion-data-generator/tst/com/amazon/ion/workflow/sexp.isl testData/testSexps.10n
+          java -jar ion-data-generator/target/ion-data-generator-1.0-SNAPSHOT.jar  generate -S 50000 --input-ion-schema ion-data-generator/tst/com/amazon/ion/workflow/realWorldDataSchema01.isl testData/realWorldData01.10n
+          java -jar ion-data-generator/target/ion-data-generator-1.0-SNAPSHOT.jar  generate -S 50000 --input-ion-schema ion-data-generator/tst/com/amazon/ion/workflow/realWorldDataSchema02.isl testData/realWorldData02.10n
+          java -jar ion-data-generator/target/ion-data-generator-1.0-SNAPSHOT.jar  generate -S 50000 --input-ion-schema ion-data-generator/tst/com/amazon/ion/workflow/realWorldDataSchema03.isl testData/realWorldData03.10n
+
+      - name: Upload test Ion Data to artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: test Ion Data
+          path: testData
+
+      # Generates performance results for the current commit
+      - name: Checkout the current commit of the Ion Python
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: ion-python-current
+
+      - name: Create a virtual environment and setup the package
+        working-directory: ./ion-python-current
+        run: |
+          git submodule init && git submodule update && python3 -m venv ./venv && . venv/bin/activate
+          pip install -r requirements.txt
+          pip install -e .
+
+      - name: Running performance benchmark
+        working-directory: ./ion-python-current
+        run: |
+          . venv/bin/activate
+          python amazon/ionbenchmark/ion_benchmark_cli.py read -w 20 -o /home/runner/work/ion-python/ion-python/benchmarkResults/testStructs_read/new --io-type file --io-type buffer --format ion_text --format ion_binary --api load_dump /home/runner/work/ion-python/ion-python/testData/testStructs.10n
+          python amazon/ionbenchmark/ion_benchmark_cli.py read -w 20 -o /home/runner/work/ion-python/ion-python/benchmarkResults/testLists_read/new --io-type file --io-type buffer --format ion_text --format ion_binary --api load_dump /home/runner/work/ion-python/ion-python/testData/testLists.10n
+          python amazon/ionbenchmark/ion_benchmark_cli.py read -w 20 -o /home/runner/work/ion-python/ion-python/benchmarkResults/testSexps_read/new --io-type file --io-type buffer --format ion_text --format ion_binary --api load_dump /home/runner/work/ion-python/ion-python/testData/testSexps.10n
+          python amazon/ionbenchmark/ion_benchmark_cli.py read -w 20 -o /home/runner/work/ion-python/ion-python/benchmarkResults/realWorldData01_read/new --io-type file --io-type buffer --format ion_text --format ion_binary --api load_dump /home/runner/work/ion-python/ion-python/testData/realWorldData01.10n
+          python amazon/ionbenchmark/ion_benchmark_cli.py read -w 20 -o /home/runner/work/ion-python/ion-python/benchmarkResults/realWorldData02_read/new --io-type file --io-type buffer --format ion_text --format ion_binary --api load_dump /home/runner/work/ion-python/ion-python/testData/realWorldData02.10n
+          python amazon/ionbenchmark/ion_benchmark_cli.py read -w 20 -o /home/runner/work/ion-python/ion-python/benchmarkResults/realWorldData03_read/new --io-type file --io-type buffer --format ion_text --format ion_binary --api load_dump /home/runner/work/ion-python/ion-python/testData/realWorldData03.10n
+
+          python amazon/ionbenchmark/ion_benchmark_cli.py write -w 20 -o /home/runner/work/ion-python/ion-python/benchmarkResults/testStructs_write/new --io-type file --io-type buffer --format ion_text --format ion_binary --api load_dump /home/runner/work/ion-python/ion-python/testData/testStructs.10n
+          python amazon/ionbenchmark/ion_benchmark_cli.py write -w 20 -o /home/runner/work/ion-python/ion-python/benchmarkResults/testLists_write/new --io-type file --io-type buffer --format ion_text --format ion_binary --api load_dump /home/runner/work/ion-python/ion-python/testData/testLists.10n
+          python amazon/ionbenchmark/ion_benchmark_cli.py write -w 20 -o /home/runner/work/ion-python/ion-python/benchmarkResults/testSexps_write/new --io-type file --io-type buffer --format ion_text --format ion_binary --api load_dump /home/runner/work/ion-python/ion-python/testData/testSexps.10n
+          python amazon/ionbenchmark/ion_benchmark_cli.py write -w 20 -o /home/runner/work/ion-python/ion-python/benchmarkResults/realWorldData01_write/new --io-type file --io-type buffer --format ion_text --format ion_binary --api load_dump /home/runner/work/ion-python/ion-python/testData/realWorldData01.10n
+          python amazon/ionbenchmark/ion_benchmark_cli.py write -w 20 -o /home/runner/work/ion-python/ion-python/benchmarkResults/realWorldData02_write/new --io-type file --io-type buffer --format ion_text --format ion_binary --api load_dump /home/runner/work/ion-python/ion-python/testData/realWorldData02.10n
+          python amazon/ionbenchmark/ion_benchmark_cli.py write -w 20 -o /home/runner/work/ion-python/ion-python/benchmarkResults/realWorldData03_write/new --io-type file --io-type buffer --format ion_text --format ion_binary --api load_dump /home/runner/work/ion-python/ion-python/testData/realWorldData03.10n
+
+      # Generates performance results for the previous commit
+      - name: Checkout the master branch of the Ion Python
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.pull_request.head.sha }} # TODO change back to `master`
+          path: ion-python-master
+
+      - name: Create a virtual environment
+        working-directory: ./ion-python-master
+        run: |
+          git submodule init && git submodule update && python3 -m venv ./venv && . venv/bin/activate
+          pip install -r requirements.txt
+          pip install -e .
+
+      - name: Running performance benchmark
+        working-directory: ./ion-python-master
+        run: |
+          . venv/bin/activate
+          python amazon/ionbenchmark/ion_benchmark_cli.py read -w 20 -o /home/runner/work/ion-python/ion-python/benchmarkResults/testStructs_read/previous --io-type file --io-type buffer --format ion_text --format ion_binary --api load_dump /home/runner/work/ion-python/ion-python/testData/testStructs.10n
+          python amazon/ionbenchmark/ion_benchmark_cli.py read -w 20 -o /home/runner/work/ion-python/ion-python/benchmarkResults/testLists_read/previous --io-type file --io-type buffer --format ion_text --format ion_binary --api load_dump /home/runner/work/ion-python/ion-python/testData/testLists.10n
+          python amazon/ionbenchmark/ion_benchmark_cli.py read -w 20 -o /home/runner/work/ion-python/ion-python/benchmarkResults/testSexps_read/previous --io-type file --io-type buffer --format ion_text --format ion_binary --api load_dump /home/runner/work/ion-python/ion-python/testData/testSexps.10n
+          python amazon/ionbenchmark/ion_benchmark_cli.py read -w 20 -o /home/runner/work/ion-python/ion-python/benchmarkResults/realWorldData01_read/previous --io-type file --io-type buffer --format ion_text --format ion_binary --api load_dump /home/runner/work/ion-python/ion-python/testData/realWorldData01.10n
+          python amazon/ionbenchmark/ion_benchmark_cli.py read -w 20 -o /home/runner/work/ion-python/ion-python/benchmarkResults/realWorldData02_read/previous --io-type file --io-type buffer --format ion_text --format ion_binary --api load_dump /home/runner/work/ion-python/ion-python/testData/realWorldData02.10n
+          python amazon/ionbenchmark/ion_benchmark_cli.py read -w 20 -o /home/runner/work/ion-python/ion-python/benchmarkResults/realWorldData03_read/previous --io-type file --io-type buffer --format ion_text --format ion_binary --api load_dump /home/runner/work/ion-python/ion-python/testData/realWorldData03.10n
+
+          python amazon/ionbenchmark/ion_benchmark_cli.py write -w 20 -o /home/runner/work/ion-python/ion-python/benchmarkResults/testStructs_write/previous --io-type file --io-type buffer --format ion_text --format ion_binary --api load_dump /home/runner/work/ion-python/ion-python/testData/testStructs.10n
+          python amazon/ionbenchmark/ion_benchmark_cli.py write -w 20 -o /home/runner/work/ion-python/ion-python/benchmarkResults/testLists_write/previous --io-type file --io-type buffer --format ion_text --format ion_binary --api load_dump /home/runner/work/ion-python/ion-python/testData/testLists.10n
+          python amazon/ionbenchmark/ion_benchmark_cli.py write -w 20 -o /home/runner/work/ion-python/ion-python/benchmarkResults/testSexps_write/previous --io-type file --io-type buffer --format ion_text --format ion_binary --api load_dump /home/runner/work/ion-python/ion-python/testData/testSexps.10n
+          python amazon/ionbenchmark/ion_benchmark_cli.py write -w 20 -o /home/runner/work/ion-python/ion-python/benchmarkResults/realWorldData01_write/previous --io-type file --io-type buffer --format ion_text --format ion_binary --api load_dump /home/runner/work/ion-python/ion-python/testData/realWorldData01.10n
+          python amazon/ionbenchmark/ion_benchmark_cli.py write -w 20 -o /home/runner/work/ion-python/ion-python/benchmarkResults/realWorldData02_write/previous --io-type file --io-type buffer --format ion_text --format ion_binary --api load_dump /home/runner/work/ion-python/ion-python/testData/realWorldData02.10n
+          python amazon/ionbenchmark/ion_benchmark_cli.py write -w 20 -o /home/runner/work/ion-python/ion-python/benchmarkResults/realWorldData03_write/previous --io-type file --io-type buffer --format ion_text --format ion_binary --api load_dump /home/runner/work/ion-python/ion-python/testData/realWorldData03.10n
+
+      # Upload resource, results and report
+      - name: Upload new benchmark results directory to artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: Benchmark result
+          path: benchmarkResults
+
+      - name: Upload test Ion Data to artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: test Ion Data
+          path: testData
+
+      # Compare results and identify regression
+      - name: Detect performance regression
+        id: regression_result
+        run: |
+          . /home/runner/work/ion-python/ion-python/ion-python-current/venv/bin/activate
+          result=true
+          cd benchmarkResults && for FILE in *; do message=$(python /home/runner/work/ion-python/ion-python/ion-python-current/amazon/ionbenchmark/ion_benchmark_cli.py compare --benchmark-result-previous $FILE/previous --benchmark-result-new $FILE/new $FILE/report | tee /dev/stderr) && if [ "$message" != "no regression detected" ]; then result=false; fi; done
+          echo "::set-output name=regression-result::$result"
+          if [ "$result" = "true" ]; then echo "No regression detected!" >> $GITHUB_STEP_SUMMARY; fi
+
+      - name: Upload comparison reports to the benchmark results directory
+        uses: actions/upload-artifact@v2
+        with:
+          name: Benchmark result
+          path: benchmarkResults
+
+      - name: Fail the workflow if regression happened
+        env:
+          regression_detect: ${{steps.regression_result.outputs.regression-result}}
+        if: ${{ env.regression_detect == 'false' }}
+        run: |
+          . /home/runner/work/ion-python/ion-python/ion-python-current/venv/bin/activate
+          cd benchmarkResults && echo "**Below files are detected performance regression, please download the benchmark result(s) to see detail:**" >> $GITHUB_STEP_SUMMARY && for FILE in *; do regressionDetection=$(python /home/runner/work/ion-python/ion-python/ion-python-current/amazon/ionbenchmark/ion_benchmark_cli.py compare --benchmark-result-previous $FILE/previous --benchmark-result-new $FILE/new $FILE/report | tee /dev/stderr) && if [ "$regressionDetection" != "no regression detected" ]; then echo "$FILE" >> $GITHUB_STEP_SUMMARY; fi; done
+          exit 1
