@@ -201,7 +201,6 @@ static PyObject* ion_build_py_string(ION_STRING* string_value) {
     return PyUnicode_FromStringAndSize((char*)(string_value->value), string_value->length);
 }
 
-
 /*
  *  Adds an element to a List or struct
  *
