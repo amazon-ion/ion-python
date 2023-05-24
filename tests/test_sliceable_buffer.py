@@ -77,13 +77,22 @@ class _P(NamedTuple):
     _P(
         desc='EMPTY READ BYTE',
         actions=[
-            expect(IncompleteReadError, read_byte(97)),
+            expect(IncompleteReadError, read_byte(b'a')),
         ],
     ),
     _P(
         desc='EMPTY READ SLICE',
         actions=[
             expect(IncompleteReadError, read(b'ignored')),
+        ],
+    ),
+    _P(
+        desc='INCOMPLETE READ SLICE',
+        actions=[
+            extend(b'abcd'),
+            read_byte(b'a'),
+            expect(IncompleteReadError, read(b'bcde')),
+            read_byte(b'b')
         ],
     ),
     _P(
@@ -114,6 +123,14 @@ class _P(NamedTuple):
             extend(b'abcd'),
             skip(4, expected_rem=0),
             skip(4, expected_rem=4),
+        ],
+    ),
+    _P(
+        desc='PARTIAL SKIP INCOMPLETE',
+        actions=[
+            extend(b'ab'),
+            extend(b'cd'),
+            skip(5, expected_rem=1),
         ],
     ),
     _P(

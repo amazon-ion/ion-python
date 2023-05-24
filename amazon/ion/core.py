@@ -276,7 +276,7 @@ class IonThunkEvent(IonEvent):
 
     The `value` will be materialized on first access and cached.
 
-    Accessing the value by it's slot: ``event[2]`` will avoid materialization.
+    Accessing the value by its slot: ``event[2]`` will avoid materialization.
     """
 
     @property

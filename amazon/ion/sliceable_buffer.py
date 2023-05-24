@@ -125,6 +125,9 @@ class SliceableBuffer:
         Skip max(n, size) bytes, return (skipped, new buffer).
 
         Chunks which are no longer readable are dropped from the new buffer.
+
+        Unlike the read methods, skip allows partial skipping, which is more
+        memory efficient when skipping large tokens that span chunks.
         """
         size = self.size
         chunks = self._chunks

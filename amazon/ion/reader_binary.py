@@ -416,17 +416,17 @@ def stream_handler():
         # part 1: handle user's read event
         if expect_data:
             if read_event.type is not ReadEventType.DATA:
-                raise TypeError("Data expected!")
+                raise TypeError("Data expected")
             buffer = buffer.extend(read_event.data)
         else:
             if read_event.type is ReadEventType.DATA:
-                raise TypeError("Next or Skip expected!")
+                raise TypeError("Next or Skip expected")
             skip_or_next = read_event.type
 
         ion_event = None
         if skip_or_next is ReadEventType.SKIP:
             if parent_type is None:
-                raise TypeError("Cannot Skip Top-level values!")
+                raise TypeError("Skip is only allowed within an Ion Container (Struct, List, S-expression)")
 
             to_skip = limit - cursor
             (skipped, buffer) = buffer.skip(to_skip)
