@@ -214,16 +214,16 @@ class _ParserContext(NamedTuple):
 
 
 def _invalid_handler(type_octet, ctx):
-    """Placeholder co-routine for invalid type codes."""
+    """Placeholder handler for invalid type codes."""
     raise IonException(f'Invalid type octet: {type_octet}')
 
 
-def _var_uint_field_parser(buffer):
+def _var_uint_parser(buffer):
     """
     Parse a Var UInt.
 
-    Return (value, byte_ct) where value is the VarUInt and byte_ct
-    is the length of the VarUInt.
+    Return (value, byte_ct) where value is the integer value of the VarUInt
+    and byte_ct is the length of the VarUInt.
     """
     value = 0
     while True:
@@ -236,13 +236,14 @@ def _var_uint_field_parser(buffer):
 
 
 def _var_uint_field_handler(handler, context: _ParserContext):
-    """Handler co-routine for variable unsigned integer fields that.
+    """
+    Parse the VarUInt length of a field, then delegate to the handler in order
+    to parse the field.
 
-    Invokes the given ``handler`` function with the read field and context,
-    then immediately yields to the resulting co-routine.
+    Return the parse result from the field handler.
     """
     (buffer, depth) = context
-    length, buffer = _var_uint_field_parser(buffer)
+    length, buffer = _var_uint_parser(buffer)
     return handler(length, _ParserContext(buffer, depth))
 
 
@@ -293,7 +294,7 @@ def _length_scalar_handler(scalar_factory, ion_type, length, context: _ParserCon
 def _annotation_handler(_, length, context: _ParserContext):
     (buffer, depth) = context
     init_size = buffer.size
-    anno_length, buffer = _var_uint_field_parser(buffer)
+    anno_length, buffer = _var_uint_parser(buffer)
 
     if anno_length < 1:
         raise IonException('Invalid annotation length subfield; annotation wrapper must have at least one annotation.')
@@ -363,7 +364,7 @@ def _struct_item_parser(context: _ParserContext):
     Parse the field and value for an item in a struct.
     """
     (buffer, depth) = context
-    field_sid, buffer = _var_uint_field_parser(buffer)
+    field_sid, buffer = _var_uint_parser(buffer)
     event, buffer = _tlv_parser(_ParserContext(buffer, depth))
 
     if not event:
@@ -399,7 +400,7 @@ def stream_handler():
 
     # This is the main event loop for the parser coroutine.
     #
-    # Each iteration begins with responding with previous ion_event (None to start)
+    # Each iteration begins by responding with prior ion_event (None initially)
     # and receiving the user's read event.
     #
     # Then there are two main parts:
@@ -617,7 +618,7 @@ def _lob_factory(data):
 #
 
 
-# Handler table for type octet to handler co-routine, initialized with the
+# Handler table for type octet to handler function, initialized with the
 # invalid handler for all octets.
 _HANDLER_DISPATCH_TABLE: List[Callable] = [partial(_invalid_handler, i) for i in range(256)]
 
@@ -641,7 +642,7 @@ def _bind_length_handlers(tids, user_handler, lns):
         tids (Sequence[int]): The Type IDs to bind to.
         user_handler (Callable): A function that takes as its parameters
             :class:`IonType`, ``length``, and the ``ctx`` context
-            returning a co-routine.
+            returning a ParseResult.
         lns (Sequence[int]): The low-nibble lengths to bind to.
     """
     for tid in tids:

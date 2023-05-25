@@ -81,6 +81,9 @@ class SliceableBuffer:
         size = self.size
         chunks = self._chunks
         offset = self._offset
+        if n < 1:
+            raise ValueError("n must be >= 1")
+
         endpos = offset + n
 
         if size < n:
