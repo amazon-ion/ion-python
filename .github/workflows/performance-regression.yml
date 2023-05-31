@@ -12,7 +12,7 @@ jobs:
     name: Detect Regression
     needs: PR-Content-Check
     if: ${{ needs.PR-Content-Check.outputs.result == 'pass' }}
-    runs-on: ubuntu-latest
+    runs-on: macos-latest # ubuntu-latest
     strategy:
       matrix:
         python-version: ['3.9', '3.10', 'pypy-3.7', 'pypy-3.8']
@@ -66,23 +66,23 @@ jobs:
       - name: Running performance benchmark
         working-directory: ./ion-python-current
         env:
-          warmups: 150
-          iterations: 150
+          warmups: 1000
+          iterations: 1000
         run: |
           . venv/bin/activate
-          python amazon/ionbenchmark/ion_benchmark_cli.py read -w $warmups --iterations $iterations -o /home/runner/work/ion-python/ion-python/benchmarkResults/testStructs_read/new --io-type file --io-type buffer --format ion_text --format ion_binary --api load_dump /home/runner/work/ion-python/ion-python/testData/testStructs.10n
-          python amazon/ionbenchmark/ion_benchmark_cli.py read -w $warmups --iterations $iterations -o /home/runner/work/ion-python/ion-python/benchmarkResults/testLists_read/new --io-type file --io-type buffer --format ion_text --format ion_binary --api load_dump /home/runner/work/ion-python/ion-python/testData/testLists.10n
-          python amazon/ionbenchmark/ion_benchmark_cli.py read -w $warmups --iterations $iterations -o /home/runner/work/ion-python/ion-python/benchmarkResults/testSexps_read/new --io-type file --io-type buffer --format ion_text --format ion_binary --api load_dump /home/runner/work/ion-python/ion-python/testData/testSexps.10n
-          python amazon/ionbenchmark/ion_benchmark_cli.py read -w $warmups --iterations $iterations -o /home/runner/work/ion-python/ion-python/benchmarkResults/realWorldData01_read/new --io-type file --io-type buffer --format ion_text --format ion_binary --api load_dump /home/runner/work/ion-python/ion-python/testData/realWorldData01.10n
-          python amazon/ionbenchmark/ion_benchmark_cli.py read -w $warmups --iterations $iterations -o /home/runner/work/ion-python/ion-python/benchmarkResults/realWorldData02_read/new --io-type file --io-type buffer --format ion_text --format ion_binary --api load_dump /home/runner/work/ion-python/ion-python/testData/realWorldData02.10n
-          python amazon/ionbenchmark/ion_benchmark_cli.py read -w $warmups --iterations $iterations -o /home/runner/work/ion-python/ion-python/benchmarkResults/realWorldData03_read/new --io-type file --io-type buffer --format ion_text --format ion_binary --api load_dump /home/runner/work/ion-python/ion-python/testData/realWorldData03.10n
+          python amazon/ionbenchmark/ion_benchmark_cli.py read -w $warmups --iterations $iterations -o /Users/runner/work/ion-python/ion-python/benchmarkResults/testStructs_read/new --io-type file --io-type buffer --format ion_text --format ion_binary --api load_dump /Users/runner/work/ion-python/ion-python/testData/testStructs.10n
+          python amazon/ionbenchmark/ion_benchmark_cli.py read -w $warmups --iterations $iterations -o /Users/runner/work/ion-python/ion-python/benchmarkResults/testLists_read/new --io-type file --io-type buffer --format ion_text --format ion_binary --api load_dump /Users/runner/work/ion-python/ion-python/testData/testLists.10n
+          python amazon/ionbenchmark/ion_benchmark_cli.py read -w $warmups --iterations $iterations -o /Users/runner/work/ion-python/ion-python/benchmarkResults/testSexps_read/new --io-type file --io-type buffer --format ion_text --format ion_binary --api load_dump /Users/runner/work/ion-python/ion-python/testData/testSexps.10n
+          python amazon/ionbenchmark/ion_benchmark_cli.py read -w $warmups --iterations $iterations -o /Users/runner/work/ion-python/ion-python/benchmarkResults/realWorldData01_read/new --io-type file --io-type buffer --format ion_text --format ion_binary --api load_dump /Users/runner/work/ion-python/ion-python/testData/realWorldData01.10n
+          python amazon/ionbenchmark/ion_benchmark_cli.py read -w $warmups --iterations $iterations -o /Users/runner/work/ion-python/ion-python/benchmarkResults/realWorldData02_read/new --io-type file --io-type buffer --format ion_text --format ion_binary --api load_dump /Users/runner/work/ion-python/ion-python/testData/realWorldData02.10n
+          python amazon/ionbenchmark/ion_benchmark_cli.py read -w $warmups --iterations $iterations -o /Users/runner/work/ion-python/ion-python/benchmarkResults/realWorldData03_read/new --io-type file --io-type buffer --format ion_text --format ion_binary --api load_dump /Users/runner/work/ion-python/ion-python/testData/realWorldData03.10n
 
-          python amazon/ionbenchmark/ion_benchmark_cli.py write -w $warmups --iterations $iterations -o /home/runner/work/ion-python/ion-python/benchmarkResults/testStructs_write/new --io-type file --io-type buffer --format ion_text --format ion_binary --api load_dump /home/runner/work/ion-python/ion-python/testData/testStructs.10n
-          python amazon/ionbenchmark/ion_benchmark_cli.py write -w $warmups --iterations $iterations -o /home/runner/work/ion-python/ion-python/benchmarkResults/testLists_write/new --io-type file --io-type buffer --format ion_text --format ion_binary --api load_dump /home/runner/work/ion-python/ion-python/testData/testLists.10n
-          python amazon/ionbenchmark/ion_benchmark_cli.py write -w $warmups --iterations $iterations -o /home/runner/work/ion-python/ion-python/benchmarkResults/testSexps_write/new --io-type file --io-type buffer --format ion_text --format ion_binary --api load_dump /home/runner/work/ion-python/ion-python/testData/testSexps.10n
-          python amazon/ionbenchmark/ion_benchmark_cli.py write -w $warmups --iterations $iterations -o /home/runner/work/ion-python/ion-python/benchmarkResults/realWorldData01_write/new --io-type file --io-type buffer --format ion_text --format ion_binary --api load_dump /home/runner/work/ion-python/ion-python/testData/realWorldData01.10n
-          python amazon/ionbenchmark/ion_benchmark_cli.py write -w $warmups --iterations $iterations -o /home/runner/work/ion-python/ion-python/benchmarkResults/realWorldData02_write/new --io-type file --io-type buffer --format ion_text --format ion_binary --api load_dump /home/runner/work/ion-python/ion-python/testData/realWorldData02.10n
-          python amazon/ionbenchmark/ion_benchmark_cli.py write -w $warmups --iterations $iterations -o /home/runner/work/ion-python/ion-python/benchmarkResults/realWorldData03_write/new --io-type file --io-type buffer --format ion_text --format ion_binary --api load_dump /home/runner/work/ion-python/ion-python/testData/realWorldData03.10n
+          python amazon/ionbenchmark/ion_benchmark_cli.py write -w $warmups --iterations $iterations -o /Users/runner/work/ion-python/ion-python/benchmarkResults/testStructs_write/new --io-type file --io-type buffer --format ion_text --format ion_binary --api load_dump /Users/runner/work/ion-python/ion-python/testData/testStructs.10n
+          python amazon/ionbenchmark/ion_benchmark_cli.py write -w $warmups --iterations $iterations -o /Users/runner/work/ion-python/ion-python/benchmarkResults/testLists_write/new --io-type file --io-type buffer --format ion_text --format ion_binary --api load_dump /Users/runner/work/ion-python/ion-python/testData/testLists.10n
+          python amazon/ionbenchmark/ion_benchmark_cli.py write -w $warmups --iterations $iterations -o /Users/runner/work/ion-python/ion-python/benchmarkResults/testSexps_write/new --io-type file --io-type buffer --format ion_text --format ion_binary --api load_dump /Users/runner/work/ion-python/ion-python/testData/testSexps.10n
+          python amazon/ionbenchmark/ion_benchmark_cli.py write -w $warmups --iterations $iterations -o /Users/runner/work/ion-python/ion-python/benchmarkResults/realWorldData01_write/new --io-type file --io-type buffer --format ion_text --format ion_binary --api load_dump /Users/runner/work/ion-python/ion-python/testData/realWorldData01.10n
+          python amazon/ionbenchmark/ion_benchmark_cli.py write -w $warmups --iterations $iterations -o /Users/runner/work/ion-python/ion-python/benchmarkResults/realWorldData02_write/new --io-type file --io-type buffer --format ion_text --format ion_binary --api load_dump /Users/runner/work/ion-python/ion-python/testData/realWorldData02.10n
+          python amazon/ionbenchmark/ion_benchmark_cli.py write -w $warmups --iterations $iterations -o /Users/runner/work/ion-python/ion-python/benchmarkResults/realWorldData03_write/new --io-type file --io-type buffer --format ion_text --format ion_binary --api load_dump /Users/runner/work/ion-python/ion-python/testData/realWorldData03.10n
 
       # Generates performance results for the previous commit
       - name: Checkout the master branch of the Ion Python
@@ -101,23 +101,23 @@ jobs:
       - name: Running performance benchmark
         working-directory: ./ion-python-master
         env:
-          warmups: 150
-          iterations: 150
+          warmups: 1000
+          iterations: 1000
         run: |
           . venv/bin/activate
-          python amazon/ionbenchmark/ion_benchmark_cli.py read -w $warmups --iterations $iterations -o /home/runner/work/ion-python/ion-python/benchmarkResults/testStructs_read/previous --io-type file --io-type buffer --format ion_text --format ion_binary --api load_dump /home/runner/work/ion-python/ion-python/testData/testStructs.10n
-          python amazon/ionbenchmark/ion_benchmark_cli.py read -w $warmups --iterations $iterations -o /home/runner/work/ion-python/ion-python/benchmarkResults/testLists_read/previous --io-type file --io-type buffer --format ion_text --format ion_binary --api load_dump /home/runner/work/ion-python/ion-python/testData/testLists.10n
-          python amazon/ionbenchmark/ion_benchmark_cli.py read -w $warmups --iterations $iterations -o /home/runner/work/ion-python/ion-python/benchmarkResults/testSexps_read/previous --io-type file --io-type buffer --format ion_text --format ion_binary --api load_dump /home/runner/work/ion-python/ion-python/testData/testSexps.10n
-          python amazon/ionbenchmark/ion_benchmark_cli.py read -w $warmups --iterations $iterations -o /home/runner/work/ion-python/ion-python/benchmarkResults/realWorldData01_read/previous --io-type file --io-type buffer --format ion_text --format ion_binary --api load_dump /home/runner/work/ion-python/ion-python/testData/realWorldData01.10n
-          python amazon/ionbenchmark/ion_benchmark_cli.py read -w $warmups --iterations $iterations -o /home/runner/work/ion-python/ion-python/benchmarkResults/realWorldData02_read/previous --io-type file --io-type buffer --format ion_text --format ion_binary --api load_dump /home/runner/work/ion-python/ion-python/testData/realWorldData02.10n
-          python amazon/ionbenchmark/ion_benchmark_cli.py read -w $warmups --iterations $iterations -o /home/runner/work/ion-python/ion-python/benchmarkResults/realWorldData03_read/previous --io-type file --io-type buffer --format ion_text --format ion_binary --api load_dump /home/runner/work/ion-python/ion-python/testData/realWorldData03.10n
+          python amazon/ionbenchmark/ion_benchmark_cli.py read -w $warmups --iterations $iterations -o /Users/runner/work/ion-python/ion-python/benchmarkResults/testStructs_read/previous --io-type file --io-type buffer --format ion_text --format ion_binary --api load_dump /Users/runner/work/ion-python/ion-python/testData/testStructs.10n
+          python amazon/ionbenchmark/ion_benchmark_cli.py read -w $warmups --iterations $iterations -o /Users/runner/work/ion-python/ion-python/benchmarkResults/testLists_read/previous --io-type file --io-type buffer --format ion_text --format ion_binary --api load_dump /Users/runner/work/ion-python/ion-python/testData/testLists.10n
+          python amazon/ionbenchmark/ion_benchmark_cli.py read -w $warmups --iterations $iterations -o /Users/runner/work/ion-python/ion-python/benchmarkResults/testSexps_read/previous --io-type file --io-type buffer --format ion_text --format ion_binary --api load_dump /Users/runner/work/ion-python/ion-python/testData/testSexps.10n
+          python amazon/ionbenchmark/ion_benchmark_cli.py read -w $warmups --iterations $iterations -o /Users/runner/work/ion-python/ion-python/benchmarkResults/realWorldData01_read/previous --io-type file --io-type buffer --format ion_text --format ion_binary --api load_dump /Users/runner/work/ion-python/ion-python/testData/realWorldData01.10n
+          python amazon/ionbenchmark/ion_benchmark_cli.py read -w $warmups --iterations $iterations -o /Users/runner/work/ion-python/ion-python/benchmarkResults/realWorldData02_read/previous --io-type file --io-type buffer --format ion_text --format ion_binary --api load_dump /Users/runner/work/ion-python/ion-python/testData/realWorldData02.10n
+          python amazon/ionbenchmark/ion_benchmark_cli.py read -w $warmups --iterations $iterations -o /Users/runner/work/ion-python/ion-python/benchmarkResults/realWorldData03_read/previous --io-type file --io-type buffer --format ion_text --format ion_binary --api load_dump /Users/runner/work/ion-python/ion-python/testData/realWorldData03.10n
 
-          python amazon/ionbenchmark/ion_benchmark_cli.py write -w $warmups --iterations $iterations -o /home/runner/work/ion-python/ion-python/benchmarkResults/testStructs_write/previous --io-type file --io-type buffer --format ion_text --format ion_binary --api load_dump /home/runner/work/ion-python/ion-python/testData/testStructs.10n
-          python amazon/ionbenchmark/ion_benchmark_cli.py write -w $warmups --iterations $iterations -o /home/runner/work/ion-python/ion-python/benchmarkResults/testLists_write/previous --io-type file --io-type buffer --format ion_text --format ion_binary --api load_dump /home/runner/work/ion-python/ion-python/testData/testLists.10n
-          python amazon/ionbenchmark/ion_benchmark_cli.py write -w $warmups --iterations $iterations -o /home/runner/work/ion-python/ion-python/benchmarkResults/testSexps_write/previous --io-type file --io-type buffer --format ion_text --format ion_binary --api load_dump /home/runner/work/ion-python/ion-python/testData/testSexps.10n
-          python amazon/ionbenchmark/ion_benchmark_cli.py write -w $warmups --iterations $iterations -o /home/runner/work/ion-python/ion-python/benchmarkResults/realWorldData01_write/previous --io-type file --io-type buffer --format ion_text --format ion_binary --api load_dump /home/runner/work/ion-python/ion-python/testData/realWorldData01.10n
-          python amazon/ionbenchmark/ion_benchmark_cli.py write -w $warmups --iterations $iterations -o /home/runner/work/ion-python/ion-python/benchmarkResults/realWorldData02_write/previous --io-type file --io-type buffer --format ion_text --format ion_binary --api load_dump /home/runner/work/ion-python/ion-python/testData/realWorldData02.10n
-          python amazon/ionbenchmark/ion_benchmark_cli.py write -w $warmups --iterations $iterations -o /home/runner/work/ion-python/ion-python/benchmarkResults/realWorldData03_write/previous --io-type file --io-type buffer --format ion_text --format ion_binary --api load_dump /home/runner/work/ion-python/ion-python/testData/realWorldData03.10n
+          python amazon/ionbenchmark/ion_benchmark_cli.py write -w $warmups --iterations $iterations -o /Users/runner/work/ion-python/ion-python/benchmarkResults/testStructs_write/previous --io-type file --io-type buffer --format ion_text --format ion_binary --api load_dump /Users/runner/work/ion-python/ion-python/testData/testStructs.10n
+          python amazon/ionbenchmark/ion_benchmark_cli.py write -w $warmups --iterations $iterations -o /Users/runner/work/ion-python/ion-python/benchmarkResults/testLists_write/previous --io-type file --io-type buffer --format ion_text --format ion_binary --api load_dump /Users/runner/work/ion-python/ion-python/testData/testLists.10n
+          python amazon/ionbenchmark/ion_benchmark_cli.py write -w $warmups --iterations $iterations -o /Users/runner/work/ion-python/ion-python/benchmarkResults/testSexps_write/previous --io-type file --io-type buffer --format ion_text --format ion_binary --api load_dump /Users/runner/work/ion-python/ion-python/testData/testSexps.10n
+          python amazon/ionbenchmark/ion_benchmark_cli.py write -w $warmups --iterations $iterations -o /Users/runner/work/ion-python/ion-python/benchmarkResults/realWorldData01_write/previous --io-type file --io-type buffer --format ion_text --format ion_binary --api load_dump /Users/runner/work/ion-python/ion-python/testData/realWorldData01.10n
+          python amazon/ionbenchmark/ion_benchmark_cli.py write -w $warmups --iterations $iterations -o /Users/runner/work/ion-python/ion-python/benchmarkResults/realWorldData02_write/previous --io-type file --io-type buffer --format ion_text --format ion_binary --api load_dump /Users/runner/work/ion-python/ion-python/testData/realWorldData02.10n
+          python amazon/ionbenchmark/ion_benchmark_cli.py write -w $warmups --iterations $iterations -o /Users/runner/work/ion-python/ion-python/benchmarkResults/realWorldData03_write/previous --io-type file --io-type buffer --format ion_text --format ion_binary --api load_dump /Users/runner/work/ion-python/ion-python/testData/realWorldData03.10n
 
       # Upload resource, results and report
       - name: Upload new benchmark results directory to artifacts
@@ -136,9 +136,9 @@ jobs:
       - name: Detect performance regression
         id: regression_result
         run: |
-          . /home/runner/work/ion-python/ion-python/ion-python-current/venv/bin/activate
+          . /Users/runner/work/ion-python/ion-python/ion-python-current/venv/bin/activate
           result=true
-          cd benchmarkResults && for FILE in *; do message=$(python /home/runner/work/ion-python/ion-python/ion-python-current/amazon/ionbenchmark/ion_benchmark_cli.py compare --benchmark-result-previous $FILE/previous --benchmark-result-new $FILE/new $FILE/report | tee /dev/stderr) && if [ "$message" != "no regression detected" ]; then result=false; fi; done
+          cd benchmarkResults && for FILE in *; do message=$(python /Users/runner/work/ion-python/ion-python/ion-python-current/amazon/ionbenchmark/ion_benchmark_cli.py compare --benchmark-result-previous $FILE/previous --benchmark-result-new $FILE/new $FILE/report | tee /dev/stderr) && if [ "$message" != "no regression detected" ]; then result=false; fi; done
           echo "::set-output name=regression-result::$result"
           if [ "$result" = "true" ]; then echo "No regression detected!" >> $GITHUB_STEP_SUMMARY; fi
 
@@ -153,6 +153,6 @@ jobs:
           regression_detect: ${{steps.regression_result.outputs.regression-result}}
         if: ${{ env.regression_detect == 'false' }}
         run: |
-          . /home/runner/work/ion-python/ion-python/ion-python-current/venv/bin/activate
-          cd benchmarkResults && echo "**Below files are detected performance regression, please download the benchmark result(s) to see detail:**" >> $GITHUB_STEP_SUMMARY && for FILE in *; do regressionDetection=$(python /home/runner/work/ion-python/ion-python/ion-python-current/amazon/ionbenchmark/ion_benchmark_cli.py compare --benchmark-result-previous $FILE/previous --benchmark-result-new $FILE/new $FILE/report | tee /dev/stderr) && if [ "$regressionDetection" != "no regression detected" ]; then echo "$FILE" >> $GITHUB_STEP_SUMMARY; fi; done
+          . /Users/runner/work/ion-python/ion-python/ion-python-current/venv/bin/activate
+          cd benchmarkResults && echo "**Below files are detected performance regression, please download the benchmark result(s) to see detail:**" >> $GITHUB_STEP_SUMMARY && for FILE in *; do regressionDetection=$(python /Users/runner/work/ion-python/ion-python/ion-python-current/amazon/ionbenchmark/ion_benchmark_cli.py compare --benchmark-result-previous $FILE/previous --benchmark-result-new $FILE/new $FILE/report | tee /dev/stderr) && if [ "$regressionDetection" != "no regression detected" ]; then echo "$FILE" >> $GITHUB_STEP_SUMMARY; fi; done
           exit 1
