@@ -101,7 +101,7 @@ jobs:
       - name: Running performance benchmark
         working-directory: ./ion-python-master
         env:
-          warmups: 1000
+          warmups: 1000a
           iterations: 1000
         run: |
           . venv/bin/activate

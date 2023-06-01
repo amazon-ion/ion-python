@@ -687,7 +687,7 @@ def ion_python_benchmark_cli(arguments):
     # option_configuration is used for tracking options may show up multiple times.
     option_configuration = [api, format_option, io_type]
     option_configuration_combination = list(itertools.product(*option_configuration))
-
+    option_configuration_combination.sort()
     # initialize benchmark report table
     table = identify_report_table(command)
 
