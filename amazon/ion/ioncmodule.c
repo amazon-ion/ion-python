@@ -1542,6 +1542,7 @@ static struct PyModuleDef moduledef = {
     NULL,               /* m_free */
 };
 
+
 PyObject* ionc_init_module(void) {
     PyDateTime_IMPORT;
     PyObject* m;
