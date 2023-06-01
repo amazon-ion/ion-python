@@ -23,11 +23,12 @@ def format_is_binary(format_option):
 
 
 def rewrite_file_to_format(file, format_option):
-    with open(file, 'br') as fp:
-        obj = simpleion.load(fp, single_value=False)
-    if os.path.exists(temp_file):
-        os.remove(temp_file)
     if format_is_ion(format_option):
+        with open(file, 'br') as fp:
+            obj = simpleion.load(fp, single_value=False)
+        if os.path.exists(temp_file):
+            os.remove(temp_file)
+
         with open(temp_file, 'bw') as fp:
             if format_option == Format.ION_BINARY.value:
                 simpleion.dump(obj, fp, binary=True)

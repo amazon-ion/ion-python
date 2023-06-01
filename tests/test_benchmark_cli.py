@@ -302,9 +302,9 @@ def test_write_io_type(f):
 )
 def test_read_io_type(f):
     table = execution_with_command(
-        ['read', generate_test_path('integers.ion'), '--io-type', f'{f}', '--format', 'json', '--format', 'ion_binary'])
+        ['read', generate_test_path('integers.ion'), '--io-type', f'{f}', '--format', 'ion_text', '--format', 'ion_binary'])
     assert gather_all_options_in_list(table) == sorted(
-        [('load_dump', 'json', f'{f}'), ('load_dump', 'ion_binary', f'{f}')])
+        [('load_dump', 'ion_text', f'{f}'), ('load_dump', 'ion_binary', f'{f}')])
 
 
 @parametrize(
