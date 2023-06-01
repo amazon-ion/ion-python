@@ -134,6 +134,7 @@ static int offset_seconds(PyObject* timedelta) {
     return seconds;
 }
 
+
 /*
  *  Returns the ion type of an object as an int
  *
