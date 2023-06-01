@@ -22,7 +22,6 @@
 #define ANNOTATION_MAX_LEN 50
 
 #define IONC_STREAM_READ_BUFFER_SIZE 1024*32
-#define IONC_STREAM_BYTES_READ_SIZE PyLong_FromLong(IONC_STREAM_READ_BUFFER_SIZE/4)
 
 static char _err_msg[ERR_MSG_MAX_LEN];
 
@@ -31,6 +30,7 @@ static char _err_msg[ERR_MSG_MAX_LEN];
 #define IONC_BYTES_FORMAT "y#"
 #define IONC_READ_ARGS_FORMAT "OOO"
 
+static PyObject* IONC_STREAM_BYTES_READ_SIZE;
 static PyObject* _math_module;
 
 static PyObject* _decimal_module;
@@ -319,7 +319,6 @@ static iERR ionc_write_symboltoken(hWRITER writer, PyObject* symboltoken, BOOL i
     IONCHECK(err);
     iRETURN;
 }
-
 
 /*
  *  Writes annotations
@@ -1549,6 +1548,7 @@ PyObject* ionc_init_module(void) {
 
     m = PyModule_Create(&moduledef);
 
+    IONC_STREAM_BYTES_READ_SIZE = PyLong_FromLong(IONC_STREAM_READ_BUFFER_SIZE/4);
     // TODO is there a destructor for modules? These should be decreffed there
      _math_module               = PyImport_ImportModule("math");
 
