@@ -96,7 +96,7 @@ from tabulate import tabulate
 from amazon.ionbenchmark.API import API
 from amazon.ionbenchmark.Command import Command
 from amazon.ionbenchmark.Format import Format, format_is_ion, format_is_json, format_is_cbor, rewrite_file_to_format, \
-    format_is_binary
+    format_is_binary, temp_file
 from amazon.ionbenchmark.util import str_to_bool, format_decimal, TOOL_VERSION
 from amazon.ionbenchmark.Io_type import Io_type
 
@@ -592,6 +592,8 @@ def generate_json_and_cbor_obj_for_write(file, format_option, binary):
 def clean_up():
     if os.path.exists(output_file_for_benchmarking):
         os.remove(output_file_for_benchmarking)
+    if os.path.exists(temp_file):
+        os.remove(temp_file)
 
 
 def output_result_table(results_output, table):
@@ -699,7 +701,8 @@ def ion_python_benchmark_cli(arguments):
         # TODO. currently, we must provide the tool to convert to a corresponding file format for read benchmarking.
         #  For example, we must provide a CBOR file for CBOR APIs benchmarking. We cannot benchmark CBOR APIs by giving
         #  a JSON file. Lack of format conversion prevents us from benchmarking different formats concurrently.
-        file = rewrite_file_to_format(file, format_option)
+        if command == Command.READ.value:
+            file = rewrite_file_to_format(file, format_option)
 
         # Generate microbenchmark API according to read/write command
         if format_is_ion(format_option):

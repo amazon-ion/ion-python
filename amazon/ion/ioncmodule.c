@@ -320,6 +320,7 @@ static iERR ionc_write_symboltoken(hWRITER writer, PyObject* symboltoken, BOOL i
     iRETURN;
 }
 
+
 /*
  *  Writes annotations
  *
