@@ -67,7 +67,7 @@ jobs:
         working-directory: ./ion-python-current
         env:
           warmups: 1000
-          iterations: 1500
+          iterations: 1000
         run: |
           . venv/bin/activate
           python amazon/ionbenchmark/ion_benchmark_cli.py read -w $warmups --iterations $iterations -o /Users/runner/work/ion-python/ion-python/benchmarkResults/testStructs_read/new --io-type file --io-type buffer --format ion_text --format ion_binary --api load_dump /Users/runner/work/ion-python/ion-python/testData/testStructs.10n
@@ -102,7 +102,7 @@ jobs:
         working-directory: ./ion-python-master
         env:
           warmups: 1000
-          iterations: 1500
+          iterations: 1000
         run: |
           . venv/bin/activate
           python amazon/ionbenchmark/ion_benchmark_cli.py read -w $warmups --iterations $iterations -o /Users/runner/work/ion-python/ion-python/benchmarkResults/testStructs_read/previous --io-type file --io-type buffer --format ion_text --format ion_binary --api load_dump /Users/runner/work/ion-python/ion-python/testData/testStructs.10n

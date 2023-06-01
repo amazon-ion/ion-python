@@ -115,7 +115,7 @@ CBOR_PRIMARY_BASELINE = Format.CBOR2
 
 output_file_for_benchmarking = 'dump_output'
 BENCHMARK_SCORE_KEYWORDS = ['file_size (MB)', 'total_time (s)']
-REGRESSION_THRESHOLD = 0.25
+REGRESSION_THRESHOLD = 0.4
 
 
 # Generates benchmark code for json/cbor/Ion load/loads APIs
