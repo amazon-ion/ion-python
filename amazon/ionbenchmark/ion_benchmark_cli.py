@@ -701,8 +701,7 @@ def ion_python_benchmark_cli(arguments):
         # TODO. currently, we must provide the tool to convert to a corresponding file format for read benchmarking.
         #  For example, we must provide a CBOR file for CBOR APIs benchmarking. We cannot benchmark CBOR APIs by giving
         #  a JSON file. Lack of format conversion prevents us from benchmarking different formats concurrently.
-        if command == Command.READ.value:
-            file = rewrite_file_to_format(file, format_option)
+        file = rewrite_file_to_format(file, format_option)
 
         # Generate microbenchmark API according to read/write command
         if format_is_ion(format_option):
