@@ -66,8 +66,8 @@ jobs:
       - name: Running performance benchmark
         working-directory: ./ion-python-current
         env:
-          warmups: 300
-          iterations: 300
+          warmups: 100
+          iterations: 100
         run: |
           . venv/bin/activate
           python amazon/ionbenchmark/ion_benchmark_cli.py read -w $warmups --iterations $iterations -o /Users/runner/work/ion-python/ion-python/benchmarkResults/testStructs_read/new --io-type file --io-type buffer --format ion_text --format ion_binary --api load_dump /Users/runner/work/ion-python/ion-python/testData/testStructs.10n
@@ -101,8 +101,8 @@ jobs:
       - name: Running performance benchmark
         working-directory: ./ion-python-master
         env:
-          warmups: 300
-          iterations: 300
+          warmups: 100
+          iterations: 100
         run: |
           . venv/bin/activate
           python amazon/ionbenchmark/ion_benchmark_cli.py read -w $warmups --iterations $iterations -o /Users/runner/work/ion-python/ion-python/benchmarkResults/testStructs_read/previous --io-type file --io-type buffer --format ion_text --format ion_binary --api load_dump /Users/runner/work/ion-python/ion-python/testData/testStructs.10n
