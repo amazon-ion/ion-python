@@ -15,7 +15,7 @@ jobs:
     runs-on: macos-latest # ubuntu-latest
     strategy:
       matrix:
-        python-version: ['3.9', '3.10', 'pypy-3.7', 'pypy-3.8']
+        python-version: ['3.9'] # ['3.9', '3.10', 'pypy-3.7', 'pypy-3.8']
     steps:
       - name: Set up Python
         uses: actions/setup-python@v2
@@ -63,8 +63,10 @@ jobs:
           pip install -r requirements.txt
           pip install -e .
 
+
+
       - name: Running performance benchmark
-        working-directory: ./ion-python-master
+        working-directory: ./ion-python-current
         env:
           warmups: 800
           iterations: 800
