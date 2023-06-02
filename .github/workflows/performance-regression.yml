@@ -49,6 +49,20 @@ jobs:
           name: test Ion Data
           path: testData
 
+      # Generates performance results for the current commit
+      - name: Checkout the current commit of the Ion Python
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: ion-python-current
+
+      - name: Create a virtual environment and setup the package
+        working-directory: ./ion-python-current
+        run: |
+          git submodule init && git submodule update && python3 -m venv ./venv && . venv/bin/activate
+          pip install -r requirements.txt
+          pip install -e .
+
       - name: Running performance benchmark
         working-directory: ./ion-python-master
         env:
@@ -64,19 +78,7 @@ jobs:
           name: Benchmark result
           path: benchmarkResults
 
-#      # Generates performance results for the current commit
-#      - name: Checkout the current commit of the Ion Python
-#        uses: actions/checkout@v3
-#        with:
-#          ref: ${{ github.event.pull_request.head.sha }}
-#          path: ion-python-current
-#
-#      - name: Create a virtual environment and setup the package
-#        working-directory: ./ion-python-current
-#        run: |
-#          git submodule init && git submodule update && python3 -m venv ./venv && . venv/bin/activate
-#          pip install -r requirements.txt
-#          pip install -e .
+
 #
 #      - name: Running performance benchmark
 #        working-directory: ./ion-python-current
