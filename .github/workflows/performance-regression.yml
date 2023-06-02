@@ -72,16 +72,9 @@ jobs:
           iterations: 800
         run: |
           . venv/bin/activate
-          python amazon/ionbenchmark/ion_benchmark_cli.py read -w $warmups --iterations $iterations -o /Users/runner/work/ion-python/ion-python/benchmarkResults/testStructs_read/previous --io-type file --io-type buffer --format ion_text --format ion_binary --api load_dump /Users/runner/work/ion-python/ion-python/testData/realWorldData01.10n
-
-      - name: Upload comparison reports to the benchmark results directory
-        uses: actions/upload-artifact@v2
-        with:
-          name: Benchmark result
-          path: benchmarkResults
+          python amazon/ionbenchmark/ion_benchmark_cli.py read -w $warmups --iterations $iterations --io-type file --io-type buffer --format ion_text --format ion_binary --api load_dump /Users/runner/work/ion-python/ion-python/testData/realWorldData01.10n
 
 
-#
 #      - name: Running performance benchmark
 #        working-directory: ./ion-python-current
 #        env:
