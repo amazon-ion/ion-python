@@ -22,7 +22,7 @@ def format_is_binary(format_option):
 
 
 def rewrite_file_to_format(file, format_option):
-    temp_file_name = 'temp_' + file
+    temp_file_name = 'temp_' + os.path.splitext(os.path.basename(file))[0]
     if format_is_ion(format_option):
         # Load data
         with open(file, 'br') as fp:
