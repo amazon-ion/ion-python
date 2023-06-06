@@ -12,10 +12,10 @@ jobs:
     name: Detect Regression
     needs: PR-Content-Check
     if: ${{ needs.PR-Content-Check.outputs.result == 'pass' }}
-    runs-on: macos-latest # ubuntu-latest
+    runs-on: macos-latest
     strategy:
       matrix:
-        python-version: ['3.9'] # ['3.9', '3.10', 'pypy-3.7', 'pypy-3.8']
+        python-version: ['3.9', '3.10', 'pypy-3.7', 'pypy-3.8']
     steps:
       - name: Set up Python
         uses: actions/setup-python@v2
@@ -88,7 +88,7 @@ jobs:
       - name: Checkout the master branch of the Ion Python
         uses: actions/checkout@v3
         with:
-          ref: ${{ github.event.pull_request.head.sha }} # TODO master
+          ref: ${{ github.event.pull_request.head.sha }} # TODO change back to master after
           path: ion-python-master
 
       - name: Create a virtual environment

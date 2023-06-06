@@ -96,7 +96,7 @@ from tabulate import tabulate
 from amazon.ionbenchmark.API import API
 from amazon.ionbenchmark.Command import Command
 from amazon.ionbenchmark.Format import Format, format_is_ion, format_is_json, format_is_cbor, rewrite_file_to_format, \
-    format_is_binary, temp_file
+    format_is_binary
 from amazon.ionbenchmark.util import str_to_bool, format_decimal, TOOL_VERSION
 from amazon.ionbenchmark.Io_type import Io_type
 
@@ -589,7 +589,7 @@ def generate_json_and_cbor_obj_for_write(file, format_option, binary):
             raise Exception('unknown JSON format to generate setup code.')
 
 
-def clean_up():
+def clean_up(temp_file):
     if os.path.exists(output_file_for_benchmarking):
         os.remove(output_file_for_benchmarking)
     if os.path.exists(temp_file):
@@ -701,7 +701,7 @@ def ion_python_benchmark_cli(arguments):
         # TODO. currently, we must provide the tool to convert to a corresponding file format for read benchmarking.
         #  For example, we must provide a CBOR file for CBOR APIs benchmarking. We cannot benchmark CBOR APIs by giving
         #  a JSON file. Lack of format conversion prevents us from benchmarking different formats concurrently.
-        file = rewrite_file_to_format(file, format_option)
+        temp_file = rewrite_file_to_format(file, format_option)
 
         # Generate microbenchmark API according to read/write command
         if format_is_ion(format_option):
@@ -721,16 +721,16 @@ def ion_python_benchmark_cli(arguments):
             raise Exception(f'Invalid format option {format_option}.')
 
         if command == 'read':
-            read_micro_benchmark_and_profiling(table, micro_benchmark_function, iterations, warmups, file,
+            read_micro_benchmark_and_profiling(table, micro_benchmark_function, iterations, warmups, temp_file,
                                                c_extension, binary, iterator, each_option, io_type, command=command)
         else:
-            write_micro_benchmark_and_profiling(table, micro_benchmark_function, iterations, warmups, file,
+            write_micro_benchmark_and_profiling(table, micro_benchmark_function, iterations, warmups, temp_file,
                                                 c_extension, binary, each_option, io_type, command=command)
 
     # If the `--results-file` is set, write the final results table to the destination file in Ion. Otherwise, print the
     # results in stdout.
     output_result_table(results_output, table)
-    clean_up()
+    clean_up(temp_file)
 
     return table
 

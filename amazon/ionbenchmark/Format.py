@@ -1,8 +1,7 @@
+import shutil
 from enum import Enum
 import amazon.ion.simpleion as simpleion
 import os
-
-temp_file = 'temp_file'
 
 
 def format_is_ion(format_option):
@@ -23,19 +22,25 @@ def format_is_binary(format_option):
 
 
 def rewrite_file_to_format(file, format_option):
+    temp_file_name = 'temp_' + file
     if format_is_ion(format_option):
+        # Load data
         with open(file, 'br') as fp:
             obj = simpleion.load(fp, single_value=False)
-        if os.path.exists(temp_file):
-            os.remove(temp_file)
-
-        with open(temp_file, 'bw') as fp:
+        # Check file path
+        if os.path.exists(temp_file_name):
+            os.remove(temp_file_name)
+        # Write data in the correct format
+        with open(temp_file_name, 'bw') as fp:
             if format_option == Format.ION_BINARY.value:
                 simpleion.dump(obj, fp, binary=True)
             elif format_option == Format.ION_TEXT.value:
                 simpleion.dump(obj, fp, binary=False)
-        file = temp_file
-    return file
+    else:
+        # Copy the file
+        shutil.copy(file, temp_file_name)
+
+    return temp_file_name
 
 
 class Format(Enum):
