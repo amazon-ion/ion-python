@@ -1519,7 +1519,6 @@ fail:
 *       Initial module                                                        *
 ******************************************************************************/
 
-
 static char ioncmodule_docs[] =
     "C extension module for ion-c.\n";
 
