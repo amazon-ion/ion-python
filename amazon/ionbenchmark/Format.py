@@ -4,6 +4,20 @@ import amazon.ion.simpleion as simpleion
 import os
 
 
+def file_is_ion_binary(file):
+    if os.path.splitext(file)[1] == '.10n':
+        return True
+    else:
+        return False
+
+
+def file_is_ion_text(file):
+    if os.path.splitext(file)[1] == '.ion':
+        return True
+    else:
+        return False
+
+
 def format_is_ion(format_option):
     return (format_option == Format.ION_BINARY.value) or (format_option == Format.ION_TEXT.value)
 
@@ -22,20 +36,34 @@ def format_is_binary(format_option):
 
 
 def rewrite_file_to_format(file, format_option):
-    temp_file_name = 'temp_' + os.path.splitext(os.path.basename(file))[0]
+    temp_file_name_base = 'temp_' + os.path.splitext(os.path.basename(file))[0]
+    if format_option == Format.ION_BINARY.value:
+        temp_file_name_suffix = '.10n'
+    elif format_option == Format.ION_TEXT.value:
+        temp_file_name_suffix = '.ion'
+    else:
+        temp_file_name_suffix = ''
+    temp_file_name = temp_file_name_base + temp_file_name_suffix
+    # Check the file path
+    if os.path.exists(temp_file_name):
+        os.remove(temp_file_name)
+
     if format_is_ion(format_option):
-        # Load data
-        with open(file, 'br') as fp:
-            obj = simpleion.load(fp, single_value=False)
-        # Check file path
-        if os.path.exists(temp_file_name):
-            os.remove(temp_file_name)
-        # Write data in the correct format
-        with open(temp_file_name, 'bw') as fp:
-            if format_option == Format.ION_BINARY.value:
+        # Write data if a conversion is required
+        if format_option == Format.ION_BINARY.value and file_is_ion_text(file):
+            # Load data
+            with open(file, 'br') as fp:
+                obj = simpleion.load(fp, single_value=False)
+            with open(temp_file_name, 'bw') as fp:
                 simpleion.dump(obj, fp, binary=True)
-            elif format_option == Format.ION_TEXT.value:
+        elif format_option == Format.ION_TEXT.value and file_is_ion_binary(file):
+            # Load data
+            with open(file, 'br') as fp:
+                obj = simpleion.load(fp, single_value=False)
+            with open(temp_file_name, 'bw') as fp:
                 simpleion.dump(obj, fp, binary=False)
+        else:
+            shutil.copy(file, temp_file_name)
     else:
         # Copy the file
         shutil.copy(file, temp_file_name)

@@ -589,9 +589,12 @@ def generate_json_and_cbor_obj_for_write(file, format_option, binary):
             raise Exception('unknown JSON format to generate setup code.')
 
 
-def clean_up(temp_file):
+def clean_up():
     if os.path.exists(output_file_for_benchmarking):
         os.remove(output_file_for_benchmarking)
+
+
+def clean_up_temp_file(temp_file):
     if os.path.exists(temp_file):
         os.remove(temp_file)
 
@@ -727,10 +730,11 @@ def ion_python_benchmark_cli(arguments):
             write_micro_benchmark_and_profiling(table, micro_benchmark_function, iterations, warmups, temp_file,
                                                 c_extension, binary, each_option, io_type, command=command)
 
+        # clean_up_temp_file(clean_up_temp_file)
     # If the `--results-file` is set, write the final results table to the destination file in Ion. Otherwise, print the
     # results in stdout.
     output_result_table(results_output, table)
-    clean_up(temp_file)
+    clean_up()
 
     return table
 
