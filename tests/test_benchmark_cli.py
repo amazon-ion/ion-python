@@ -420,8 +420,8 @@ def test_compare_big_gap_with_regression():
 def test_format_conversion_ion_binary_to_ion_text():
     rewrite_file_to_format(generate_test_path('integers.ion'), Format.Format.ION_BINARY.value)
     assert os.path.exists('temp_integers.10n')
-    # if os.path.exists('temp_integers.10n'):
-    #     os.remove('temp_integers.10n')
+    if os.path.exists('temp_integers.10n'):
+        os.remove('temp_integers.10n')
 
 
 def test_format_conversion_ion_text_to_ion_binary():
