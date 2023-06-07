@@ -730,7 +730,7 @@ def ion_python_benchmark_cli(arguments):
             write_micro_benchmark_and_profiling(table, micro_benchmark_function, iterations, warmups, temp_file,
                                                 c_extension, binary, each_option, io_type, command=command)
 
-        # clean_up_temp_file(clean_up_temp_file)
+        clean_up_temp_file(temp_file)
     # If the `--results-file` is set, write the final results table to the destination file in Ion. Otherwise, print the
     # results in stdout.
     output_result_table(results_output, table)

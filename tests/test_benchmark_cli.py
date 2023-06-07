@@ -10,7 +10,7 @@ from docopt import docopt
 from amazon.ion import simpleion
 from amazon.ion.equivalence import ion_equals
 from amazon.ionbenchmark import ion_benchmark_cli, Format, Io_type
-from amazon.ionbenchmark.Format import format_is_ion, format_is_cbor, format_is_json
+from amazon.ionbenchmark.Format import format_is_ion, format_is_cbor, format_is_json, rewrite_file_to_format
 from amazon.ionbenchmark.ion_benchmark_cli import generate_read_test_code, \
     generate_write_test_code, ion_python_benchmark_cli, output_result_table, REGRESSION_THRESHOLD
 from amazon.ionbenchmark.util import str_to_bool, TOOL_VERSION
@@ -415,3 +415,17 @@ def test_compare_big_gap_with_regression():
         os.remove(generate_test_path('compare_output'))
     assert res[0].get('relative_difference_score').get('total_time (s)') > REGRESSION_THRESHOLD
     assert reg_f == 'integers.ion'
+
+
+def test_format_conversion_ion_binary_to_ion_text():
+    rewrite_file_to_format(generate_test_path('integers.ion'), Format.Format.ION_BINARY.value)
+    assert os.path.exists('temp_integers.10n')
+    # if os.path.exists('temp_integers.10n'):
+    #     os.remove('temp_integers.10n')
+
+
+def test_format_conversion_ion_text_to_ion_binary():
+    rewrite_file_to_format(generate_test_path('integers.10n'), Format.Format.ION_TEXT.value)
+    assert os.path.exists('temp_integers.ion')
+    if os.path.exists('temp_integers.ion'):
+        os.remove('temp_integers.ion')
