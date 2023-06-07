@@ -50,18 +50,16 @@ def rewrite_file_to_format(file, format_option):
 
     if format_is_ion(format_option):
         # Write data if a conversion is required
-        if format_option == Format.ION_BINARY.value and file_is_ion_text(file):
+        if (format_option == Format.ION_BINARY.value and file_is_ion_text(file)) \
+                or (format_option == Format.ION_TEXT.value and file_is_ion_binary(file)):
             # Load data
             with open(file, 'br') as fp:
                 obj = simpleion.load(fp, single_value=False)
             with open(temp_file_name, 'bw') as fp:
-                simpleion.dump(obj, fp, binary=True)
-        elif format_option == Format.ION_TEXT.value and file_is_ion_binary(file):
-            # Load data
-            with open(file, 'br') as fp:
-                obj = simpleion.load(fp, single_value=False)
-            with open(temp_file_name, 'bw') as fp:
-                simpleion.dump(obj, fp, binary=False)
+                if format_option == Format.ION_BINARY.value:
+                    simpleion.dump(obj, fp, binary=True)
+                else:
+                    simpleion.dump(obj, fp, binary=False)
         else:
             shutil.copy(file, temp_file_name)
     else:
