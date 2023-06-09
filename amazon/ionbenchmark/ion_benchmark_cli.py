@@ -14,8 +14,8 @@
 """A repeatable benchmark tool for ion-python implementation.
 
 Usage:
-    ion_python_benchmark_cli.py write [--results-file <path>] [--api <api>]... [--warmups <int>] [--c-extension <bool>] [--iterations <int>] [--format <format>]... [--io-type <io_type>]... <input_file>
-    ion_python_benchmark_cli.py read [--results-file <path>] [--api <api>]... [--iterator <bool>] [--warmups <int>] [--iterations <int>] [--c-extension <bool>] [--format <format>]... [--io-type <io_type>]... <input_file>
+    ion_python_benchmark_cli.py write [--results-file <path>] [--api <api>]... [--c-extension <bool>] [--warmups <int>] [--iterations <int>] [--format <format>]... [--io-type <io_type>]... <input_file>
+    ion_python_benchmark_cli.py read [--results-file <path>] [--api <api>]... [--iterator <bool>]  [--c-extension <bool>] [--warmups <int>] [--iterations <int>] [--format <format>]... [--io-type <io_type>]... <input_file>
     ion_python_benchmark_cli.py compare (--benchmark-result-previous <file_path>) (--benchmark-result-new <file_path>) <output_file>
     ion_python_benchmark_cli.py (-h | --help)
     ion_python_benchmark_cli.py (-v | --version)
@@ -61,7 +61,7 @@ Options:
                                         error will be raised if this option is used when multiple values are specified
                                         for other options. Not enabled by default.
 
-     -i --io-type <io_type>             The source or destination type, from the set (buffer | file). If buffer is
+     -I --io-type <io_type>             The source or destination type, from the set (buffer | file). If buffer is
                                         selected, buffers the input data in memory before reading and writes the output
                                         data to an in-memory buffer instead of a file. [default: file]
 
@@ -115,7 +115,7 @@ CBOR_PRIMARY_BASELINE = Format.CBOR2
 
 output_file_for_benchmarking = 'dump_output'
 BENCHMARK_SCORE_KEYWORDS = ['file_size (MB)', 'total_time (s)']
-REGRESSION_THRESHOLD = 1
+REGRESSION_THRESHOLD = 0.2
 
 
 # Generates benchmark code for json/cbor/Ion load/loads APIs
@@ -594,6 +594,11 @@ def clean_up():
         os.remove(output_file_for_benchmarking)
 
 
+def clean_up_temp_file(temp_file):
+    if os.path.exists(temp_file):
+        os.remove(temp_file)
+
+
 def output_result_table(results_output, table):
     if results_output is None:
         print(tabulate(table, tablefmt='fancy_grid'))
@@ -650,7 +655,6 @@ def has_regression(results):
         relative_difference_score = each_result['relative_difference_score']
         for field in relative_difference_score:
             value_diff = relative_difference_score[field]
-            # TODO simply set the threshold to 1. Need optimization.
             if value_diff > REGRESSION_THRESHOLD:
                 return each_result['input']
     return None
@@ -688,7 +692,7 @@ def ion_python_benchmark_cli(arguments):
     # option_configuration is used for tracking options may show up multiple times.
     option_configuration = [api, format_option, io_type]
     option_configuration_combination = list(itertools.product(*option_configuration))
-
+    option_configuration_combination.sort()
     # initialize benchmark report table
     table = identify_report_table(command)
 
@@ -700,7 +704,7 @@ def ion_python_benchmark_cli(arguments):
         # TODO. currently, we must provide the tool to convert to a corresponding file format for read benchmarking.
         #  For example, we must provide a CBOR file for CBOR APIs benchmarking. We cannot benchmark CBOR APIs by giving
         #  a JSON file. Lack of format conversion prevents us from benchmarking different formats concurrently.
-        file = rewrite_file_to_format(file, format_option)
+        temp_file = rewrite_file_to_format(file, format_option)
 
         # Generate microbenchmark API according to read/write command
         if format_is_ion(format_option):
@@ -720,12 +724,13 @@ def ion_python_benchmark_cli(arguments):
             raise Exception(f'Invalid format option {format_option}.')
 
         if command == 'read':
-            read_micro_benchmark_and_profiling(table, micro_benchmark_function, iterations, warmups, file,
+            read_micro_benchmark_and_profiling(table, micro_benchmark_function, iterations, warmups, temp_file,
                                                c_extension, binary, iterator, each_option, io_type, command=command)
         else:
-            write_micro_benchmark_and_profiling(table, micro_benchmark_function, iterations, warmups, file,
+            write_micro_benchmark_and_profiling(table, micro_benchmark_function, iterations, warmups, temp_file,
                                                 c_extension, binary, each_option, io_type, command=command)
 
+        clean_up_temp_file(temp_file)
     # If the `--results-file` is set, write the final results table to the destination file in Ion. Otherwise, print the
     # results in stdout.
     output_result_table(results_output, table)
