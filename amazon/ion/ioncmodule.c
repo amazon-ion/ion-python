@@ -124,7 +124,6 @@ static int int_attr_by_name(PyObject* obj, char* attr_name) {
     return c_int;
 }
 
-
 // an Alternative to calculate timedelta, see https://github.com/amazon-ion/ion-python/issues/225
 static int offset_seconds(PyObject* timedelta) {
     PyObject* py_seconds = PyObject_CallMethod(timedelta, "total_seconds", NULL);
