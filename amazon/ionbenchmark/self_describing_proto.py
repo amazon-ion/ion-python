@@ -20,25 +20,20 @@ class SelfDescribingProtoSerde:
 
     To create a self-describing protocol buffer, see proto_tools.py.
 
-    The generated Protobuf Python code APIs are designed so that you can reuse the same generated protobuf object in a
-    single thread. However, caching the type info, and reusing inner objects is default false because if you know that
-    you're always using the same file descriptor set, then there isn't as compelling a case for using self-describing
-    messages in the first place.
-
     This class makes no guarantees of thread-safety because each instance of this class has its own single instance of
-    the SelfDescribingMessage wrapper that it reuses for every load(s) and dump(s) call.
+    the SelfDescribingMessage wrapper that it reuses for every load(s) call.
 
     TODO: Add support for importing "well-known types" (https://protobuf.dev/reference/protobuf/google.protobuf/).
     """
     def __init__(self, cache_type_info=False, reuse_inner_object=False):
         """
-        :param cache_type_info: Controls whether the type descriptor set should be cached. You MAY set this to True only
-            if you are sure that all the inner messages to be read by this instance of SelfDescribingProtobufSerde were
-            generated using the same descriptor set. If inner messages were generated with different descriptor sets,
-            data may be silently corrupted or an error could be raised.
-            (Has no effect for dump if cache_outer_object is False.)
+        :param cache_type_info: Controls whether the type descriptor set and generated classes should be cached. Caching
+            the generated classes for load(s) can be significantly faster than not caching, but requires more memory for
+            the cache. WARNING: there is no cache eviction implemented yet.
+            (Has no effect for dump(s).)
         :param reuse_inner_object: Controls whether loads should create a new instance of the inner message class each
-            time load(s) is called. (Has no effect if cache_type_info is False. Has no effect for dump(s).)
+            time load(s) is called.
+            (Has no effect if cache_type_info is False. Has no effect for dump(s).)
         """
         self._cache_type_info = cache_type_info
         self._reuse_inner_object = reuse_inner_object
@@ -64,15 +59,23 @@ class SelfDescribingProtoSerde:
         Gets an uninitialized instance of the inner object for the given message.
         """
         if self._cache_type_info:
-            if type_name not in self._cached_inner_definitions:
-                self._cached_inner_definitions[type_name] = SelfDescribingProtoSerde.generate_class_definition(
-                    type_name, descriptor_set)
-            clazz = self._cached_inner_definitions[type_name]
+            descriptor_set_key = descriptor_set.SerializeToString()
+
+            if descriptor_set_key not in self._cached_inner_definitions:
+                self._cached_inner_definitions[descriptor_set_key] = {}
+            if type_name not in self._cached_inner_definitions[descriptor_set_key]:
+                self._cached_inner_definitions[descriptor_set_key][type_name] = \
+                    SelfDescribingProtoSerde.generate_class_definition(type_name, descriptor_set)
+
+            clazz = self._cached_inner_definitions[descriptor_set_key][type_name]
 
             if self._reuse_inner_object:
-                if type_name not in self._cached_inner_objects:
-                    self._cached_inner_objects[type_name] = clazz()
-                return self._cached_inner_objects[type_name]
+                if descriptor_set_key not in self._cached_inner_objects:
+                    self._cached_inner_objects[descriptor_set_key] = {}
+                if type_name not in self._cached_inner_objects[descriptor_set_key]:
+                    self._cached_inner_objects[descriptor_set_key][type_name] = clazz()
+
+                return self._cached_inner_objects[descriptor_set_key][type_name]
             else:
                 return clazz()
         else:
@@ -99,15 +102,10 @@ class SelfDescribingProtoSerde:
         """
         Serializes a protocol buffer message as self-describing protocol buffer bytes/string.
         """
-        outer_object = self._cached_outer_object
-
-        # If we're not caching the type info, make sure we clear out the descriptor set in the message.
-        if not self._cache_type_info:
-            outer_object.descriptor_set.ClearField('file')
-
-        # Add the descriptor set, if needed.
-        if not outer_object.descriptor_set.file:
-            obj.DESCRIPTOR.file.CopyToProto(self._cached_outer_object.descriptor_set.file.add())
+        # It seems to be faster to create a new SelfDescribingMessage for each call than it is to use the cached object
+        # and check and/or clear the descriptor for each call.
+        outer_object = SelfDescribingMessage()
+        obj.DESCRIPTOR.file.CopyToProto(self._cached_outer_object.descriptor_set.file.add())
 
         outer_object.message.type_url = obj.DESCRIPTOR.full_name
         outer_object.message.value = obj.SerializeToString()
