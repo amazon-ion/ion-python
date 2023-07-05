@@ -1,0 +1,20 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+// This is the source for the generated `self_describing_proto_pb2.py` module. It should not need to be regenerated,
+// but if you do need to regenerate it for some reason, run the following command in the root of the repo:
+//
+//     protoc ./amazon/ionbenchmark/self_describing_proto.proto --python_out ./amazon/ionbenchmark/
+
+syntax = "proto3";
+
+import "google/protobuf/any.proto";
+import "google/protobuf/descriptor.proto";
+
+message SelfDescribingMessage {
+  // Set of FileDescriptorProtos which describe the type and its dependencies.
+  google.protobuf.FileDescriptorSet descriptor_set = 1;
+
+  // The message and its type, encoded as an Any message.
+  google.protobuf.Any message = 2;
+}

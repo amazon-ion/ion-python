@@ -23,3 +23,4 @@ cbor~=1.0.0
 cbor2~=5.4.6
 python-rapidjson~=1.9
 ujson~=5.7.0
+protobuf>=4.0.0
