@@ -44,7 +44,7 @@ class SelfDescribingProtoSerde:
     @staticmethod
     def generate_class_definition(type_name, descriptor_set):
         """
-        Generates a Python class for the given type_name using the provided descriptor_set.
+        Generate a Python class for the given type_name using the provided descriptor_set.
         """
         messages_types = _message_factory.GetMessages(descriptor_set.file)
         message_type = messages_types[type_name]()
@@ -56,7 +56,7 @@ class SelfDescribingProtoSerde:
 
     def _get_inner_object_instance(self, type_name, descriptor_set):
         """
-        Gets an uninitialized instance of the inner object for the given message.
+        Get an uninitialized instance of the inner object for the given message.
         """
         if self._cache_type_info:
             descriptor_set_key = descriptor_set.SerializeToString()
@@ -84,7 +84,7 @@ class SelfDescribingProtoSerde:
 
     def loads(self, s):
         """
-        Deserializes a self-describing protocol buffer from bytes/string.
+        Deserialize a self-describing protocol buffer from bytes/string.
         """
         outer_obj = self._cached_outer_object
         outer_obj.ParseFromString(s)
@@ -94,13 +94,13 @@ class SelfDescribingProtoSerde:
 
     def load(self, fp):
         """
-        Deserializes a self-describing protocol buffer from a file.
+        Deserialize a self-describing protocol buffer from a file.
         """
         return self.loads(fp.read())
 
     def dumps(self, obj):
         """
-        Serializes a protocol buffer message as self-describing protocol buffer bytes/string.
+        Serialize a protocol buffer message as self-describing protocol buffer bytes/string.
         """
         # It seems to be faster to create a new SelfDescribingMessage for each call than it is to use the cached object
         # and check and/or clear the descriptor for each call.
@@ -113,6 +113,6 @@ class SelfDescribingProtoSerde:
 
     def dump(self, obj, fp):
         """
-        Serializes a protocol buffer message as a self-describing protocol buffer file.
+        Serialize a protocol buffer message as a self-describing protocol buffer file.
         """
         fp.write(self.dumps(obj))

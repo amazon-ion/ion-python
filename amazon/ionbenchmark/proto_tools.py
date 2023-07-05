@@ -23,7 +23,7 @@ from self_describing_proto import SelfDescribingProtoSerde
 
 def wrap_command():
     """
-    Wraps a protocol buffer in a SelfDescribingMessage protocol buffer.
+    Wrap a protocol buffer in a SelfDescribingMessage protocol buffer.
 
     Usage:
         proto_tools.py wrap <schema_descriptor_file> <type_name> <input_file> [<output_file>]
@@ -56,7 +56,7 @@ def wrap_command():
 
 def unwrap_command():
     """
-    Unwraps the inner protocol buffer of a SelfDescribingMessage protocol buffer.
+    Unwrap the inner protocol buffer of a SelfDescribingMessage protocol buffer.
 
     Usage:
         proto_tools.py unwrap <input_file> [<output_file>]
@@ -78,7 +78,7 @@ def unwrap_command():
 
 def _list_commands():
     """
-    Gets a list of formatted commands.
+    Get a formatted list of commands as a string.
     """
     commands = ""
     for name, member in [*globals().items()]:
