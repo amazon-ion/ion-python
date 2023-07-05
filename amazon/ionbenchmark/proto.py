@@ -67,7 +67,7 @@ class ProtoSerde:
 
 def get_message_type_from_py(type_name, module_name, module_file=None):
     """
-    Import and load a protocol buffer message from a Python module at runtime.
+    Import and load a protocol buffer message class from a Python module at runtime.
 
     A Python protocol buffer module can be created using `protoc --python_out=...`.
 
