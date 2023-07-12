@@ -1,0 +1,7 @@
+{
+  name: "Spot",
+  breed: Himalayan,
+  microchip_id: {{NjYzOWMzNWVmZGQyNGNiZmJiMGM0ZTM2N2I0YzI4YTA=}},
+  birthday: 2012-03-01T,
+  diet: [fish, chicken, mice],
+}

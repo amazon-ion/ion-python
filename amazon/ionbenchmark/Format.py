@@ -4,14 +4,14 @@ import amazon.ion.simpleion as simpleion
 import os
 
 
-def file_is_ion_binary(file):
+def _file_is_ion_binary(file):
     if os.path.splitext(file)[1] == '.10n':
         return True
     else:
         return False
 
 
-def file_is_ion_text(file):
+def _file_is_ion_text(file):
     if os.path.splitext(file)[1] == '.ion':
         return True
     else:
@@ -32,7 +32,8 @@ def format_is_cbor(format_option):
 
 
 def format_is_binary(format_option):
-    return format_is_cbor(format_option) or (format_option == Format.ION_BINARY.value)
+    return format_is_cbor(format_option) or (format_option == Format.ION_BINARY.value) \
+           or (format_option == Format.PROTOBUF.value) or (format_option == Format.SD_PROTOBUF.value)
 
 
 def rewrite_file_to_format(file, format_option):
@@ -50,8 +51,8 @@ def rewrite_file_to_format(file, format_option):
 
     if format_is_ion(format_option):
         # Write data if a conversion is required
-        if (format_option == Format.ION_BINARY.value and file_is_ion_text(file)) \
-                or (format_option == Format.ION_TEXT.value and file_is_ion_binary(file)):
+        if (format_option == Format.ION_BINARY.value and _file_is_ion_text(file)) \
+                or (format_option == Format.ION_TEXT.value and _file_is_ion_binary(file)):
             # Load data
             with open(file, 'br') as fp:
                 obj = simpleion.load(fp, single_value=False)
@@ -63,8 +64,7 @@ def rewrite_file_to_format(file, format_option):
         else:
             shutil.copy(file, temp_file_name)
     else:
-        # Copy the file
-        shutil.copy(file, temp_file_name)
+        return file
 
     return temp_file_name
 
@@ -79,4 +79,5 @@ class Format(Enum):
     RAPIDJSON = 'rapidjson'
     CBOR = 'cbor'
     CBOR2 = 'cbor2'
-    DEFAULT = 'ion_binary'
+    PROTOBUF = 'protobuf'
+    SD_PROTOBUF = 'self_describing_protobuf'
