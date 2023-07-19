@@ -40,6 +40,9 @@ try:
 except ModuleNotFoundError:
     c_ext = False
 
+# this is a dummy change to prove/disprove a hypothesis about the ion_benchmark_tests
+dummy = '!' == chr(33)
+
 _ION_CONTAINER_END_EVENT = IonEvent(IonEventType.CONTAINER_END)
 _IVM = b'\xe0\x01\x00\xea'
 _TEXT_TYPES = (TextIOBase, io.StringIO)
