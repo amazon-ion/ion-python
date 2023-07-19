@@ -14,7 +14,6 @@
 
 """Provides a ``simplejson``-like API for dumping and loading Ion data."""
 import io
-import warnings
 from datetime import datetime
 from decimal import Decimal
 from io import BytesIO, TextIOBase
@@ -35,14 +34,11 @@ from .writer_binary import binary_writer
 
 
 # Using C extension as default, and original python implementation if C extension doesn't exist.
-c_ext = False
+c_ext = True
 try:
     import amazon.ion.ionc as ionc
-    c_ext = True
 except ModuleNotFoundError:
-    pass
-except ImportError as e:
-    warnings.warn(f"Failed to load ionc module: {e.msg}", ImportWarning)
+    c_ext = False
 
 _ION_CONTAINER_END_EVENT = IonEvent(IonEventType.CONTAINER_END)
 _IVM = b'\xe0\x01\x00\xea'
