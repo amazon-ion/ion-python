@@ -14,6 +14,7 @@
 
 """Provides a ``simplejson``-like API for dumping and loading Ion data."""
 import io
+import warnings
 from datetime import datetime
 from decimal import Decimal
 from io import BytesIO, TextIOBase
@@ -38,6 +39,11 @@ c_ext = True
 try:
     import amazon.ion.ionc as ionc
 except ModuleNotFoundError:
+    c_ext = False
+except ImportError as e:
+    warnings.warn(
+        f"Failed to load c-extension module: {e.msg} using pure-python implementation",
+        ImportWarning)
     c_ext = False
 
 _ION_CONTAINER_END_EVENT = IonEvent(IonEventType.CONTAINER_END)
