@@ -291,7 +291,7 @@ def read_micro_benchmark(iterations, warmups, c_extension, file, memory_profilin
                          iterator=False):
     file_size = Path(file).stat().st_size / BYTES_TO_MB
 
-    setup_with_gc = generate_setup(format_option=format_option, gc=False, memory_profiling=memory_profiling)
+    setup_with_gc = generate_setup(format_option=format_option, gc=True, memory_profiling=memory_profiling)
 
     test_code = generate_read_test_code(file, memory_profiling=memory_profiling,
                                         format_option=format_option, io_type=io_type, binary=binary)
@@ -310,7 +310,7 @@ def read_micro_benchmark_simpleion(iterations, warmups, c_extension, file, memor
                                    io_type, iterator=False):
     file_size = Path(file).stat().st_size / BYTES_TO_MB
 
-    setup_with_gc = generate_setup(format_option=format_option, c_extension=c_extension, gc=False,
+    setup_with_gc = generate_setup(format_option=format_option, c_extension=c_extension, gc=True,
                                    memory_profiling=memory_profiling)
 
     test_code = generate_read_test_code(file, format_option=format_option, emit_bare_values=False,
@@ -380,7 +380,7 @@ def write_micro_benchmark_simpleion(iterations, warmups, c_extension, file, bina
         obj = ion.load(fp, parse_eagerly=True, single_value=False)
 
     # GC refers to reference cycles, not reference count
-    setup_with_gc = generate_setup(format_option=format_option, gc=False, c_extension=c_extension,
+    setup_with_gc = generate_setup(format_option=format_option, gc=True, c_extension=c_extension,
                                    memory_profiling=memory_profiling)
 
     test_func = generate_write_test_code(obj, memory_profiling=memory_profiling, binary=binary,
@@ -400,7 +400,7 @@ def write_micro_benchmark(iterations, warmups, c_extension, file, binary, memory
     file_size = Path(file).stat().st_size / BYTES_TO_MB
     obj = generate_json_and_cbor_obj_for_write(file, format_option, binary=binary)
     # GC refers to reference cycles, not reference count
-    setup_with_gc = generate_setup(format_option=format_option, gc=False, memory_profiling=memory_profiling)
+    setup_with_gc = generate_setup(format_option=format_option, gc=True, memory_profiling=memory_profiling)
 
     test_func = generate_write_test_code(obj, memory_profiling=memory_profiling, format_option=format_option,
                                          io_type=io_type, binary=binary)
