@@ -78,9 +78,7 @@ jobs:
           for testset in nestedStruct nestedList sexp realWorldDataSchema01 realWorldDataSchema02 realWorldDataSchema03
           do
             python $cli_script read -w $warmups --iterations $iterations -o $runner_dir/benchmarkResults/${testset}_read/new --io-type buffer --format ion_text --format ion_binary --api load_dump $runner_dir/testData/${testset}.10n
-          done
-          for testset in nestedStruct nestedList sexp realWorldDataSchema01 realWorldDataSchema02 realWorldDataSchema03
-          do
+
             python $cli_script write -w $warmups --iterations $iterations -o $runner_dir/benchmarkResults/${testset}_write/new --io-type buffer --format ion_text --format ion_binary --api load_dump $runner_dir/testData/${testset}.10n
           done
 
