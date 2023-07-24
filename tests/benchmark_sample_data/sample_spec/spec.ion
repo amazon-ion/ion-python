@@ -43,5 +43,5 @@
   input_file: "cat.protobuf_data",
   // Can also use 'py_module' or 'py_file' instead of 'descriptor_file'
   descriptor_file: "cat.desc",
-  type: "Cat"
+  protobuf_type: "Cat"
 }
