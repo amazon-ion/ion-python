@@ -150,10 +150,10 @@ class BenchmarkSpec(dict):
         match self.get_format():
             case 'ion_binary':
                 import ion_load_dump
-                return ion_load_dump.IonLoadDump(binary=True, c_ext=self['c_extension'])
+                return ion_load_dump.IonLoadDump(binary=True, c_ext=self['py_c_extension'])
             case 'ion_text':
                 import ion_load_dump
-                return ion_load_dump.IonLoadDump(binary=False, c_ext=self['c_extension'])
+                return ion_load_dump.IonLoadDump(binary=False, c_ext=self['py_c_extension'])
             case 'json':
                 import json
                 return json

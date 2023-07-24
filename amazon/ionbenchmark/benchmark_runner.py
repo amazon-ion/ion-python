@@ -4,7 +4,7 @@
 """
 This module
 """
-
+import gc
 import tempfile
 import platform
 import time
@@ -41,17 +41,22 @@ def run_benchmark(benchmark_spec: BenchmarkSpec):
     """
     test_fun = _create_test_fun(benchmark_spec)
 
-    setup = "import gc; gc.disable()"
-    timer = timeit.Timer(stmt=test_fun, timer=time.perf_counter_ns, setup=setup)
-
-    # warm up
-    timer.timeit(benchmark_spec.get_warmups())
-
     # memory profiling
     if _pypy:
         peak_memory_usage = None
     else:
         peak_memory_usage = _trace_memory_allocation(test_fun)
+
+    setup = ""
+    if benchmark_spec["py_gc_disabled"]:
+        setup += "import gc; gc.disable()"
+    else:
+        setup += "import gc; gc.enable()"
+
+    timer = timeit.Timer(stmt=test_fun, timer=time.perf_counter_ns, setup=setup)
+
+    # warm up
+    timer.timeit(benchmark_spec.get_warmups())
 
     # iteration
     (batch_size, _) = timer.autorange()
@@ -103,8 +108,10 @@ def _trace_memory_allocation(test_fn, *args, **kwargs):
     """
     Measure the memory allocations in bytes for a single invocation of test_fn
     """
+    gc.disable()
     tracemalloc.start()
     test_fn(*args, **kwargs)
     memory_usage_peak = tracemalloc.get_traced_memory()[1]
     tracemalloc.stop()
+    gc.enable()
     return memory_usage_peak

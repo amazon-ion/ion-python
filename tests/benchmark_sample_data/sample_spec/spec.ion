@@ -25,13 +25,13 @@
 {
   name: "Ion Binary, pure Python impl",
   format: ion_binary,
-  c_extension: false,
+  py_c_extension: false,
   input_file: "cat.ion"
 }
 {
   name: "Ion Text, pure Python impl",
   format: ion_text,
-  c_extension: false,
+  py_c_extension: false,
   input_file: "cat.ion"
 }
 {
