@@ -25,6 +25,7 @@ Command:
 
 Options:
      -h, --help                         Show this screen.
+     -v, --version                      Display the tool version
 """
 import itertools
 import os
@@ -42,7 +43,6 @@ from amazon.ionbenchmark.benchmark_spec import BenchmarkSpec
 
 # Relate pypy incompatible issue - https://github.com/amazon-ion/ion-python/issues/227
 pypy = platform.python_implementation() == 'PyPy'
-
 
 TOOL_VERSION = '1.0.0'
 
@@ -178,7 +178,6 @@ def read_write_command(read_or_write: str):
         input_file=file,
     )
 
-
     # For options may show up more than once, initialize them as below and added them into list option_configuration.
     # initialize options that might show up multiple times
     api = [*set(arguments['--api'])] if arguments['--api'] else ['load_dump']
@@ -279,7 +278,8 @@ def _run_benchmarks(specs: list[BenchmarkSpec], report_fields: str | list[str], 
         #  For example, we must provide a CBOR file for CBOR APIs benchmarking. We cannot benchmark CBOR APIs by giving
         #  a JSON file. Lack of format conversion prevents us from benchmarking different formats concurrently.
         if format_is_ion(benchmark_spec.get_format()):
-            benchmark_spec['input_file'] = rewrite_file_to_format(benchmark_spec.get_input_file(), benchmark_spec.get_format())
+            benchmark_spec['input_file'] = rewrite_file_to_format(benchmark_spec.get_input_file(),
+                                                                  benchmark_spec.get_format())
 
         result = run_benchmark(benchmark_spec)
         result_stats = report_stats(benchmark_spec, result, report_fields)

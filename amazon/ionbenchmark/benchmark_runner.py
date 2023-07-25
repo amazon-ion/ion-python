@@ -11,6 +11,7 @@ import time
 import timeit
 
 from amazon.ionbenchmark.benchmark_spec import BenchmarkSpec
+import amazon.ionbenchmark.Format as _format
 
 _pypy = platform.python_implementation() == 'PyPy'
 if not _pypy:
@@ -71,32 +72,37 @@ def _create_test_fun(benchmark_spec: BenchmarkSpec):
     """
     loader_dumper = benchmark_spec.get_loader_dumper()
     match [benchmark_spec.get_io_type(), benchmark_spec.get_command(), benchmark_spec.get_api()]:
-        case ['buffer', 'read', 'dom']:
+        case ['buffer', 'read', 'load_dump']:
             with open(benchmark_spec.get_input_file(), 'rb') as f:
                 buffer = f.read()
 
             def test_fn():
                 return loader_dumper.loads(buffer)
 
-        case ['buffer', 'write', 'dom']:
+        case ['buffer', 'write', 'load_dump']:
             data_obj = benchmark_spec.get_data_object()
 
             def test_fn():
                 return loader_dumper.dumps(data_obj)
 
-        case ['file', 'read', 'dom']:
+        case ['file', 'read', 'load_dump']:
             data_file = benchmark_spec.get_input_file()
 
             def test_fn():
                 with open(data_file, "rb") as f:
                     return loader_dumper.load(f)
 
-        case ['file', 'write', 'dom']:
+        case ['file', 'write', 'load_dump']:
             data_obj = benchmark_spec.get_data_object()
-
-            def test_fn():
-                with tempfile.TemporaryFile() as f:
-                    return loader_dumper.dump(data_obj, f)
+            data_format = benchmark_spec.get_format()
+            if _format.format_is_binary(data_format) or _format.format_is_ion(data_format):
+                def test_fn():
+                    with tempfile.TemporaryFile(mode="wb") as f:
+                        return loader_dumper.dump(data_obj, f)
+            else:
+                def test_fn():
+                    with tempfile.TemporaryFile(mode="wt") as f:
+                        return loader_dumper.dump(data_obj, f)
 
         case _:
             raise NotImplementedError("Streaming benchmarks are not supported yet.")

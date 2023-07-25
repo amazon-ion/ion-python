@@ -4,6 +4,10 @@ import os
 from os import path
 from pathlib import Path
 
+import amazon.ionbenchmark.ion_load_dump as _ion_load_dump
+import cbor
+import json
+
 from amazon.ion.simple_types import IonPySymbol
 
 
@@ -13,7 +17,7 @@ _tool_defaults = {
     'warmups': 0,
     'io_type': 'buffer',
     'command': 'read',
-    'api': 'dom',
+    'api': 'load_dump',
 }
 
 
@@ -46,7 +50,7 @@ class BenchmarkSpec(dict):
      * `input_file` – the path for a file containing the input data for this benchmark. Can be an absolute path, or the
        path can be relative to the location of the spec file.
      * `command` – one of `read` or `write`
-     * `api` – can be `dom` or `streaming`
+     * `api` – can be `load_dump` or `streaming`
      * `io_type` – can be `buffer` or `file`
      * `iterations` – the total number of iterations the test should take. This does not necessarily correspond to a
        single invocation of the API being tested—rather it is the number of _samples_ that should be measured for the
@@ -159,16 +163,17 @@ class BenchmarkSpec(dict):
     def get_operation_name(self):
 
         match [self.get_io_type(), self.get_command(), self.get_api()]:
-            case ['buffer', 'read', 'dom']:
+            case ['buffer', 'read', 'load_dump']:
                 return 'loads'
-            case ['buffer', 'write', 'dom']:
+            case ['buffer', 'write', 'load_dump']:
                 return 'dumps'
-            case ['file', 'read', 'dom']:
+            case ['file', 'read', 'load_dump']:
                 return 'load'
-            case ['file', 'write', 'dom']:
+            case ['file', 'write', 'load_dump']:
                 return 'dumps'
             case _:
-                raise NotImplementedError("Streaming benchmarks are not supported yet.")
+                raise NotImplementedError(f"Argument combination not supported: "
+                                          f"{[self.get_io_type(), self.get_command(), self.get_api()]}")
 
     def get_input_file_size(self):
         return Path(self.get_input_file()).stat().st_size
@@ -194,11 +199,9 @@ class BenchmarkSpec(dict):
     def _get_loader_dumper(self):
         match self.get_format():
             case 'ion_binary':
-                import ion_load_dump
-                return ion_load_dump.IonLoadDump(binary=True, c_ext=self['py_c_extension'])
+                return _ion_load_dump.IonLoadDump(binary=True, c_ext=self['py_c_extension'])
             case 'ion_text':
-                import ion_load_dump
-                return ion_load_dump.IonLoadDump(binary=False, c_ext=self['py_c_extension'])
+                return _ion_load_dump.IonLoadDump(binary=False, c_ext=self['py_c_extension'])
             case 'json':
                 import json
                 return json
