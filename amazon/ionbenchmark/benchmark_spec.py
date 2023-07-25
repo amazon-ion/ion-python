@@ -166,9 +166,9 @@ class BenchmarkSpec(dict):
             return 'loads'
         elif match_arg == ['buffer', 'write', 'load_dump']:
             return 'dumps'
-        elif match_arg ==  ['file', 'read', 'load_dump']:
+        elif match_arg == ['file', 'read', 'load_dump']:
             return 'load'
-        elif match_arg ==  ['file', 'write', 'load_dump']:
+        elif match_arg == ['file', 'write', 'load_dump']:
             return 'dumps'
         else:
             raise NotImplementedError(f"Argument combination not supported: {match_arg}")
