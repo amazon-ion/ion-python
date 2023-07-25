@@ -195,47 +195,47 @@ class BenchmarkSpec(dict):
         return self._loader_dumper
 
     def _get_loader_dumper(self):
-        match self.get_format():
-            case 'ion_binary':
-                return _ion_load_dump.IonLoadDump(binary=True, c_ext=self['py_c_extension'])
-            case 'ion_text':
-                return _ion_load_dump.IonLoadDump(binary=False, c_ext=self['py_c_extension'])
-            case 'json':
-                import json
-                return json
-            case 'ujson':
-                import ujson
-                return ujson
-            case 'simplejson':
-                import simplejson
-                return simplejson
-            case 'rapidjson':
-                import rapidjson
-                return rapidjson
-            case 'cbor':
-                import cbor
-                return cbor
-            case 'cbor2':
-                import cbor2
-                return cbor2
-            case 'self_describing_protobuf':
-                from self_describing_proto import SelfDescribingProtoSerde
-                # TODO: Consider making the cache option configurable from the spec file
-                return SelfDescribingProtoSerde(cache_type_info=True)
-            case 'protobuf':
-                import proto
-                type_name = self['protobuf_type']
-                if not type_name:
-                    raise ValueError("protobuf format requires the type to be specified")
-                if self['py_module']:
-                    message_type = proto.get_message_type_from_py(type_name, self['py_module'])
-                elif self['py_file']:
-                    message_type = proto.get_message_type_from_py(type_name, "imported_protobuf_module",
-                                                                  self.get_attribute_as_path('py_file'))
-                elif self['descriptor_file']:
-                    message_type = proto.get_message_type_from_descriptor_set(type_name, self.get_attribute_as_path('descriptor_file'))
-                else:
-                    raise ValueError("format 'protobuf' spec requires py_module, py_file, or descriptor_file")
-                return proto.ProtoSerde(message_type)
-            case _:
-                return None
+        data_format = self.get_format()
+        if data_format == 'ion_binary':
+            return _ion_load_dump.IonLoadDump(binary=True, c_ext=self['py_c_extension'])
+        elif data_format == 'ion_text':
+            return _ion_load_dump.IonLoadDump(binary=False, c_ext=self['py_c_extension'])
+        elif data_format == 'json':
+            import json
+            return json
+        elif data_format == 'ujson':
+            import ujson
+            return ujson
+        elif data_format == 'simplejson':
+            import simplejson
+            return simplejson
+        elif data_format == 'rapidjson':
+            import rapidjson
+            return rapidjson
+        elif data_format == 'cbor':
+            import cbor
+            return cbor
+        elif data_format == 'cbor2':
+            import cbor2
+            return cbor2
+        elif data_format == 'self_describing_protobuf':
+            from self_describing_proto import SelfDescribingProtoSerde
+            # TODO: Consider making the cache option configurable from the spec file
+            return SelfDescribingProtoSerde(cache_type_info=True)
+        elif data_format == 'protobuf':
+            import proto
+            type_name = self['protobuf_type']
+            if not type_name:
+                raise ValueError("protobuf format requires the type to be specified")
+            if self['py_module']:
+                message_type = proto.get_message_type_from_py(type_name, self['py_module'])
+            elif self['py_file']:
+                message_type = proto.get_message_type_from_py(type_name, "imported_protobuf_module",
+                                                              self.get_attribute_as_path('py_file'))
+            elif self['descriptor_file']:
+                message_type = proto.get_message_type_from_descriptor_set(type_name, self.get_attribute_as_path('descriptor_file'))
+            else:
+                raise ValueError("format 'protobuf' spec requires py_module, py_file, or descriptor_file")
+            return proto.ProtoSerde(message_type)
+        else:
+            return None
