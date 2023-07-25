@@ -161,19 +161,17 @@ class BenchmarkSpec(dict):
         return self["warmups"]
 
     def get_operation_name(self):
-
-        match [self.get_io_type(), self.get_command(), self.get_api()]:
-            case ['buffer', 'read', 'load_dump']:
-                return 'loads'
-            case ['buffer', 'write', 'load_dump']:
-                return 'dumps'
-            case ['file', 'read', 'load_dump']:
-                return 'load'
-            case ['file', 'write', 'load_dump']:
-                return 'dumps'
-            case _:
-                raise NotImplementedError(f"Argument combination not supported: "
-                                          f"{[self.get_io_type(), self.get_command(), self.get_api()]}")
+        match_arg = [self.get_io_type(), self.get_command(), self.get_api()]
+        if match_arg == ['buffer', 'read', 'load_dump']:
+            return 'loads'
+        elif match_arg == ['buffer', 'write', 'load_dump']:
+            return 'dumps'
+        elif match_arg ==  ['file', 'read', 'load_dump']:
+            return 'load'
+        elif match_arg ==  ['file', 'write', 'load_dump']:
+            return 'dumps'
+        else:
+            raise NotImplementedError(f"Argument combination not supported: {match_arg}")
 
     def get_input_file_size(self):
         return Path(self.get_input_file()).stat().st_size
