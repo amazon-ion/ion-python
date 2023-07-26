@@ -71,41 +71,42 @@ def _create_test_fun(benchmark_spec: BenchmarkSpec):
     Create a benchmark function for the given `benchmark_spec`.
     """
     loader_dumper = benchmark_spec.get_loader_dumper()
-    match [benchmark_spec.get_io_type(), benchmark_spec.get_command(), benchmark_spec.get_api()]:
-        case ['buffer', 'read', 'load_dump']:
-            with open(benchmark_spec.get_input_file(), 'rb') as f:
-                buffer = f.read()
+    match_arg = [benchmark_spec.get_io_type(), benchmark_spec.get_command(), benchmark_spec.get_api()]
 
+    if match_arg == ['buffer', 'read', 'load_dump']:
+        with open(benchmark_spec.get_input_file(), 'rb') as f:
+            buffer = f.read()
+
+        def test_fn():
+            return loader_dumper.loads(buffer)
+
+    elif match_arg == ['buffer', 'write', 'load_dump']:
+        data_obj = benchmark_spec.get_data_object()
+
+        def test_fn():
+            return loader_dumper.dumps(data_obj)
+
+    elif match_arg == ['file', 'read', 'load_dump']:
+        data_file = benchmark_spec.get_input_file()
+
+        def test_fn():
+            with open(data_file, "rb") as f:
+                return loader_dumper.load(f)
+
+    elif match_arg == ['file', 'write', 'load_dump']:
+        data_obj = benchmark_spec.get_data_object()
+        data_format = benchmark_spec.get_format()
+        if _format.format_is_binary(data_format) or _format.format_is_ion(data_format):
             def test_fn():
-                return loader_dumper.loads(buffer)
-
-        case ['buffer', 'write', 'load_dump']:
-            data_obj = benchmark_spec.get_data_object()
-
+                with tempfile.TemporaryFile(mode="wb") as f:
+                    return loader_dumper.dump(data_obj, f)
+        else:
             def test_fn():
-                return loader_dumper.dumps(data_obj)
+                with tempfile.TemporaryFile(mode="wt") as f:
+                    return loader_dumper.dump(data_obj, f)
 
-        case ['file', 'read', 'load_dump']:
-            data_file = benchmark_spec.get_input_file()
-
-            def test_fn():
-                with open(data_file, "rb") as f:
-                    return loader_dumper.load(f)
-
-        case ['file', 'write', 'load_dump']:
-            data_obj = benchmark_spec.get_data_object()
-            data_format = benchmark_spec.get_format()
-            if _format.format_is_binary(data_format) or _format.format_is_ion(data_format):
-                def test_fn():
-                    with tempfile.TemporaryFile(mode="wb") as f:
-                        return loader_dumper.dump(data_obj, f)
-            else:
-                def test_fn():
-                    with tempfile.TemporaryFile(mode="wt") as f:
-                        return loader_dumper.dump(data_obj, f)
-
-        case _:
-            raise NotImplementedError("Streaming benchmarks are not supported yet.")
+    else:
+        raise NotImplementedError(f"Argument combination not supported: {match_arg}")
 
     return test_fn
 
