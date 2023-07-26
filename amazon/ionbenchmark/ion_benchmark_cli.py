@@ -35,15 +35,12 @@ import amazon.ion.simpleion as ion
 from docopt import docopt
 from tabulate import tabulate
 
-from amazon.ion.simple_types import IonPyFloat
 from amazon.ionbenchmark.Format import format_is_ion, rewrite_file_to_format
 from amazon.ionbenchmark.benchmark_runner import run_benchmark
 from amazon.ionbenchmark.report import report_stats
 from amazon.ionbenchmark.benchmark_spec import BenchmarkSpec
 
 # Relate pypy incompatible issue - https://github.com/amazon-ion/ion-python/issues/227
-pypy = platform.python_implementation() == 'PyPy'
-
 TOOL_VERSION = '1.0.0'
 
 
@@ -164,7 +161,7 @@ def read_write_command(read_or_write: str):
 
     iterations = int(arguments['--iterations'])
     warmups = int(arguments['--warmups'])
-    c_extension = _str_to_bool(arguments['--c-extension']) if not pypy else False
+    c_extension = _str_to_bool(arguments['--c-extension']) and platform.python_implementation() == 'CPython'
     iterator = _str_to_bool(arguments['--iterator'])
     output = arguments['--results-file']
     report_fields = arguments["--report"]

@@ -13,10 +13,6 @@ import timeit
 from amazon.ionbenchmark.benchmark_spec import BenchmarkSpec
 import amazon.ionbenchmark.Format as _format
 
-_pypy = platform.python_implementation() == 'PyPy'
-if not _pypy:
-    import tracemalloc
-
 
 class BenchmarkResult:
     """
@@ -43,10 +39,10 @@ def run_benchmark(benchmark_spec: BenchmarkSpec):
     test_fun = _create_test_fun(benchmark_spec)
 
     # memory profiling
-    if _pypy:
-        peak_memory_usage = None
-    else:
+    if platform.python_implementation() == 'CPython':
         peak_memory_usage = _trace_memory_allocation(test_fun)
+    else:
+        peak_memory_usage = None
 
     setup = ""
     if benchmark_spec["py_gc_disabled"]:
@@ -116,6 +112,7 @@ def _trace_memory_allocation(test_fn, *args, **kwargs):
     Measure the memory allocations in bytes for a single invocation of test_fn
     """
     gc.disable()
+    import tracemalloc
     tracemalloc.start()
     test_fn(*args, **kwargs)
     memory_usage_peak = tracemalloc.get_traced_memory()[1]
