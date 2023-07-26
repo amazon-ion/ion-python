@@ -34,7 +34,7 @@ def test_get_name():
 def test_defaults_and_overrides_applied_in_correct_order():
     a = {'c': 1, 'b': 10, 'a': 100}
     b = {'c': 2, 'b': 20}
-    c = {'c': 3} | _minimal_params
+    c = {'c': 3, **_minimal_params}
 
     spec = BenchmarkSpec(user_defaults=a, params=b, user_overrides=c)
 

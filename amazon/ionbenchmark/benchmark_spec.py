@@ -96,7 +96,7 @@ class BenchmarkSpec(dict):
 
         self._spec_working_directory = working_directory or os.getcwd()
 
-        merged = _tool_defaults | user_defaults | params | user_overrides
+        merged = { **_tool_defaults, **user_defaults, **params, **user_overrides }
 
         # If not an absolute path, make relative to the working directory.
         input_file = merged['input_file']
