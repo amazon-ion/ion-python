@@ -8,7 +8,7 @@ from amazon.ionbenchmark.benchmark_runner import BenchmarkResult
 from amazon.ionbenchmark.benchmark_spec import BenchmarkSpec
 
 
-def report_stats(benchmark_spec: BenchmarkSpec, benchmark_result: BenchmarkResult, report_fields: list[str] = None):
+def report_stats(benchmark_spec: BenchmarkSpec, benchmark_result: BenchmarkResult, report_fields: list = None):
     """
     Generate a report for the outcome of a running a benchmark.
 
@@ -26,7 +26,7 @@ def report_stats(benchmark_spec: BenchmarkSpec, benchmark_result: BenchmarkResul
 
     :param benchmark_spec: The spec for the benchmark that was run
     :param benchmark_result: The output from the benchmark
-    :param report_fields: List of fields to include in the report.
+    :param report_fields: list[str] of fields to include in the report.
     :return:
     """
     if report_fields is None:
