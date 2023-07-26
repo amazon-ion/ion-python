@@ -262,7 +262,7 @@ def run_spec_command():
     _run_benchmarks(specs, report_fields, output)
 
 
-def _run_benchmarks(specs: list, report_fields: str | list, output_file: str | None):
+def _run_benchmarks(specs: list, report_fields, output_file):
     """
     Run benchmarks for the `read`, `write`, and `run` commands.
 
@@ -270,10 +270,13 @@ def _run_benchmarks(specs: list, report_fields: str | list, output_file: str | N
     running the actual benchmarks.
 
     :param specs: List of `BenchmarkSpec` for which to create and run test cases.
+    :type specs: list[BenchmarkSpec]
     :param report_fields: List of single fields or a string containing a comma-delimited list of fields to include in
            the report.
-    :param output_file: location to save the machine-readable report. Human-readable table is printed to std out
+    :type report_fields: list[str] | str
+    :param output_file: Optional location to save the machine-readable report. Human-readable table is printed to stdout
            regardless of whether this parameter is set.
+    :type output_file: str | None
     """
     if isinstance(report_fields, str):
         report_fields = [f.strip() for f in report_fields.split(',')]
