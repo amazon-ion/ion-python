@@ -33,16 +33,12 @@ from .writer import blocking_writer
 from .writer_binary import binary_writer
 
 
-import platform as _platform
-_is_c_python = _platform.python_implementation() == "CPython"
 # Using C extension as default, and pure python implementation if C extension doesn't exist.
-c_ext = _is_c_python
-if _is_c_python:
-    try:
-        import amazon.ion.ionc as ionc
-    except ModuleNotFoundError:
-        c_ext = False
-
+c_ext = True
+try:
+    import amazon.ion.ionc as ionc
+except ModuleNotFoundError:
+    c_ext = False
 
 _ION_CONTAINER_END_EVENT = IonEvent(IonEventType.CONTAINER_END)
 _IVM = b'\xe0\x01\x00\xea'
