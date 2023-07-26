@@ -36,10 +36,11 @@ def report_stats(benchmark_spec: BenchmarkSpec, benchmark_result: BenchmarkResul
 
     for field in report_fields:
         if isinstance(field, str) and field.startswith("time_"):
-            stat_value = _calculate_timing_stat(field.removeprefix("time_"), benchmark_result.timings, benchmark_result.batch_size)
+            # Note–we use `field[len("time_"):]` instead of `removeprefix("time_")` to support python 3.7 and 3.8
+            stat_value = _calculate_timing_stat(field[len("time_"):], benchmark_result.timings, benchmark_result.batch_size)
             result[f'{field}(ns)'] = stat_value
         elif isinstance(field, str) and field.startswith("rate_"):
-            timing_value = _calculate_timing_stat(field.removeprefix("rate_"), benchmark_result.timings, benchmark_result.batch_size)
+            timing_value = _calculate_timing_stat(field[len("rate_"):], benchmark_result.timings, benchmark_result.batch_size)
             stat_value = ceil(benchmark_spec.get_input_file_size() * 1024 / (timing_value / benchmark_result.batch_size / 1000000000))
             result[f'{field}(kB/s)'] = stat_value
         elif field == 'format':
@@ -70,7 +71,7 @@ def _calculate_timing_stat(stat: str, timings, batch_size):
     :return:
     """
     if stat.startswith("p"):
-        n = int(stat.removeprefix("p"))
+        n = int(stat[1:])
         x = ceil(statistics.quantiles(timings, n=100, method='inclusive')[n-1]/batch_size)
     elif stat == 'mean':
         x = ceil(sum(timings) / (batch_size * len(timings)))
