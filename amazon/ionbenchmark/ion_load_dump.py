@@ -15,7 +15,11 @@ class IonLoadDump:
     def __init__(self, binary, c_ext=None):
         self._binary = binary
         self._single_value = False
-        self._c_ext = c_ext if c_ext is not None else True
+
+        import platform
+        _is_c_ext_supported = platform.python_implementation() == "CPython"
+        _resolved_c_ext_argument = c_ext if c_ext is not None else True
+        self._c_ext = _resolved_c_ext_argument and _is_c_ext_supported
 
     def loads(self, s):
         ion.c_ext = self._c_ext
