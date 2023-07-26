@@ -195,13 +195,11 @@ class BenchmarkSpec(dict):
         return self._loader_dumper
 
     def _get_loader_dumper(self):
-        import platform
-        is_c_python = platform.python_implementation() == 'CPython'
         data_format = self.get_format()
         if data_format == 'ion_binary':
-            return _ion_load_dump.IonLoadDump(binary=True, c_ext=self['py_c_extension'] and is_c_python)
+            return _ion_load_dump.IonLoadDump(binary=True, c_ext=self['py_c_extension'])
         elif data_format == 'ion_text':
-            return _ion_load_dump.IonLoadDump(binary=False, c_ext=self['py_c_extension'] and is_c_python)
+            return _ion_load_dump.IonLoadDump(binary=False, c_ext=self['py_c_extension'])
         elif data_format == 'json':
             import json
             return json
