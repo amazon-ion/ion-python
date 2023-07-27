@@ -32,13 +32,16 @@ from .symbols import SymbolToken
 from .writer import blocking_writer
 from .writer_binary import binary_writer
 
-
-# Using C extension as default, and pure python implementation if C extension doesn't exist.
-c_ext = True
 try:
     import amazon.ion.ionc as ionc
+    __IS_C_EXTENSION_SUPPORTED = True
 except ModuleNotFoundError:
-    c_ext = False
+    __IS_C_EXTENSION_SUPPORTED = False
+# TODO: when we release a new major version, come up with a better way to encapsulate these two variables.
+# __IS_C_EXTENSION_SUPPORTED is a private flag indicating whether the c extension was loaded/is supported.
+# c_ext is a user-facing flag to check whether the c extension is available and/or disable the c extension.
+# However, if you mutate it, then it can no longer be used to see if the c extension is available.
+c_ext = __IS_C_EXTENSION_SUPPORTED
 
 _ION_CONTAINER_END_EVENT = IonEvent(IonEventType.CONTAINER_END)
 _IVM = b'\xe0\x01\x00\xea'
@@ -537,7 +540,7 @@ def dump(obj, fp, imports=None, binary=True, sequence_as_stream=False, skipkeys=
          use_decimal=True, namedtuple_as_object=True, tuple_as_array=True, bigint_as_string=False, sort_keys=False,
          item_sort_key=None, for_json=None, ignore_nan=False, int_as_string_bitcount=None, iterable_as_array=False,
          tuple_as_sexp=False, omit_version_marker=False, **kw):
-    if c_ext and (imports is None and indent is None):
+    if c_ext and __IS_C_EXTENSION_SUPPORTED and (imports is None and indent is None):
         return dump_extension(obj, fp, binary=binary, sequence_as_stream=sequence_as_stream,
                               tuple_as_sexp=tuple_as_sexp, omit_version_marker=omit_version_marker)
     else:
@@ -554,7 +557,7 @@ def dump(obj, fp, imports=None, binary=True, sequence_as_stream=False, skipkeys=
 def load(fp, catalog=None, single_value=True, encoding='utf-8', cls=None, object_hook=None, parse_float=None,
          parse_int=None, parse_constant=None, object_pairs_hook=None, use_decimal=None, parse_eagerly=True,
          text_buffer_size_limit=None, **kw):
-    if c_ext and catalog is None:
+    if c_ext and __IS_C_EXTENSION_SUPPORTED and catalog is None:
         return load_extension(fp, parse_eagerly=parse_eagerly, single_value=single_value,
                               text_buffer_size_limit=text_buffer_size_limit)
     else:

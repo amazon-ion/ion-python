@@ -24,6 +24,7 @@ from typing import NamedTuple, Any, Sequence, Optional
 
 from pytest import raises
 
+from amazon.ion import simpleion
 from amazon.ion.exceptions import IonException
 from amazon.ion.symbols import SymbolToken, SYSTEM_SYMBOL_TABLE
 from amazon.ion.writer_binary import _IVM
@@ -752,3 +753,11 @@ def test_loads_large_string():
     except Exception:
         assert False
 
+
+# This test ensures that the c_ext flag does not override whether the extension is actually supported.
+def test_setting_c_ext_flag():
+    if not simpleion.c_ext:
+        simpleion.c_ext = True
+
+    value = loads("{a:1}")
+    dumps(value)
