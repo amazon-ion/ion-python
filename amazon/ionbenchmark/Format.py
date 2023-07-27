@@ -5,10 +5,7 @@ import os
 
 
 def _file_is_ion_binary(file):
-    if os.path.splitext(file)[1] == '.10n':
-        return True
-    else:
-        return False
+    return os.path.splitext(file)[1] == '.10n':
 
 
 def _file_is_ion_text(file):
