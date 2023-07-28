@@ -1,43 +1,13 @@
-# import json
 import os
 import time
-# from itertools import chain
 from os.path import abspath, join, dirname
-
-# import cbor2
 
 from amazon.ion import simpleion
 from amazon.ion.equivalence import ion_equals
-from amazon.ionbenchmark import ion_benchmark_cli, Format
+from amazon.ionbenchmark import Format
 from amazon.ionbenchmark.Format import format_is_ion, format_is_cbor, format_is_json, rewrite_file_to_format
-from amazon.ionbenchmark.ion_benchmark_cli import _str_to_bool, TOOL_VERSION
+from amazon.ionbenchmark.ion_benchmark_cli import TOOL_VERSION
 from tests import parametrize
-# from tests.test_simpleion import generate_scalars_text
-# from tests.writer_util import SIMPLE_SCALARS_MAP_TEXT
-
-doc = ion_benchmark_cli.__doc__
-result_table_option_idx = 3
-
-
-@parametrize(
-    '1',
-    'true',
-    'True',
-    'TRue',
-)
-def test_str_to_bool_true(p):
-    assert _str_to_bool(p) == True
-
-
-@parametrize(
-    '0',
-    '2',
-    'false',
-    '?',
-    'test'
-)
-def test_str_to_bool_true(p):
-    assert _str_to_bool(p) == False
 
 
 def generate_test_path(p):
@@ -67,7 +37,7 @@ def test_option_version():
 )
 def test_run_benchmark_spec(args):
     (command, io_type) = args
-    (error_code, out, _) = run_cli(['run', './tests/benchmark_sample_data/sample_spec/spec.ion', '-O', f'{{io_type:{io_type},command:{command}}}'])
+    (error_code, out, _) = run_cli(['spec', './tests/benchmark_sample_data/sample_spec/spec.ion', '-O', f'{{io_type:{io_type},command:{command},warmups:1,iterations:10}}'])
     assert not error_code
 
 
@@ -83,30 +53,26 @@ def test_option_read(file=generate_test_path('integers.ion')):
     assert not error_code
 
 
-def test_option_write_c_extension(file=generate_test_path('integers.ion')):
-    (error_code, _, _) = run_cli(['write', file, '--c-extension', 'true'])
-    assert not error_code
-    (error_code, _, _) = run_cli(['write', file, '--c-extension', 'false'])
+def test_option_write_no_c_extension(file=generate_test_path('integers.ion')):
+    (error_code, _, _) = run_cli(['write', file, '--no-c-extension'])
     assert not error_code
 
 
-def test_option_read_c_extension(file=generate_test_path('integers.ion')):
-    (error_code, _, _) = run_cli(['read', file, '--c-extension', 'true'])
-    assert not error_code
-    (error_code, _, _) = run_cli(['read', file, '--c-extension', 'false'])
+def test_option_read_no_c_extension(file=generate_test_path('integers.ion')):
+    (error_code, _, _) = run_cli(['read', file, '--no-c-extension'])
     assert not error_code
 
 
 def test_option_read_iterations(file=generate_test_path('integers.ion')):
     # This is a potentially flaky test due to the overhead of running the CLI as a new process.
     start = time.perf_counter()
-    (error_code, _, _) = run_cli(['read', file, '--c-extension', 'true', '--iterations', '1'])
+    (error_code, _, _) = run_cli(['read', file, '--iterations', '1'])
     stop = time.perf_counter()
     assert not error_code
     time_1 = stop - start
 
     start = time.perf_counter()
-    (error_code, _, _) = run_cli(['read', file, '--c-extension', 'true', '--iterations', '10000'])
+    (error_code, _, _) = run_cli(['read', file, '--iterations', '10000'])
     stop = time.perf_counter()
     assert not error_code
     time_2 = stop - start
@@ -116,7 +82,7 @@ def test_option_read_iterations(file=generate_test_path('integers.ion')):
 
 
 def test_option_write_iterations(file=generate_test_path('integers.ion')):
-    (error_code, _, _) = run_cli(['write', file, '--c-extension', 'true', '--iterations', '100'])
+    (error_code, _, _) = run_cli(['write', file, '--iterations', '100'])
     assert not error_code
 
 

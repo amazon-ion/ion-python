@@ -12,14 +12,10 @@ class IonLoadDump:
     Results of profiling indicate that this adds a trivial amount of overhead, even for small data. If Ion Python
     performance improves by >1000% from June 2023, then this may need to be re-evaluated.
     """
-    def __init__(self, binary, c_ext=None):
+    def __init__(self, binary, c_ext=True):
         self._binary = binary
         self._single_value = False
-
-        import platform
-        _is_c_ext_supported = platform.python_implementation() == "CPython"
-        _resolved_c_ext_argument = c_ext if c_ext is not None else True
-        self._c_ext = _resolved_c_ext_argument and _is_c_ext_supported
+        self._c_ext = c_ext
 
     def loads(self, s):
         ion.c_ext = self._c_ext

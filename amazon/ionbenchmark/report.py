@@ -48,7 +48,7 @@ def report_stats(benchmark_spec: BenchmarkSpec, benchmark_result: BenchmarkResul
         elif field == 'input_file':
             result['input_file'] = os.path.basename(benchmark_spec.get_input_file())
         elif field == 'operation':
-            result['operation'] = benchmark_spec.get_operation_name()
+            result['operation'] = benchmark_spec.derive_operation_name()
         elif field == 'file_size':
             result['file_size(B)'] = benchmark_spec.get_input_file_size()
         elif field == 'memory_usage_peak':

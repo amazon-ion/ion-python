@@ -5,8 +5,6 @@ from os import path
 from pathlib import Path
 
 import amazon.ionbenchmark.ion_load_dump as _ion_load_dump
-import cbor
-import json
 
 from amazon.ion.simple_types import IonPySymbol
 
@@ -98,16 +96,16 @@ class BenchmarkSpec(dict):
 
         merged = { **_tool_defaults, **user_defaults, **params, **user_overrides }
 
+        # Convert symbols to strings
+        for k in merged.keys():
+            if isinstance(merged[k], IonPySymbol):
+                merged[k] = merged[k].text
+
         # If not an absolute path, make relative to the working directory.
         input_file = merged['input_file']
         if not path.isabs(input_file):
             input_file = path.join(self._spec_working_directory, input_file)
             merged['input_file'] = input_file
-
-        # Convert symbols to strings
-        for k in merged.keys():
-            if isinstance(merged[k], IonPySymbol):
-                merged[k] = merged[k].text
 
         super().__init__(merged)
 
@@ -116,7 +114,7 @@ class BenchmarkSpec(dict):
                 raise ValueError(f"Missing required parameter '{k}'")
 
         if 'name' not in self:
-            self['name'] = f'({self.get_format()},{self.get_operation_name()},{path.basename(self.get_input_file())})'
+            self['name'] = f'({self.get_format()},{self.derive_operation_name()},{path.basename(self.get_input_file())})'
 
     def __missing__(self, key):
         # Instead of raising a KeyError like a usual dict, just return None.
@@ -160,7 +158,7 @@ class BenchmarkSpec(dict):
     def get_warmups(self):
         return self["warmups"]
 
-    def get_operation_name(self):
+    def derive_operation_name(self):
         match_arg = [self.get_io_type(), self.get_command(), self.get_api()]
         if match_arg == ['buffer', 'read', 'load_dump']:
             return 'loads'
