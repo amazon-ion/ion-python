@@ -25,7 +25,7 @@ class SelfDescribingProtoSerde:
 
     TODO: Add support for importing "well-known types" (https://protobuf.dev/reference/protobuf/google.protobuf/).
     """
-    def __init__(self, cache_type_info=False, reuse_inner_object=False):
+    def __init__(self, cache_type_info=True, reuse_inner_object=False):
         """
         :param cache_type_info: Controls whether the type descriptor set and generated classes should be cached. Caching
             the generated classes for load(s) can be significantly faster than not caching, but requires more memory for
@@ -105,7 +105,7 @@ class SelfDescribingProtoSerde:
         # It seems to be faster to create a new SelfDescribingMessage for each call than it is to use the cached object
         # and check and/or clear the descriptor for each call.
         outer_object = SelfDescribingMessage()
-        obj.DESCRIPTOR.file.CopyToProto(self._cached_outer_object.descriptor_set.file.add())
+        obj.DESCRIPTOR.file.CopyToProto(outer_object.descriptor_set.file.add())
 
         outer_object.message.type_url = obj.DESCRIPTOR.full_name
         outer_object.message.value = obj.SerializeToString()

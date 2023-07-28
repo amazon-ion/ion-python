@@ -1,0 +1,19 @@
+$ion_1_0
+[
+  {
+    name:"(ion_text,loads,cat.ion)",
+    'memory_usage_peak(B)':40941,
+    'file_size(B)':161,
+    'time_mean(ns)':17165,
+    'time_min(ns)':16050,
+    'time_p50(ns)':16375
+  },
+  {
+    name:"(ion_binary,loads,cat.ion)",
+    'memory_usage_peak(B)':36853,
+    'file_size(B)':137,
+    'time_mean(ns)':15655,
+    'time_min(ns)':15125,
+    'time_p50(ns)':15542
+  },
+]

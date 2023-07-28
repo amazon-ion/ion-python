@@ -1,0 +1,15 @@
+syntax="proto3";
+
+message Cat {
+  string name = 1;
+  string breed = 2;
+  bytes microchip_id = 3;
+  Date birthday = 4;
+  repeated string diet = 5;
+}
+
+message Date {
+  int32 year = 1;
+  int32 month = 2;
+  int32 day = 3;
+}

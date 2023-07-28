@@ -1,0 +1,47 @@
+{
+  format: cbor,
+  input_file: "cat.cbor"
+}
+{
+  format: cbor2,
+  input_file: "cat.cbor"
+}
+{
+  format: json,
+  input_file: "cat.json"
+}
+{
+  format: ujson,
+  input_file: "cat.json"
+}
+{
+  format: ion_text,
+  input_file: "cat.ion"
+}
+{
+  format: ion_binary,
+  input_file: "cat.ion"
+}
+{
+  name: "Ion Binary, pure Python impl",
+  format: ion_binary,
+  py_c_extension: false,
+  input_file: "cat.ion"
+}
+{
+  name: "Ion Text, pure Python impl",
+  format: ion_text,
+  py_c_extension: false,
+  input_file: "cat.ion"
+}
+{
+  format: self_describing_protobuf,
+  input_file: "cat.sd_protobuf_data"
+}
+{
+  format: protobuf,
+  input_file: "cat.protobuf_data",
+  // Can also use 'py_module' or 'py_file' instead of 'descriptor_file'
+  descriptor_file: "cat.desc",
+  protobuf_type: "Cat"
+}

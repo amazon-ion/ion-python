@@ -1,0 +1,16 @@
+
+™
+–
+<tests/benchmark_sample_data/example_benchmark_spec/cat.proto"‰
+Cat
+name (	Rname
+breed (	Rbreed!
+microchip_id (RmicrochipId!
+birthday (2.DateRbirthday
+diet (	Rdiet"B
+Date
+year (Ryear
+month (Rmonth
+day (Rdaybproto3X
+CatQ
+Spot	Himalayan 6639c35efdd24cbfbb0c4e367b4c28a0"Ü*fish*chicken*mice
