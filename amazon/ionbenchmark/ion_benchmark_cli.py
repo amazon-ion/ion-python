@@ -154,7 +154,7 @@ def read_write_command(read_or_write: str):
 
     iterations = int(arguments['--iterations'])
     warmups = int(arguments['--warmups'])
-    c_extension = arguments['--c-extension'] if not pypy else False
+    c_extension = not (pypy or arguments['--no-c-extension'])
     iterator = arguments['--iterator']
     output = arguments['--results-file']
     report_fields = arguments["--report"]
