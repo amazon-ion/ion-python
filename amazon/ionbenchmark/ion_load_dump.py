@@ -15,7 +15,9 @@ class IonLoadDump:
     def __init__(self, binary, c_ext=True):
         self._binary = binary
         self._single_value = False
-        self._c_ext = c_ext
+        # Need an explicit check here because if `None` is passed in as an argument, that is different from no argument,
+        # and results in an unexpected behavior.
+        self._c_ext = c_ext if c_ext is not None else True
 
     def loads(self, s):
         ion.c_ext = self._c_ext
