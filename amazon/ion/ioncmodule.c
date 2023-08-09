@@ -1102,6 +1102,7 @@ iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BOOL in_s
             SUCCEED();
         case tid_NULL_INT:
         {
+            // TODO double check the real null type, now it's initialized to IonType.NULL by default
             ION_TYPE null_type;
             // Hack for ion-c issue https://github.com/amazon-ion/ion-c/issues/223
             if (original_t != tid_SYMBOL_INT) {
@@ -1112,7 +1113,7 @@ iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BOOL in_s
             }
 
             ion_type = ION_TYPE_INT(null_type);
-            py_value = Py_BuildValue(""); // INCREFs and returns Python None.
+            py_value = Py_None; // INCREFs and returns Python None.
             emit_bare_values = emit_bare_values && (ion_type == tid_NULL_INT);
             ion_nature_constructor = _ionpynull_fromvalue;
             break;
@@ -1576,6 +1577,18 @@ PyObject* ionc_init_module(void) {
     _ionpylist_fromvalue        = PyObject_GetAttrString(_ionpylist_cls, "from_value");
     _ionpydict_cls              = PyObject_GetAttrString(_simpletypes_module, "IonPyDict");
     _ionpydict_fromvalue        = PyObject_GetAttrString(_ionpydict_cls, "from_value");
+
+    // A temporary workaround to replace from_value() with class constructors
+    // TODO deprecate from_value later
+    _ionpyint_fromvalue = _ionpyint_cls;
+    _ionpynull_fromvalue = _ionpynull_cls;
+    _ionpyfloat_fromvalue = _ionpyfloat_cls;
+    _ionpydecimal_fromvalue = _ionpydecimal_cls;
+    _ionpytext_fromvalue = _ionpytext_cls;
+    _ionpylist_fromvalue = _ionpylist_cls;
+    _ionpydict_fromvalue = _ionpydict_cls;
+    _ionpybool_fromvalue = _ionpybool_cls;
+    _ionpysymbol_fromvalue = _ionpysymbol_cls;
 
     _ion_core_module            = PyImport_ImportModule("amazon.ion.core");
     _py_timestamp_precision     = PyObject_GetAttrString(_ion_core_module, "TimestampPrecision");

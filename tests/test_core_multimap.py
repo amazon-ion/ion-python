@@ -1,6 +1,7 @@
 from typing import Sequence, NamedTuple
 
-from amazon.ion.core import Multimap
+# from amazon.ion.core import Multimap
+from amazon.ion.ion_py_objects import IonPyDict_new as Multimap  # replace the original multiMap with the new IonPyDict
 
 from tests import parametrize
 
@@ -63,7 +64,7 @@ def test_delete_item(item):
     {"a": 1, "b": 2, "c": [1, 2, {3: 4}]}
 )
 def test_constructor(d):
-    m = Multimap(d)
+    m = Multimap(None, d)
     for k, v in iter(d.items()):
         assert m[k] == v
     assert len(m) == len(d)

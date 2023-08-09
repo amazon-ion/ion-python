@@ -20,6 +20,9 @@ particulars of the Ion data model.
 
 from decimal import Decimal
 
+from amazon.ion.ion_py_objects import IonPyNull_new, IonPyDecimal_new, IonPyInt_new, IonPyFloat_new, IonPyText_new, \
+    IonPyList_new, IonPyDict_new, IonPyBool_new, IonPySymbol_new
+
 # in Python 3.10, abstract collections have moved into their own module
 # for compatibility with 3.10+, first try imports from the new location
 # if that fails, try from the pre-3.10 location
@@ -144,27 +147,21 @@ def _ion_type_for(name, base_cls, ion_type=None):
     return IonPyValueType
 
 
-IonPyInt = _ion_type_for('IonPyInt', int, IonType.INT)
-IonPyFloat = _ion_type_for('IonPyFloat', float, IonType.FLOAT)
-IonPyDecimal = _ion_type_for('IonPyDecimal', Decimal, IonType.DECIMAL)
-IonPyText = _ion_type_for('IonPyText', str)
-IonPyBytes = _ion_type_for('IonPyBytes', bytes)
-
 # All of our ion value types inherit from their python value types, for good or
 # ill. Python's builtin `bool` cannot be sub-classed and is itself a sub-class
 # of int so we just sub-class int directly for our Ion Boolean.
 # Considering that True == 1 and False == 0 this works as expected.
-IonPyBool = _ion_type_for('IonPyBool', int, IonType.BOOL)
+IonPyBool_original = _ion_type_for('IonPyBool', int, IonType.BOOL)
 
 # We override __repr__ so Booleans show up as True|False and not 1|0.
 # The representation is consistent with other primitives in that it returns a
 # string repr of the value but not annotations.
-IonPyBool.__repr__ = lambda self: str(bool(self))
+IonPyBool_original.__repr__ = lambda self: str(bool(self))
 
 
-class IonPySymbol(SymbolToken, _IonNature):
+class IonPySymbol_original(SymbolToken, _IonNature):
     def __init__(self, *args, **kwargs):
-        super(IonPySymbol, self).__init__(*args, **kwargs)
+        super(IonPySymbol_original, self).__init__(*args, **kwargs)
         self.ion_type = IonType.SYMBOL
 
     @staticmethod
@@ -195,7 +192,7 @@ class IonPyTimestamp(Timestamp, _IonNature):
         return args, kwargs
 
 
-class IonPyNull(_IonNature):
+class IonPyNull_original(_IonNature):
     """Representation of ``null``.
 
     Notes:
@@ -203,8 +200,9 @@ class IonPyNull(_IonNature):
          own value type for it.  The function ``is_null`` is the best way
          to test for ``null``-ness or ``None``-ness.
     """
+
     def __init__(self, *args, **kwargs):
-        super(IonPyNull, self).__init__(*args, **kwargs)
+        super(IonPyNull_original, self).__init__(*args, **kwargs)
 
     def __nonzero__(self):
         return False
@@ -222,5 +220,32 @@ def is_null(value):
     return value is None or isinstance(value, IonPyNull)
 
 
-IonPyList = _ion_type_for('IonPyList', list)
-IonPyDict = _ion_type_for('IonPyDict', Multimap, IonType.STRUCT)
+IonPyInt_original = _ion_type_for('IonPyInt', int, IonType.INT)
+IonPyFloat_original = _ion_type_for('IonPyFloat', float, IonType.FLOAT)
+IonPyDecimal_original = _ion_type_for('IonPyDecimal', Decimal, IonType.DECIMAL)
+IonPyText_original = _ion_type_for('IonPyText', str, IonType.STRING)
+IonPyBytes = _ion_type_for('IonPyBytes', bytes)
+IonPyList_original = _ion_type_for('IonPyList', list)
+IonPyDict_original = _ion_type_for('IonPyDict', Multimap, IonType.STRUCT)
+
+# Using the original IonPyObjects by uncomment below
+# IonPyDecimal = IonPyDecimal_original
+# IonPyNull = IonPyNull_original
+# IonPyInt = IonPyInt_original
+# IonPyFloat = IonPyFloat_original
+# IonPyText = IonPyText_original
+# IonPyList = IonPyList_original
+# IonPyDict = IonPyDict_original
+# IonPyBool = IonPyBool_original
+# IonPySymbol = IonPySymbol_original
+
+# Switch to the previous IonPyObjects by comment below lines
+IonPyDecimal = IonPyDecimal_new
+IonPyNull = IonPyNull_new
+IonPyInt = IonPyInt_new
+IonPyFloat = IonPyFloat_new
+IonPyText = IonPyText_new
+IonPyList = IonPyList_new
+IonPyDict = IonPyDict_new
+IonPyBool = IonPyBool_new
+IonPySymbol = IonPySymbol_new

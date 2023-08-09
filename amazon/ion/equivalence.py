@@ -19,9 +19,19 @@ from decimal import Decimal
 from math import isnan
 
 from amazon.ion.core import IonType, Timestamp, TimestampPrecision, MICROSECOND_PRECISION, OffsetTZInfo, Multimap
+from amazon.ion.ion_py_objects import IonPyNull_new, IonPyDecimal_new, IonPyInt_new, IonPyFloat_new, IonPyText_new, \
+    IonPyList_new, IonPyDict_new, IonPyBool_new, IonPySymbol_new
 from amazon.ion.simple_types import _IonNature, IonPyList, IonPyDict, IonPyTimestamp, IonPyNull, IonPySymbol, \
     IonPyText, IonPyDecimal, IonPyFloat
 from amazon.ion.symbols import SymbolToken
+
+
+def isinstance_of_ion_nature(obj):
+    return isinstance(obj, _IonNature) or isinstance(obj, IonPyNull_new) \
+        or isinstance(obj, IonPyDecimal_new) or isinstance(obj, IonPyInt_new) \
+        or isinstance(obj, IonPyFloat_new) or isinstance(obj, IonPyText_new) \
+        or isinstance(obj, IonPyList_new) or isinstance(obj, IonPyDict_new) \
+        or isinstance(obj, IonPyBool_new) or isinstance(obj, IonPySymbol_new)
 
 
 def ion_equals(a, b, timestamps_instants_only=False):
@@ -60,8 +70,8 @@ def _ion_equals_timestamps_data_model(a, b):
 def _ion_equals(a, b, timestamp_comparison_func, recursive_comparison_func):
     """Compares a and b according to the description of the ion_equals method."""
     for a, b in ((a, b), (b, a)):  # Ensures that operand order does not matter.
-        if isinstance(a, _IonNature):
-            if isinstance(b, _IonNature):
+        if isinstance_of_ion_nature(a):
+            if isinstance_of_ion_nature(b):
                 # Both operands have _IonNature. Their IonTypes and annotations must be equivalent.
                 eq = a.ion_type is b.ion_type and _annotations_eq(a, b)
             else:
@@ -120,8 +130,8 @@ def _sequences_eq(a, b, comparison_func):
 
 
 def _structs_eq(a, b, comparison_func):
-    assert isinstance(a, (dict, Multimap))
-    if not isinstance(b, (dict, Multimap)):
+    assert isinstance(a, (dict, Multimap, IonPyDict_new))
+    if not isinstance(b, (dict, Multimap, IonPyDict_new)):
         return False
     dict_len = len(a)
     if dict_len != len(b):
@@ -135,7 +145,7 @@ def _structs_eq(a, b, comparison_func):
                 break
             if key not in b:
                 return False
-            if isinstance(a, Multimap) and isinstance(b, Multimap):
+            if isinstance(a, (IonPyDict_new, Multimap)) and isinstance(b, (IonPyDict_new, Multimap)):
                 values_a = a.get_all_values(key)
                 values_b = b.get_all_values(key)
                 if len(values_a) != len(values_b):
