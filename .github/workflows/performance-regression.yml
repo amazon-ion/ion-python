@@ -2,9 +2,9 @@ name: Performance Regression
 
 on:
   pull_request:
-    paths-ignore:
-      # Workflow will not run if all changes match these paths
-      - '**/*.md'
+    paths:
+      # Workflow will only run if something in this path is changed
+      - 'amazon/**'
 
 env:
   report_statistics: 'file_size,time_mean,time_error,ops/s_mean,ops/s_error,memory_usage_peak'
