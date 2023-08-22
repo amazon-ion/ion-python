@@ -37,7 +37,7 @@ from tabulate import tabulate
 
 from amazon.ionbenchmark.Format import format_is_ion, rewrite_file_to_format
 from amazon.ionbenchmark.benchmark_runner import run_benchmark
-from amazon.ionbenchmark.report import report_stats
+from amazon.ionbenchmark.report import report_stats, get_report_field_by_name
 from amazon.ionbenchmark.benchmark_spec import BenchmarkSpec
 
 # Relate pypy incompatible issue - https://github.com/amazon-ion/ion-python/issues/227
@@ -51,7 +51,7 @@ def compare_command():
     Compare the results of two benchmarks to determine if <new_result> has regressed compared to <previous_result>.
 
     Usage:
-        ion_python_benchmark_cli.py compare <previous_result> <new_result> [-fq][--abc <bool>][--threshold <THRESHOLD>][--output <PATH>][-c <FIELD>]...
+        ion_python_benchmark_cli.py compare <previous_result> <new_result> [-fq][--threshold <THRESHOLD>][--output <PATH>][-c <FIELDS>]
 
     Arguments:
         <previous_result>      A report from running a benchmark at some point in the past.
@@ -59,7 +59,7 @@ def compare_command():
         <new_result>           A new report to compare against
 
     Options:
-        -c <FIELD>, --compare <FIELD>     A field to compare in the reports. [default: file_size(B) time_min(ns)]
+        -c <FIELDS>, --compare <FIELDS>     A comma separated list of fields to compare in the reports. [default: file_size,time_mean]
         -o --output PATH       File to write the regression report.
         -q --quiet             Suppress writing regressions to std out. [default: False]
         -t <FLOAT>, --threshold <FLOAT>         Margin of error for comparison. [default: 0.20]
@@ -70,7 +70,13 @@ def compare_command():
     current_path = args['<new_result>']
     output_file_for_comparison = args['--output']
     regression_threshold = float(args['--threshold'])
-    comparison_keywords = args['--compare']
+    comparison_keywords_arg = args['--compare']
+
+    # TODO: Update this command to use the information in REPORT_FIELDS, such as the direction of improvement (doi).
+    # https://github.com/amazon-ion/ion-python/issues/281
+    # Without that (i.e. right now), the compare command will actually fail when the ops/sec metric improves. :S
+
+    comparison_fields = [get_report_field_by_name(name) for name in comparison_keywords_arg.split(",")]
 
     with open(previous_path, 'br') as p, open(current_path, 'br') as c:
         previous_results = ion.load(p)
@@ -81,18 +87,22 @@ def compare_command():
         # For results of each configuration pattern with the same file
         for idx, prev_result in enumerate(previous_results):
             cur_result = current_results[idx]
-            name = cur_result['name']
-            result = {'name': name}
-            for keyword in comparison_keywords:
-                cur = float(cur_result[keyword])
-                prev = float(prev_result[keyword])
+            case_name = cur_result['name']
+            result = {'name': case_name}
+            for field in comparison_fields:
+                if field.units is not None:
+                    key = f"{field.name}({field.units})"
+                else:
+                    key = field.name
+                cur = float(cur_result[key])
+                prev = float(prev_result[key])
                 relative_diff = (cur - prev) / prev
                 pct_diff = f"{relative_diff:.2%}"
-                result[keyword] = pct_diff
+                result[key] = pct_diff
 
                 if relative_diff > regression_threshold:
                     if not args['--quiet']:
-                        print(f"{name} '{keyword}' changed by {pct_diff}: {prev} => {cur}")
+                        print(f"{case_name} '{key}' changed by {pct_diff}: {prev} => {cur}")
                     has_regression = True
 
             report.append(result)
@@ -207,7 +217,7 @@ def run_spec_command():
 
         -o --output FILE        Destination to store the report. If unset, prints to std out.
 
-        -r --report FIELDS      Comma-separated list of fields to include in the report. [default: file_size, time_min, time_mean, memory_usage_peak]
+        -r --report FIELDS      Comma-separated list of fields to include in the report. [default: file_size,ops/s_mean,ops/s_error,memory_usage_peak]
 
     Example:
         ./ion_python_benchmark_cli.py run my_spec_file.ion -d '{iterations:1000}' -o '{warmups:0}' -r "time_min, file_size, peak_memory_usage"
@@ -284,7 +294,15 @@ def _run_benchmarks(specs: list, report_fields, output_file):
         result_stats = report_stats(benchmark_spec, result, report_fields)
         report.append(result_stats)
 
-    print(tabulate(report, tablefmt='fancy_grid', headers='keys'))
+        # TODO: Add some option to dump or otherwise expose the raw sample data. For now, you can
+        # uncomment the following lines to get the raw results as CSV that can be copy/pasted into a spreadsheet.
+        #
+        # printable_key = benchmark_spec.get_name().replace(" ", "").replace(",", "-")
+        # for _x in [printable_key, *result.timings]:
+        #     print(_x, end=",")
+        # print("")
+
+    print(tabulate(report, tablefmt='pipe', headers='keys', floatfmt='.2f'))
 
     if output_file:
         des_dir = os.path.dirname(output_file)

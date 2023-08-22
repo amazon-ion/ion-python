@@ -1,14 +1,74 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
-import os
-import statistics
-from math import ceil
+
+from collections.abc import Callable
+
+from dataclasses import dataclass
 
 from amazon.ionbenchmark.benchmark_runner import BenchmarkResult
 from amazon.ionbenchmark.benchmark_spec import BenchmarkSpec
 
 
-def report_stats(benchmark_spec: BenchmarkSpec, benchmark_result: BenchmarkResult, report_fields: list = None):
+@dataclass(frozen=True)
+class ReportField:
+    """
+    Represents a field that can be included in the benchmark test report
+    """
+    name: str
+    compute_fn: Callable  # Callable[[BenchmarkSpec, BenchmarkResult], Any]
+    units: str = None
+    # Direction of improvement, used by the compare command
+    doi: int = None
+
+
+REPORT_FIELDS = [
+    # TODO: Make sure we have the fields we need to perform a statistically meaningful comparison
+    # I.e. if we end up needing to use ANOVA or Independent Samples T Test, do we have the fields we need?
+    ReportField(name="format",
+                compute_fn=lambda spec, _: spec.get_format()),
+    ReportField(name="input_file",
+                compute_fn=lambda spec, _: spec.get_input_file()),
+    ReportField(name="operation",
+                compute_fn=lambda spec, _: spec.derive_operation_name()),
+    ReportField(name="file_size", units="B", doi=-1,
+                compute_fn=lambda spec, _: spec.get_input_file_size()),
+    ReportField(name="memory_usage_peak", units="B", doi=-1,
+                compute_fn=lambda _, result: result.peak_memory_usage),
+    ReportField(name="time_mean", units="ns", doi=-1,
+                compute_fn=lambda _, result: result.nanos_per_op.mean),
+    ReportField(name="time_min", units="ns", doi=-1,
+                compute_fn=lambda _, result: result.nanos_per_op.min),
+    ReportField(name="time_max", units="ns", doi=-1,
+                compute_fn=lambda _, result: result.nanos_per_op.max),
+    ReportField(name="time_sd", units="ns",
+                compute_fn=lambda _, result: result.nanos_per_op.stdev),
+    ReportField(name="time_rsd", units="%",
+                compute_fn=lambda _, result: result.nanos_per_op.rstdev * 100),
+    ReportField(name="time_error", units="ns",
+                compute_fn=lambda _, result: result.nanos_per_op.margin_of_error(confidence=0.999)),
+    ReportField(name="ops/s_mean", doi=+1,
+                compute_fn=lambda _, result: result.ops_per_second.mean),
+    ReportField(name="ops/s_min", doi=+1,
+                compute_fn=lambda _, result: result.ops_per_second.min),
+    ReportField(name="ops/s_max", doi=+1,
+                compute_fn=lambda _, result: result.ops_per_second.max),
+    ReportField(name="ops/s_sd",
+                compute_fn=lambda _, result: result.ops_per_second.stdev),
+    ReportField(name="ops/s_rsd", units="%",
+                compute_fn=lambda _, result: result.ops_per_second.rstdev * 100),
+    ReportField(name="ops/s_error",
+                compute_fn=lambda _, result: result.ops_per_second.margin_of_error(confidence=0.999)),
+]
+
+
+def get_report_field_by_name(name: str):
+    for field in REPORT_FIELDS:
+        if name == field.name:
+            return field
+    raise ValueError(f"Not a valid report field: {name}")
+
+
+def report_stats(benchmark_spec: BenchmarkSpec, benchmark_result: BenchmarkResult, report_fields: list):
     """
     Generate a report for the outcome of a running a benchmark.
 
@@ -19,69 +79,25 @@ def report_stats(benchmark_spec: BenchmarkSpec, benchmark_result: BenchmarkResul
      * `input_file` – the file used for this benchmark
      * `format` – the format used for this benchmark
      * `memory_usage_peak` – the peak amount of memory allocated while running the benchmark function
-     * `time_<stat>` – time statistic for the benchmark; `<stat>` can be `mean`, `min`, `max`, `median`, or `p<n>` where
-                       `<n>` is any number from 0 to 100 inclusive.
-     * `rate_<stat>` – throughput statistic for the benchmark; `<stat>` can be `mean`, `min`, `max`, `median`, or `p<n>`
-                       where `<n>` is any number from 0 to 100 inclusive.
+     * `time_<stat>` – time statistic for the benchmark
+     * `ops/s_<stat>` – number of operations (invocations of the benchmark function) per second
+
+    `<stat>` can be `mean`, `min`, `max`, `median`, `error`, `stdev`, or `rstdev`
 
     :param benchmark_spec: The spec for the benchmark that was run
     :param benchmark_result: The output from the benchmark
     :param report_fields: list[str] of fields to include in the report.
     :return:
     """
-    if report_fields is None:
-        report_fields = ['file_size', 'time_min', 'time_mean', 'memory_usage_peak']
 
     result = {'name': benchmark_spec.get_name()}
 
-    for field in report_fields:
-        if isinstance(field, str) and field.startswith("time_"):
-            # Note–we use `field[len("time_"):]` instead of `removeprefix("time_")` to support python 3.7 and 3.8
-            stat_value = _calculate_timing_stat(field[len("time_"):], benchmark_result.timings, benchmark_result.batch_size)
-            result[f'{field}(ns)'] = stat_value
-        elif isinstance(field, str) and field.startswith("rate_"):
-            timing_value = _calculate_timing_stat(field[len("rate_"):], benchmark_result.timings, benchmark_result.batch_size)
-            stat_value = ceil(benchmark_spec.get_input_file_size() * 1024 / (timing_value / benchmark_result.batch_size / 1000000000))
-            result[f'{field}(kB/s)'] = stat_value
-        elif field == 'format':
-            result['format'] = benchmark_spec.get_format()
-        elif field == 'input_file':
-            result['input_file'] = os.path.basename(benchmark_spec.get_input_file())
-        elif field == 'operation':
-            result['operation'] = benchmark_spec.derive_operation_name()
-        elif field == 'file_size':
-            result['file_size(B)'] = benchmark_spec.get_input_file_size()
-        elif field == 'memory_usage_peak':
-            result['memory_usage_peak(B)'] = benchmark_result.peak_memory_usage
-        elif field == 'name':
-            pass
+    for field_name in report_fields:
+        field = get_report_field_by_name(field_name)
+        if field.units is not None:
+            key = f"{field.name}({field.units})"
         else:
-            raise ValueError(f"Unrecognized report field '{field}'")
+            key = field.name
+        result[key] = field.compute_fn(benchmark_spec, benchmark_result)
 
     return result
-
-
-def _calculate_timing_stat(stat: str, timings, batch_size):
-    """
-    Calculate a statistic for the given timings.
-
-    :param stat: Name of a statistic. Can be `min`, `max`, `median`, `mean`, or `p<N>` where `N` is 0 to 100 exclusive.
-    :param timings: List of result times from running the benchmark function.
-    :param batch_size: Number of times the benchmark function was invoked to produce a single timing result.
-    :return:
-    """
-    if stat.startswith("p"):
-        n = int(stat[1:])
-        x = ceil(statistics.quantiles(timings, n=100, method='inclusive')[n-1]/batch_size)
-    elif stat == 'mean':
-        x = ceil(sum(timings) / (batch_size * len(timings)))
-    elif stat == 'min':
-        x = ceil(min(timings) / batch_size)
-    elif stat == 'max':
-        x = ceil(max(timings) / batch_size)
-    elif stat == 'median':
-        x = ceil(statistics.median(timings) / batch_size)
-    else:
-        raise ValueError(f"Unrecognized statistic {stat}")
-    return x
-
