@@ -6,20 +6,18 @@ from amazon.ion.symbols import SymbolToken
 
 
 class IonPyNull_new(object):
-    ion_annotations = ()
-    ion_type = IonType.NULL  # TODO initialized to NULL type first, what's the real type?
-
     __name__ = 'IonPyNull_new'
     __qualname__ = 'IonPyNull_new'
+    ion_type = IonType.NULL
 
-    def __init__(self, ion_type=None, value=None, annotations=()):
-        self.ion_type = ion_type
+    def __init__(self, ion_type=IonType.NULL, value=None, annotations=()):
+        self.ion_type = ion_type  # TODO initialized to NULL type first, what's the real type?
         self.ion_annotations = annotations
 
     def __bool__(self):
         return False
 
-    def _copy(self):
+    def __copy__(self):
         args, kwargs = self._to_constructor_args(self)
         value = self.__class__(*args, **kwargs)
         value.ion_type = self.ion_type
@@ -68,18 +66,16 @@ class IonPyNull_new(object):
 
 
 class IonPyDecimal_new(Decimal):
-    ion_annotations = ()
-    ion_type = IonType.DECIMAL
-
     __name__ = 'IonPyDecimal_new'
     __qualname__ = 'IonPyDecimal_new'
+    ion_type = IonType.DECIMAL
 
-    def __new__(cls, ion_type, value, annotations=()):
+    def __new__(cls, ion_type=IonType.DECIMAL, value=None, annotations=()):
         v = super().__new__(cls, value)
         v.ion_annotations = annotations
         return v
 
-    def _copy(self):
+    def __copy__(self):
         args, kwargs = self._to_constructor_args(self)
         value = self.__class__(*args, **kwargs)
         value.ion_type = self.ion_type
@@ -128,18 +124,16 @@ class IonPyDecimal_new(Decimal):
 
 
 class IonPyInt_new(int):
-    ion_annotations = ()
-    ion_type = IonType.INT
-
     __name__ = 'IonPyInt_new'
     __qualname__ = 'IonPyInt_new'
+    ion_type = IonType.INT
 
-    def __new__(cls, ion_type, value, annotations=()):
+    def __new__(cls, ion_type=IonType.INT, value=None, annotations=()):
         v = super().__new__(cls, value)
         v.ion_annotations = annotations
         return v
 
-    def _copy(self):
+    def __copy__(self):
         args, kwargs = self._to_constructor_args(self)
         value = self.__class__(*args, **kwargs)
         value.ion_type = self.ion_type
@@ -188,21 +182,19 @@ class IonPyInt_new(int):
 
 
 class IonPyBool_new(int):
-    ion_annotations = ()
-    ion_type = IonType.BOOL
-
     __name__ = 'IonPyBool_new'
     __qualname__ = 'IonPyBool_new'
+    ion_type = IonType.BOOL
 
     def __repr__(self):
         return str(bool(self))
 
-    def __new__(cls, ion_type, value, annotations=()):
+    def __new__(cls, ion_type=IonType.BOOL, value=None, annotations=()):
         v = super().__new__(cls, value)
         v.ion_annotations = annotations
         return v
 
-    def _copy(self):
+    def __copy__(self):
         args, kwargs = self._to_constructor_args(self)
         value = self.__class__(*args, **kwargs)
         value.ion_type = self.ion_type
@@ -251,18 +243,16 @@ class IonPyBool_new(int):
 
 
 class IonPyFloat_new(float):
-    ion_annotations = ()
-    ion_type = IonType.FLOAT
-
     __name__ = 'IonPyFloat_new'
     __qualname__ = 'IonPyFloat_new'
+    ion_type = IonType.FLOAT
 
-    def __new__(cls, ion_type, value, annotations=()):
+    def __new__(cls, ion_type=IonType.FLOAT, value=None, annotations=()):
         v = super().__new__(cls, value)
         v.ion_annotations = annotations
         return v
 
-    def _copy(self):
+    def __copy__(self):
         args, kwargs = self._to_constructor_args(self)
         value = self.__class__(*args, **kwargs)
         value.ion_type = self.ion_type
@@ -311,18 +301,16 @@ class IonPyFloat_new(float):
 
 
 class IonPyText_new(str):
-    ion_annotations = ()
-    ion_type = IonType.STRING
-
     __name__ = 'IonPyText_new'
     __qualname__ = 'IonPyText_new'
+    ion_type = IonType.STRING
 
-    def __new__(cls, ion_type=None, value=None, annotations=()):
+    def __new__(cls, ion_type=IonType.STRING, value=None, annotations=()):
         v = super().__new__(cls, value)
         v.ion_annotations = annotations
         return v
 
-    def _copy(self):
+    def __copy__(self):
         args, kwargs = self._to_constructor_args(self)
         value = self.__class__(*args, **kwargs)
         value.ion_type = self.ion_type
@@ -371,19 +359,17 @@ class IonPyText_new(str):
 
 
 class IonPySymbol_new(SymbolToken):
-    ion_annotations = ()
-    ion_type = IonType.SYMBOL
-
     __name__ = 'IonPySymbol_new'
     __qualname__ = 'IonPySymbol_new'
+    ion_type = IonType.SYMBOL
 
     # a good signature: IonPySymbol(ion_type, symbol_token, annotation)
-    def __new__(cls, ion_type, value, annotations=()):
+    def __new__(cls, ion_type=IonType.SYMBOL, value=None, annotations=()):
         v = super().__new__(cls, *value)
         v.ion_annotations = annotations
         return v
 
-    def _copy(self):
+    def __copy__(self):
         args, kwargs = self._to_constructor_args(self)
         value = self.__class__(*args, **kwargs)
         value.ion_type = self.ion_type
@@ -437,19 +423,19 @@ class IonPySymbol_new(SymbolToken):
 
 
 class IonPyList_new(list):
-    ion_annotations = ()
-    ion_type = IonType.LIST
-
     __name__ = 'IonPyList_new'
     __qualname__ = 'IonPyList_new'
+    ion_type = IonType.LIST
 
-    def __init__(self, ion_type, value, annotations=()):
+    def __init__(self, ion_type=IonType.LIST, value=None, annotations=()):
+        if value is None:
+            value = []
         super().__init__(value)
         self.ion_annotations = annotations
         # it's possible to be Sexp
         self.ion_type = ion_type
 
-    def _copy(self):
+    def __copy__(self):
         args, kwargs = self._to_constructor_args(self)
         value = self.__class__(*args, **kwargs)
         value.ion_type = self.ion_type
@@ -498,22 +484,17 @@ class IonPyList_new(list):
 
 
 class IonPyDict_new(MutableMapping):
-    ion_annotations = ()
-    ion_type = IonType.STRUCT
-
     __name__ = 'IonPyDict_new'
     __qualname__ = 'IonPyDict_new'
+    ion_type = IonType.STRUCT
 
-    # one good initialization example: my_dict = IonPyDict(ion_type, value, annotations)
-    def __init__(self, *args, **kwargs):
+    def __init__(self, ion_type=IonType.STRUCT, value=None, annotations=()):
         super().__init__()
+        self.ion_annotations = annotations
         self.__store = {}
-        if args is not None:
-            if len(args) > 1 and args[1] is not None:
-                for key, value in iter(args[1].items()):
-                    self.__store[key] = [value]
-            if len(args) > 2 and args[2] is not None:
-                self.ion_annotations = args[2]
+        if value is not None:
+            for key, value in iter(value.items()):
+                self.__store[key] = [value]
 
     def __getitem__(self, key):
         return self.__store[key][len(self.__store[key]) - 1]  # Return only one in order not to break clients
@@ -557,7 +538,7 @@ class IonPyDict_new(MutableMapping):
             output.append((k, v))
         return output
 
-    def _copy(self):
+    def __copy__(self):
         args, kwargs = self._to_constructor_args(self)
         value = self.__class__(*args, **kwargs)
         value.ion_type = self.ion_type

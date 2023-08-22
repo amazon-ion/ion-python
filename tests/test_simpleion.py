@@ -32,7 +32,7 @@ from amazon.ion.writer_binary import _IVM
 from amazon.ion.core import IonType, IonEvent, IonEventType, OffsetTZInfo, Multimap
 from amazon.ion.simple_types import IonPyDict, IonPyText, IonPyList, IonPyNull, IonPyBool, IonPyInt, IonPyFloat, \
     IonPyDecimal, IonPyTimestamp, IonPyBytes, IonPySymbol, _IonNature
-from amazon.ion.equivalence import ion_equals, isinstance_of_ion_nature
+from amazon.ion.equivalence import ion_equals, isinstance_of_ion_nature_or_new_ion_py_objects
 from amazon.ion.simpleion import dump, dumps, load, loads, _ion_type, _FROM_ION_TYPE, _FROM_TYPE_TUPLE_AS_SEXP, \
     _FROM_TYPE
 from amazon.ion.writer_binary_raw import _serialize_symbol, _write_length
@@ -272,7 +272,7 @@ def generate_annotated_values_binary(scalars_map, container_map):
     for value_p in chain(generate_scalars_binary(scalars_map, preceding_symbols=2),
                          generate_containers_binary(container_map, preceding_symbols=2)):
         obj = value_p.obj
-        if not isinstance_of_ion_nature(obj):
+        if not isinstance_of_ion_nature_or_new_ion_py_objects(obj):
             continue
         obj.ion_annotations = (_st(u'annot1'), _st(u'annot2'),)
         annot_length = 2  # 10 and 11 each fit in one VarUInt byte
@@ -441,7 +441,7 @@ def generate_annotated_values_text(scalars_map, container_map):
     for value_p in chain(generate_scalars_text(scalars_map),
                          generate_containers_text(container_map)):
         obj = value_p.obj
-        if not isinstance_of_ion_nature(obj):
+        if not isinstance_of_ion_nature_or_new_ion_py_objects(obj):
             continue
         obj.ion_annotations = (_st(u'annot1'), _st(u'annot2'),)
 
@@ -571,7 +571,7 @@ def _generate_roundtrips(roundtrips):
             for obj in roundtrips:
                 obj = _adjust_sids()
                 yield obj, is_binary, indent, False
-                if not isinstance_of_ion_nature(obj):
+                if not isinstance_of_ion_nature_or_new_ion_py_objects(obj):
                     ion_type = _ion_type(obj, _FROM_TYPE)
                     yield _to_obj()
                 else:
@@ -592,7 +592,7 @@ def _assert_roundtrip(before, after, tuple_as_sexp):
     # wraps each input value in _IonNature for comparison against the output.
     def _to_ion_nature(obj):
         out = obj
-        if not isinstance_of_ion_nature(out):
+        if not isinstance_of_ion_nature_or_new_ion_py_objects(out):
             from_type = _FROM_TYPE_TUPLE_AS_SEXP if tuple_as_sexp else _FROM_TYPE
             ion_type = _ion_type(out, from_type)
             out = _FROM_ION_TYPE[ion_type].from_value(ion_type, out)
