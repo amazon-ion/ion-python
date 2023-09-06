@@ -26,12 +26,8 @@ from amazon.ion.simple_types import _IonNature, IonPyList, IonPyDict, IonPyTimes
 from amazon.ion.symbols import SymbolToken
 
 
-def isinstance_of_ion_nature_or_new_ion_py_objects(obj):
-    return isinstance(obj, _IonNature) or isinstance(obj, IonPyNull_new) \
-        or isinstance(obj, IonPyDecimal_new) or isinstance(obj, IonPyInt_new) \
-        or isinstance(obj, IonPyFloat_new) or isinstance(obj, IonPyText_new) \
-        or isinstance(obj, IonPyList_new) or isinstance(obj, IonPyDict_new) \
-        or isinstance(obj, IonPyBool_new) or isinstance(obj, IonPySymbol_new)
+def obj_has_ion_type_and_annotation(obj):
+    return hasattr(obj, 'ion_type') and hasattr(obj, 'ion_annotations')
 
 
 def ion_equals(a, b, timestamps_instants_only=False):
@@ -70,8 +66,8 @@ def _ion_equals_timestamps_data_model(a, b):
 def _ion_equals(a, b, timestamp_comparison_func, recursive_comparison_func):
     """Compares a and b according to the description of the ion_equals method."""
     for a, b in ((a, b), (b, a)):  # Ensures that operand order does not matter.
-        if isinstance_of_ion_nature_or_new_ion_py_objects(a):
-            if isinstance_of_ion_nature_or_new_ion_py_objects(b):
+        if obj_has_ion_type_and_annotation(a):
+            if obj_has_ion_type_and_annotation(b):
                 # Both operands have _IonNature. Their IonTypes and annotations must be equivalent.
                 eq = a.ion_type is b.ion_type and _annotations_eq(a, b)
             else:

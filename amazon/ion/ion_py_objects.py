@@ -1,3 +1,4 @@
+from collections import OrderedDict
 from decimal import Decimal
 from collections.abc import MutableMapping
 
@@ -8,7 +9,6 @@ from amazon.ion.symbols import SymbolToken
 class IonPyNull_new(object):
     __name__ = 'IonPyNull_new'
     __qualname__ = 'IonPyNull_new'
-    ion_type = IonType.NULL
 
     def __init__(self, ion_type=IonType.NULL, value=None, annotations=()):
         self.ion_type = ion_type  # TODO initialized to NULL type first, what's the real type?
@@ -52,7 +52,7 @@ class IonPyNull_new(object):
 
     def to_event(self, event_type, field_name=None, in_struct=False, depth=None):
         value = self
-        if isinstance(self, IonPyNull_new) or self.ion_type.is_container:
+        if isinstance(self, IonPyNull_new):
             value = None
 
         if in_struct:
@@ -110,7 +110,7 @@ class IonPyDecimal_new(Decimal):
 
     def to_event(self, event_type, field_name=None, in_struct=False, depth=None):
         value = self
-        if isinstance(self, IonPyNull_new) or self.ion_type.is_container:
+        if isinstance(self, IonPyNull_new):
             value = None
 
         if in_struct:
@@ -168,7 +168,7 @@ class IonPyInt_new(int):
 
     def to_event(self, event_type, field_name=None, in_struct=False, depth=None):
         value = self
-        if isinstance(self, IonPyNull_new) or self.ion_type.is_container:
+        if isinstance(self, IonPyNull_new):
             value = None
 
         if in_struct:
@@ -229,7 +229,7 @@ class IonPyBool_new(int):
 
     def to_event(self, event_type, field_name=None, in_struct=False, depth=None):
         value = self
-        if isinstance(self, IonPyNull_new) or self.ion_type.is_container:
+        if isinstance(self, IonPyNull_new):
             value = None
 
         if in_struct:
@@ -287,7 +287,7 @@ class IonPyFloat_new(float):
 
     def to_event(self, event_type, field_name=None, in_struct=False, depth=None):
         value = self
-        if isinstance(self, IonPyNull_new) or self.ion_type.is_container:
+        if isinstance(self, IonPyNull_new):
             value = None
 
         if in_struct:
@@ -345,7 +345,7 @@ class IonPyText_new(str):
 
     def to_event(self, event_type, field_name=None, in_struct=False, depth=None):
         value = self
-        if isinstance(self, IonPyNull_new) or self.ion_type.is_container:
+        if isinstance(self, IonPyNull_new):
             value = None
 
         if in_struct:
@@ -409,7 +409,7 @@ class IonPySymbol_new(SymbolToken):
 
     def to_event(self, event_type, field_name=None, in_struct=False, depth=None):
         value = self
-        if isinstance(self, IonPyNull_new) or self.ion_type.is_container:
+        if isinstance(self, IonPyNull_new):
             value = None
 
         if in_struct:
@@ -425,7 +425,6 @@ class IonPySymbol_new(SymbolToken):
 class IonPyList_new(list):
     __name__ = 'IonPyList_new'
     __qualname__ = 'IonPyList_new'
-    ion_type = IonType.LIST
 
     def __init__(self, ion_type=IonType.LIST, value=None, annotations=()):
         if value is None:
@@ -469,9 +468,7 @@ class IonPyList_new(list):
         return value
 
     def to_event(self, event_type, field_name=None, in_struct=False, depth=None):
-        value = self
-        if isinstance(self, IonPyNull_new) or self.ion_type.is_container:
-            value = None
+        value = None
 
         if in_struct:
             if not isinstance(field_name, SymbolToken):
@@ -484,6 +481,16 @@ class IonPyList_new(list):
 
 
 class IonPyDict_new(MutableMapping):
+    """
+    Dictionary that can hold multiple values for the same key
+
+    In order not to break existing customers, getting and inserting elements with ``[]`` keeps the same behaviour
+    as the built-in dict. If multiple elements are already mapped to the key, ``[]`  will return
+    the newest one.
+
+    To map multiple elements to a key, use the ``add_item`` operation.
+    To retrieve all the values map to a key, use ``get_all_values``.
+    """
     __name__ = 'IonPyDict_new'
     __qualname__ = 'IonPyDict_new'
     ion_type = IonType.STRUCT
@@ -491,18 +498,30 @@ class IonPyDict_new(MutableMapping):
     def __init__(self, ion_type=IonType.STRUCT, value=None, annotations=()):
         super().__init__()
         self.ion_annotations = annotations
-        self.__store = {}
+        self.__store = OrderedDict()
         if value is not None:
             for key, value in iter(value.items()):
-                self.__store[key] = [value]
+                if key in self.__store.keys():
+                    self.__store[key].append(value)
+                else:
+                    self.__store[key] = [value]
 
     def __getitem__(self, key):
+        """
+        Return the newest value for the given key. To retrieve all the values map to the key, use ``get_all_values``.
+        """
         return self.__store[key][len(self.__store[key]) - 1]  # Return only one in order not to break clients
 
     def __delitem__(self, key):
+        """
+        Delete all values for the given key.
+        """
         del self.__store[key]
 
     def __setitem__(self, key, value):
+        """
+        Set the desired value to the given key.
+        """
         self.__store[key] = [value]
 
     def __len__(self):
@@ -519,20 +538,33 @@ class IonPyDict_new(MutableMapping):
         return '{%s}' % ', '.join(['%r: %r' % (k, v) for k, v in self.items()])
 
     def add_item(self, key, value):
+        """
+        Add a value for the given key. This operation appends the value to the end of the value list instead of
+        overwriting the existing value.
+        """
         if key in self.__store:
             self.__store[key].append(value)
         else:
             self.__setitem__(key, value)
 
     def get_all_values(self, key):
+        """
+        Retrieve all the values mapped to the given key
+        """
         return self.__store[key]
 
     def iteritems(self):
+        """
+        Return an iterator over (key, value) tuple pairs.
+        """
         for key in self.__store:
             for value in self.__store[key]:
-                yield key, value
+                yield (key, value)
 
     def items(self):
+        """
+        Return a list of the IonPyDict's (key, value) tuple pairs.
+        """
         output = []
         for k, v in self.iteritems():
             output.append((k, v))
@@ -572,9 +604,7 @@ class IonPyDict_new(MutableMapping):
         return value
 
     def to_event(self, event_type, field_name=None, in_struct=False, depth=None):
-        value = self
-        if isinstance(self, IonPyNull_new) or self.ion_type.is_container:
-            value = None
+        value = None
 
         if in_struct:
             if not isinstance(field_name, SymbolToken):

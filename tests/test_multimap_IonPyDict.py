@@ -60,10 +60,19 @@ def test_delete_item(item):
 @parametrize(
     {},
     {"a": 1},
-    {"a": 1, "b": 2, "c": [1, 2, {3: 4}]}
+    {"a": 1, "b": 2, "c": [1, 2, {3: 4}]},
 )
 def test_constructor(d):
     m = Multimap(None, d)
     for k, v in iter(d.items()):
         assert m[k] == v
     assert len(m) == len(d)
+
+
+def test_multimap_constructor():
+    m = Multimap(None, {})
+    m.add_item('a', 1)
+    m.add_item('a', 2)
+    m2 = Multimap(None, m)
+
+    assert len(m2) == 2
