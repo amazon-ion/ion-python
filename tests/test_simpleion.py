@@ -377,8 +377,8 @@ def _simple_loads(data, *args, **kw):
 @parametrize(
     *tuple(chain(
         generate_scalars_binary(SIMPLE_SCALARS_MAP_BINARY),
-        # generate_containers_binary(_SIMPLE_CONTAINER_MAP),
-        # generate_annotated_values_binary(SIMPLE_SCALARS_MAP_BINARY, _SIMPLE_CONTAINER_MAP),
+        generate_containers_binary(_SIMPLE_CONTAINER_MAP),
+        generate_annotated_values_binary(SIMPLE_SCALARS_MAP_BINARY, _SIMPLE_CONTAINER_MAP),
     ))
 )
 def test_dump_load_binary(p):
