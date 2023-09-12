@@ -21,9 +21,9 @@ from itertools import chain
 from datetime import datetime, timedelta
 
 from amazon.ion.core import IonType, timestamp, TimestampPrecision, OffsetTZInfo
-from amazon.ion.equivalence import ion_equals
+from amazon.ion.equivalence import ion_equals, obj_has_ion_type_and_annotation
 from amazon.ion.simple_types import IonPyNull, IonPyInt, IonPyBool, IonPyFloat, IonPyDecimal, IonPyText, IonPyBytes, \
-    IonPyList, IonPyTimestamp, IonPySymbol, IonPyDict, _IonNature
+    IonPyList, IonPyTimestamp, IonPySymbol, IonPyDict
 from amazon.ion.symbols import SymbolToken, ImportLocation
 from tests import parametrize
 
@@ -268,7 +268,7 @@ _P = _Parameter
 
 def _desc(a, b, operator):
     def _str(val):
-        if isinstance(val, _IonNature):
+        if obj_has_ion_type_and_annotation(val):
             return '%s(%s, ion_type=%s, ion_annotations=%s)' % (type(val), val, val.ion_type, val.ion_annotations)
         return '%s(%s)' % (type(val), val)
     return 'assert %s %s %s' % (_str(a), operator, _str(b))
@@ -327,13 +327,13 @@ def _generate_equivs(equivs, param_func=_equivs_param):
                 has_ion_nature = False
                 a = seq[i]
                 b = seq[j]
-                if isinstance(a, _IonNature):
+                if obj_has_ion_type_and_annotation(a):
                     has_ion_nature = True
-                    a = a._copy()
+                    a = a.__copy__()
                     _add_annotations(a)
-                if isinstance(b, _IonNature):
+                if obj_has_ion_type_and_annotation(b):
                     has_ion_nature = True
-                    b = b._copy()
+                    b = b.__copy__()
                     _add_annotations(b)
                 if has_ion_nature:
                     yield _nonequivs_param(a, b)

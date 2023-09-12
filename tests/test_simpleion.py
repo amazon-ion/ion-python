@@ -26,12 +26,11 @@ from pytest import raises
 
 from amazon.ion import simpleion
 from amazon.ion.exceptions import IonException
-from amazon.ion.ion_py_objects import IonPyDict
 from amazon.ion.symbols import SymbolToken, SYSTEM_SYMBOL_TABLE
 from amazon.ion.writer_binary import _IVM
 from amazon.ion.core import IonType, IonEvent, IonEventType, OffsetTZInfo, Multimap
 from amazon.ion.simple_types import IonPyDict, IonPyText, IonPyList, IonPyNull, IonPyBool, IonPyInt, IonPyFloat, \
-    IonPyDecimal, IonPyTimestamp, IonPyBytes, IonPySymbol, _IonNature
+    IonPyDecimal, IonPyTimestamp, IonPyBytes, IonPySymbol
 from amazon.ion.equivalence import ion_equals, obj_has_ion_type_and_annotation
 from amazon.ion.simpleion import dump, dumps, load, loads, _ion_type, _FROM_ION_TYPE, _FROM_TYPE_TUPLE_AS_SEXP, \
     _FROM_TYPE
@@ -588,29 +587,7 @@ def _generate_roundtrips(roundtrips):
 
 
 def _assert_roundtrip(before, after, tuple_as_sexp):
-    # All loaded Ion values extend _IonNature, even if they were dumped from primitives. This recursively
-    # wraps each input value in _IonNature for comparison against the output.
-    def _to_ion_nature(obj):
-        out = obj
-        if not obj_has_ion_type_and_annotation(out):
-            from_type = _FROM_TYPE_TUPLE_AS_SEXP if tuple_as_sexp else _FROM_TYPE
-            ion_type = _ion_type(out, from_type)
-            out = _FROM_ION_TYPE[ion_type].from_value(ion_type, out)
-        if isinstance(out, dict):
-            update = {}
-            for field, value in iter(out.items()):
-                update[field] = _to_ion_nature(value)
-            update = IonPyDict.from_value(out.ion_type, update, out.ion_annotations)
-            out = update
-        elif isinstance(out, list):
-            update = []
-            for value in out:
-                update.append(_to_ion_nature(value))
-            update = IonPyList.from_value(out.ion_type, update, out.ion_annotations)
-            out = update
-
-        return out
-    assert ion_equals(_to_ion_nature(before), after)
+    assert ion_equals(before, after)
 
 
 @parametrize(

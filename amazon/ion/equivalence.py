@@ -19,9 +19,7 @@ from decimal import Decimal
 from math import isnan
 
 from amazon.ion.core import IonType, Timestamp, TimestampPrecision, MICROSECOND_PRECISION, OffsetTZInfo, Multimap
-from amazon.ion.ion_py_objects import IonPyNull, IonPyDecimal, IonPyInt, IonPyFloat, IonPyText, \
-    IonPyList, IonPyDict, IonPyBool, IonPySymbol
-from amazon.ion.simple_types import _IonNature, IonPyList, IonPyDict, IonPyTimestamp, IonPyNull, IonPySymbol, \
+from amazon.ion.simple_types import IonPyList, IonPyDict, IonPyTimestamp, IonPyNull, IonPySymbol, \
     IonPyText, IonPyDecimal, IonPyFloat
 from amazon.ion.symbols import SymbolToken
 

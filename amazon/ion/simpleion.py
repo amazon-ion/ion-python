@@ -28,7 +28,6 @@ from .reader_binary import binary_reader
 from .reader_managed import managed_reader
 from .simple_types import IonPyList, IonPyDict, IonPyNull, IonPyBool, IonPyInt, IonPyFloat, IonPyDecimal, \
     IonPyTimestamp, IonPyText, IonPyBytes, IonPySymbol, is_null
-from amazon.ion.ion_py_objects import IonPyNull
 from .symbols import SymbolToken
 from .writer import blocking_writer
 from .writer_binary import binary_writer
