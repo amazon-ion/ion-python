@@ -26,7 +26,7 @@ from pytest import raises
 
 from amazon.ion import simpleion
 from amazon.ion.exceptions import IonException
-from amazon.ion.ion_py_objects import IonPyDict_new
+from amazon.ion.ion_py_objects import IonPyDict
 from amazon.ion.symbols import SymbolToken, SYSTEM_SYMBOL_TABLE
 from amazon.ion.writer_binary import _IVM
 from amazon.ion.core import IonType, IonEvent, IonEventType, OffsetTZInfo, Multimap
@@ -249,7 +249,7 @@ def generate_containers_binary(container_map, preceding_symbols=0):
             for one_expected in expecteds:
                 one_expected = one_expected.binary
                 for elem in obj:
-                    if isinstance(elem, (dict, Multimap, IonPyDict_new)) and len(elem) > 0:
+                    if isinstance(elem, (dict, Multimap, IonPyDict)) and len(elem) > 0:
                         has_symbols = True
                     elif ion_type is IonType.SEXP and isinstance(elem, tuple):
                         tuple_as_sexp = True

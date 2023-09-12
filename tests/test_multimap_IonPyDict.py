@@ -1,6 +1,6 @@
 from typing import Sequence, NamedTuple
 
-from amazon.ion.ion_py_objects import IonPyDict_new as Multimap
+from amazon.ion.ion_py_objects import IonPyDict as Multimap
 
 from tests import parametrize
 

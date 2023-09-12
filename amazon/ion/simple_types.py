@@ -20,8 +20,8 @@ particulars of the Ion data model.
 
 from decimal import Decimal
 
-from amazon.ion.ion_py_objects import IonPyNull_new, IonPyDecimal_new, IonPyInt_new, IonPyFloat_new, IonPyText_new, \
-    IonPyList_new, IonPyDict_new, IonPyBool_new, IonPySymbol_new
+from amazon.ion.ion_py_objects import IonPyNull, IonPyDecimal, IonPyInt, IonPyFloat, IonPyText, \
+    IonPyList, IonPyDict, IonPyBool, IonPySymbol
 
 # in Python 3.10, abstract collections have moved into their own module
 # for compatibility with 3.10+, first try imports from the new location
@@ -240,12 +240,12 @@ IonPyDict_original = _ion_type_for('IonPyDict', Multimap, IonType.STRUCT)
 # IonPySymbol = IonPySymbol_original
 
 # Switch to the previous IonPyObjects by comment below lines
-IonPyDecimal = IonPyDecimal_new
-IonPyNull = IonPyNull_new
-IonPyInt = IonPyInt_new
-IonPyFloat = IonPyFloat_new
-IonPyText = IonPyText_new
-IonPyList = IonPyList_new
-IonPyDict = IonPyDict_new
-IonPyBool = IonPyBool_new
-IonPySymbol = IonPySymbol_new
+IonPyDecimal = IonPyDecimal
+IonPyNull = IonPyNull
+IonPyInt = IonPyInt
+IonPyFloat = IonPyFloat
+IonPyText = IonPyText
+IonPyList = IonPyList
+IonPyDict = IonPyDict
+IonPyBool = IonPyBool
+IonPySymbol = IonPySymbol

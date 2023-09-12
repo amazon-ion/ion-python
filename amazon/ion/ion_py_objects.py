@@ -6,7 +6,7 @@ from amazon.ion.core import IonType, IonEvent
 from amazon.ion.symbols import SymbolToken
 
 
-class IonPyNull_new(object):
+class IonPyNull(object):
     __name__ = 'IonPyNull_new'
     __qualname__ = 'IonPyNull_new'
 
@@ -42,7 +42,7 @@ class IonPyNull_new(object):
     @classmethod
     def from_value(cls, ion_type, value, annotations=()):
         if value is None:
-            value = IonPyNull_new()
+            value = IonPyNull()
         else:
             args, kwargs = cls._to_constructor_args(value)
             value = cls(*args, **kwargs)
@@ -52,7 +52,7 @@ class IonPyNull_new(object):
 
     def to_event(self, event_type, field_name=None, in_struct=False, depth=None):
         value = self
-        if isinstance(self, IonPyNull_new):
+        if isinstance(self, IonPyNull):
             value = None
 
         if in_struct:
@@ -65,7 +65,7 @@ class IonPyNull_new(object):
                         annotations=self.ion_annotations, depth=depth)
 
 
-class IonPyDecimal_new(Decimal):
+class IonPyDecimal(Decimal):
     __name__ = 'IonPyDecimal_new'
     __qualname__ = 'IonPyDecimal_new'
     ion_type = IonType.DECIMAL
@@ -100,7 +100,7 @@ class IonPyDecimal_new(Decimal):
     @classmethod
     def from_value(cls, ion_type, value, annotations=()):
         if value is None:
-            value = IonPyNull_new()
+            value = IonPyNull()
         else:
             args, kwargs = cls._to_constructor_args(value)
             value = cls(*args, **kwargs)
@@ -110,7 +110,7 @@ class IonPyDecimal_new(Decimal):
 
     def to_event(self, event_type, field_name=None, in_struct=False, depth=None):
         value = self
-        if isinstance(self, IonPyNull_new):
+        if isinstance(self, IonPyNull):
             value = None
 
         if in_struct:
@@ -123,7 +123,7 @@ class IonPyDecimal_new(Decimal):
                         annotations=self.ion_annotations, depth=depth)
 
 
-class IonPyInt_new(int):
+class IonPyInt(int):
     __name__ = 'IonPyInt_new'
     __qualname__ = 'IonPyInt_new'
     ion_type = IonType.INT
@@ -158,7 +158,7 @@ class IonPyInt_new(int):
     @classmethod
     def from_value(cls, ion_type, value, annotations=()):
         if value is None:
-            value = IonPyNull_new()
+            value = IonPyNull()
         else:
             args, kwargs = cls._to_constructor_args(value)
             value = cls(*args, **kwargs)
@@ -168,7 +168,7 @@ class IonPyInt_new(int):
 
     def to_event(self, event_type, field_name=None, in_struct=False, depth=None):
         value = self
-        if isinstance(self, IonPyNull_new):
+        if isinstance(self, IonPyNull):
             value = None
 
         if in_struct:
@@ -181,7 +181,7 @@ class IonPyInt_new(int):
                         annotations=self.ion_annotations, depth=depth)
 
 
-class IonPyBool_new(int):
+class IonPyBool(int):
     __name__ = 'IonPyBool_new'
     __qualname__ = 'IonPyBool_new'
     ion_type = IonType.BOOL
@@ -219,7 +219,7 @@ class IonPyBool_new(int):
     @classmethod
     def from_value(cls, ion_type, value, annotations=()):
         if value is None:
-            value = IonPyNull_new()
+            value = IonPyNull()
         else:
             args, kwargs = cls._to_constructor_args(value)
             value = cls(*args, **kwargs)
@@ -229,7 +229,7 @@ class IonPyBool_new(int):
 
     def to_event(self, event_type, field_name=None, in_struct=False, depth=None):
         value = self
-        if isinstance(self, IonPyNull_new):
+        if isinstance(self, IonPyNull):
             value = None
 
         if in_struct:
@@ -242,7 +242,7 @@ class IonPyBool_new(int):
                         annotations=self.ion_annotations, depth=depth)
 
 
-class IonPyFloat_new(float):
+class IonPyFloat(float):
     __name__ = 'IonPyFloat_new'
     __qualname__ = 'IonPyFloat_new'
     ion_type = IonType.FLOAT
@@ -277,7 +277,7 @@ class IonPyFloat_new(float):
     @classmethod
     def from_value(cls, ion_type, value, annotations=()):
         if value is None:
-            value = IonPyNull_new()
+            value = IonPyNull()
         else:
             args, kwargs = cls._to_constructor_args(value)
             value = cls(*args, **kwargs)
@@ -287,7 +287,7 @@ class IonPyFloat_new(float):
 
     def to_event(self, event_type, field_name=None, in_struct=False, depth=None):
         value = self
-        if isinstance(self, IonPyNull_new):
+        if isinstance(self, IonPyNull):
             value = None
 
         if in_struct:
@@ -300,7 +300,7 @@ class IonPyFloat_new(float):
                         annotations=self.ion_annotations, depth=depth)
 
 
-class IonPyText_new(str):
+class IonPyText(str):
     __name__ = 'IonPyText_new'
     __qualname__ = 'IonPyText_new'
     ion_type = IonType.STRING
@@ -335,7 +335,7 @@ class IonPyText_new(str):
     @classmethod
     def from_value(cls, ion_type, value, annotations=()):
         if value is None:
-            value = IonPyNull_new()
+            value = IonPyNull()
         else:
             args, kwargs = cls._to_constructor_args(value)
             value = cls(*args, **kwargs)
@@ -345,7 +345,7 @@ class IonPyText_new(str):
 
     def to_event(self, event_type, field_name=None, in_struct=False, depth=None):
         value = self
-        if isinstance(self, IonPyNull_new):
+        if isinstance(self, IonPyNull):
             value = None
 
         if in_struct:
@@ -358,7 +358,7 @@ class IonPyText_new(str):
                         annotations=self.ion_annotations, depth=depth)
 
 
-class IonPySymbol_new(SymbolToken):
+class IonPySymbol(SymbolToken):
     __name__ = 'IonPySymbol_new'
     __qualname__ = 'IonPySymbol_new'
     ion_type = IonType.SYMBOL
@@ -399,7 +399,7 @@ class IonPySymbol_new(SymbolToken):
     @classmethod
     def from_value(cls, ion_type, value, annotations=()):
         if value is None:
-            value = IonPyNull_new()
+            value = IonPyNull()
         else:
             args, kwargs = cls._to_constructor_args(value)
             value = cls(*args, **kwargs)
@@ -409,7 +409,7 @@ class IonPySymbol_new(SymbolToken):
 
     def to_event(self, event_type, field_name=None, in_struct=False, depth=None):
         value = self
-        if isinstance(self, IonPyNull_new):
+        if isinstance(self, IonPyNull):
             value = None
 
         if in_struct:
@@ -422,7 +422,7 @@ class IonPySymbol_new(SymbolToken):
                         annotations=self.ion_annotations, depth=depth)
 
 
-class IonPyList_new(list):
+class IonPyList(list):
     __name__ = 'IonPyList_new'
     __qualname__ = 'IonPyList_new'
 
@@ -459,7 +459,7 @@ class IonPyList_new(list):
     @classmethod
     def from_value(cls, ion_type, value, annotations=()):
         if value is None:
-            value = IonPyNull_new()
+            value = IonPyNull()
         else:
             args, kwargs = cls._to_constructor_args(value)
             value = cls(*args, **kwargs)
@@ -480,7 +480,7 @@ class IonPyList_new(list):
                         annotations=self.ion_annotations, depth=depth)
 
 
-class IonPyDict_new(MutableMapping):
+class IonPyDict(MutableMapping):
     """
     Dictionary that can hold multiple values for the same key
 
@@ -595,7 +595,7 @@ class IonPyDict_new(MutableMapping):
     @classmethod
     def from_value(cls, ion_type, value, annotations=()):
         if value is None:
-            value = IonPyNull_new()
+            value = IonPyNull()
         else:
             args, kwargs = cls._to_constructor_args(value)
             value = cls(*args, **kwargs)

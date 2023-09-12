@@ -19,8 +19,8 @@ from decimal import Decimal
 from math import isnan
 
 from amazon.ion.core import IonType, Timestamp, TimestampPrecision, MICROSECOND_PRECISION, OffsetTZInfo, Multimap
-from amazon.ion.ion_py_objects import IonPyNull_new, IonPyDecimal_new, IonPyInt_new, IonPyFloat_new, IonPyText_new, \
-    IonPyList_new, IonPyDict_new, IonPyBool_new, IonPySymbol_new
+from amazon.ion.ion_py_objects import IonPyNull, IonPyDecimal, IonPyInt, IonPyFloat, IonPyText, \
+    IonPyList, IonPyDict, IonPyBool, IonPySymbol
 from amazon.ion.simple_types import _IonNature, IonPyList, IonPyDict, IonPyTimestamp, IonPyNull, IonPySymbol, \
     IonPyText, IonPyDecimal, IonPyFloat
 from amazon.ion.symbols import SymbolToken
@@ -126,8 +126,8 @@ def _sequences_eq(a, b, comparison_func):
 
 
 def _structs_eq(a, b, comparison_func):
-    assert isinstance(a, (dict, Multimap, IonPyDict_new))
-    if not isinstance(b, (dict, Multimap, IonPyDict_new)):
+    assert isinstance(a, (dict, Multimap, IonPyDict))
+    if not isinstance(b, (dict, Multimap, IonPyDict)):
         return False
     dict_len = len(a)
     if dict_len != len(b):
@@ -141,7 +141,7 @@ def _structs_eq(a, b, comparison_func):
                 break
             if key not in b:
                 return False
-            if isinstance(a, (IonPyDict_new, Multimap)) and isinstance(b, (IonPyDict_new, Multimap)):
+            if isinstance(a, (IonPyDict, Multimap)) and isinstance(b, (IonPyDict, Multimap)):
                 values_a = a.get_all_values(key)
                 values_b = b.get_all_values(key)
                 if len(values_a) != len(values_b):
