@@ -34,7 +34,7 @@ def _to_event_parameters():
         [loads('$0'), [IonEvent(IonEventType.SCALAR, IonType.SYMBOL, SymbolToken(None, 0), None, (), depth=0)]],
         [loads('{$0: $0}'), [
             IonEvent(IonEventType.CONTAINER_START, IonType.STRUCT, depth=0),
-            IonEvent(IonEventType.SCALAR, IonType.SYMBOL, IonPySymbol(None, 0), SymbolToken(None, 0), (), depth=1),
+            IonEvent(IonEventType.SCALAR, IonType.SYMBOL, IonPySymbol(None, (None, 0)), SymbolToken(None, 0), (), depth=1),
             IonEvent(IonEventType.CONTAINER_END),
         ]],
         [loads('[1, 2, 3, [4, 5, 6], [7, 8, 9]]'), [

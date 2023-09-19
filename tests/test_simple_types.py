@@ -23,7 +23,7 @@ from amazon.ion.core import Timestamp, TimestampPrecision
 from amazon.ion.symbols import SymbolToken
 from amazon.ion.simple_types import is_null, IonPyNull, IonPyBool, IonPyInt, IonPyFloat, \
     IonPyDecimal, IonPyTimestamp, IonPyText, IonPyBytes, \
-    IonPyList, IonPyDict, IonPySymbol, _IonNature
+    IonPyList, IonPyDict, IonPySymbol
 from amazon.ion.equivalence import ion_equals
 from amazon.ion.simpleion import _ion_type, _FROM_TYPE
 
@@ -33,7 +33,7 @@ _TEST_ANNOTATIONS = (SymbolToken('bar', 11),)
 
 class _P(NamedTuple):
     desc: str
-    type: Type[_IonNature]
+    type: Type[object]
     event: IonEvent
 
     def __str__(self):

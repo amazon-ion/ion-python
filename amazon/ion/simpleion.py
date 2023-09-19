@@ -165,6 +165,7 @@ def dump_python(obj, fp, imports=None, binary=True, sequence_as_stream=False, sk
 
 
 _FROM_TYPE = {
+    IonPyNull: IonType.NULL,
     type(None): IonType.NULL,
     type(True): IonType.BOOL,
     type(False): IonType.BOOL,

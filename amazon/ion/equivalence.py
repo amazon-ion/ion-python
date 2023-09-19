@@ -19,9 +19,13 @@ from decimal import Decimal
 from math import isnan
 
 from amazon.ion.core import IonType, Timestamp, TimestampPrecision, MICROSECOND_PRECISION, OffsetTZInfo, Multimap
-from amazon.ion.simple_types import _IonNature, IonPyList, IonPyDict, IonPyTimestamp, IonPyNull, IonPySymbol, \
+from amazon.ion.simple_types import IonPyList, IonPyDict, IonPyTimestamp, IonPyNull, IonPySymbol, \
     IonPyText, IonPyDecimal, IonPyFloat
 from amazon.ion.symbols import SymbolToken
+
+
+def obj_has_ion_type_and_annotation(obj):
+    return hasattr(obj, 'ion_type') and hasattr(obj, 'ion_annotations')
 
 
 def ion_equals(a, b, timestamps_instants_only=False):
@@ -60,8 +64,8 @@ def _ion_equals_timestamps_data_model(a, b):
 def _ion_equals(a, b, timestamp_comparison_func, recursive_comparison_func):
     """Compares a and b according to the description of the ion_equals method."""
     for a, b in ((a, b), (b, a)):  # Ensures that operand order does not matter.
-        if isinstance(a, _IonNature):
-            if isinstance(b, _IonNature):
+        if obj_has_ion_type_and_annotation(a):
+            if obj_has_ion_type_and_annotation(b):
                 # Both operands have _IonNature. Their IonTypes and annotations must be equivalent.
                 eq = a.ion_type is b.ion_type and _annotations_eq(a, b)
             else:
@@ -120,8 +124,8 @@ def _sequences_eq(a, b, comparison_func):
 
 
 def _structs_eq(a, b, comparison_func):
-    assert isinstance(a, (dict, Multimap))
-    if not isinstance(b, (dict, Multimap)):
+    assert isinstance(a, (dict, Multimap, IonPyDict))
+    if not isinstance(b, (dict, Multimap, IonPyDict)):
         return False
     dict_len = len(a)
     if dict_len != len(b):
@@ -135,7 +139,7 @@ def _structs_eq(a, b, comparison_func):
                 break
             if key not in b:
                 return False
-            if isinstance(a, Multimap) and isinstance(b, Multimap):
+            if isinstance(a, (IonPyDict, Multimap)) and isinstance(b, (IonPyDict, Multimap)):
                 values_a = a.get_all_values(key)
                 values_b = b.get_all_values(key)
                 if len(values_a) != len(values_b):
