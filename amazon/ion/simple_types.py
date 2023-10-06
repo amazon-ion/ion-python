@@ -713,7 +713,7 @@ class IonPyDict(MutableMapping):
         if key in self.__store:
             self.__store[key].append(value)
         else:
-            self.__setitem__(key, value)
+            self.__store[key] = [value]
 
     def get_all_values(self, key):
         """
