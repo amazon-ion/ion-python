@@ -1,7 +1,7 @@
 ### 0.11.0 (2023-10-09)
 * Refactors the benchmark tool
 * Uses specific ion-c version to build ion-python C extension. (#250)
-* Adds the simpleEnum class back for compatible reason. (#246)
+* Adds the simpleEnum class back for backward compatibility. (#246)
 * Fixes a bug regarding seeking to previous position instead of 0 after reading IVM
 * Replaces Usages of record with NamedTuple (#262)
 * Defines IonPyBool as Distinct Type (#258) 
