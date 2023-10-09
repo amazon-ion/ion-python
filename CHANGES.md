@@ -1,3 +1,15 @@
+### 0.11.0 (2023-10-09)
+* Refactors the benchmark tool
+* Uses specific ion-c version to build ion-python C extension. (#250)
+* Adds the simpleEnum class back for backward compatibility. (#246)
+* Fixes a bug regarding seeking to previous position instead of 0 after reading IVM
+* Replaces Usages of record with NamedTuple (#262)
+* Defines IonPyBool as Distinct Type (#258) 
+* Fixes __repr__ of Empty Struct (#259)
+* Adds a CI/CD workflow to detect performance regression. (#264) 
+* Improves the deserialization speed by reducing object initialization overhead. (#284)
+* Avoids unnecessary method invocations in IonPyDict's add_item method. (#290)
+
 ### 0.10.0 (2023-02-13)
 * Drops Python 2 support.
 * Adds a benchmark tool with essential options. (#228)
