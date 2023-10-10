@@ -5,7 +5,7 @@ for Python.
 [![Build Status](https://travis-ci.org/amazon-ion/ion-python.svg?branch=master)](https://travis-ci.org/amazon-ion/ion-python)
 [![Documentation Status](https://readthedocs.org/projects/ion-python/badge/?version=latest)](https://ion-python.readthedocs.io/en/latest/?badge=latest)
 
-This package is designed to work with **Python 3.7+**. It is intended to work with all stable minor versions. Newer language features will be used as deemed valuable. Support may be dropped for versions more than six months past EOL. 
+This package is designed to work with **Python 3.8+**. Newer language features will be used as deemed valuable. Support may be dropped for versions more than six months past EOL. 
 
 ## Getting Started
 
