@@ -1,5 +1,5 @@
 ### 0.11.1 (2023-10-09)
-Drops the support for Python versions older than 3.7.
+Drops the support for Python versions older than 3.8.
 
 ### 0.11.0 (2023-10-09)
 * Refactors the benchmark tool
