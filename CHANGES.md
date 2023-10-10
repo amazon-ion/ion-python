@@ -1,3 +1,6 @@
+### 0.11.1 (2023-10-09)
+Drops the support for Python versions older than 3.8.
+
 ### 0.11.0 (2023-10-09)
 * Refactors the benchmark tool
 * Uses specific ion-c version to build ion-python C extension. (#250)
