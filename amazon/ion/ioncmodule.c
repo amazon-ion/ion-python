@@ -1199,6 +1199,10 @@ iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BOOL in_s
                 }
             }
 
+            if (decimal_value.type == ION_DECIMAL_TYPE_QUAD) {
+               free(read_number);
+            }
+
             ion_nature_constructor = _ionpydecimal_cls;
             break;
         }
