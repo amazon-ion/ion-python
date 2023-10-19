@@ -1150,24 +1150,25 @@ iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BOOL in_s
         {
             ION_DECIMAL decimal_value;
             IONCHECK(ion_reader_read_ion_decimal(hreader, &decimal_value));
-            decNumber read_number;
+            decNumber *read_number;
             decQuad read_quad;
 
             // Determine ion decimal type.
             if (decimal_value.type == ION_DECIMAL_TYPE_QUAD) {
                 read_quad = decimal_value.value.quad_value;
-                decQuadToNumber(&read_quad, &read_number);
+                read_number = (decNumber *)malloc(sizeof(decNumber));
+                decQuadToNumber(&read_quad, read_number);
             } else if (decimal_value.type == ION_DECIMAL_TYPE_NUMBER
                         || decimal_value.type == ION_DECIMAL_TYPE_NUMBER_OWNED) {
-                read_number = *(decimal_value.value.num_value);
+                read_number = decimal_value.value.num_value;
             } else {
                 _FAILWITHMSG(IERR_INVALID_ARG, "Unknown type of Ion Decimal.")
             }
 
-            int read_number_digits = read_number.digits;
-            int read_number_bits =  read_number.bits;
-            int read_number_exponent = read_number.exponent;
-            int sign = ((DECNEG & read_number.bits) == DECNEG) ? 1 : 0;
+            int read_number_digits = read_number->digits;
+            int read_number_bits =  read_number->bits;
+            int read_number_exponent = read_number->exponent;
+            int sign = ((DECNEG & read_number->bits) == DECNEG) ? 1 : 0;
             // No need to release below PyObject* since PyTuple "steals" its reference.
             PyObject* digits_tuple = PyTuple_New(read_number_digits);
 
@@ -1184,7 +1185,7 @@ iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BOOL in_s
 
             // "i" represents the index of a decNumberUnit in lsu array.
             for (int i = count - 1; i >= 0; i--) {
-                int cur_digits = read_number.lsu[i];
+                int cur_digits = read_number->lsu[i];
                 int end_index = (i == count - 1 && remainder > 0) ? remainder : DECDPUN;
 
                 // "j" represents the j-th digit of a decNumberUnit we are going to convert.
@@ -1196,6 +1197,10 @@ iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BOOL in_s
                     PyTuple_SetItem(digits_tuple, write_index, PyLong_FromLong(cur_digit));
                     index++;
                 }
+            }
+
+            if (decimal_value.type == ION_DECIMAL_TYPE_QUAD) {
+               free(read_number);
             }
 
             ion_nature_constructor = _ionpydecimal_cls;
@@ -1606,6 +1611,9 @@ PyObject* ionc_init_module(void) {
     _ion_exception_cls  = PyObject_GetAttrString(_exception_module, "IonException");
 
     decContextDefault(&dec_context, DEC_INIT_DECQUAD);  //The writer already had one of these, but it's private.
+    dec_context.digits = 10000;
+    dec_context.emax = DEC_MAX_MATH;
+    dec_context.emin = -DEC_MAX_MATH;
 
     return m;
 }
