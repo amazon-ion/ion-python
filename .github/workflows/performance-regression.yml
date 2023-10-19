@@ -81,6 +81,7 @@ jobs:
       - name: Checkout the head of the PR
         uses: actions/checkout@v3
         with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
           ref: ${{ github.head_ref }}
           submodules: recursive
           path: new
