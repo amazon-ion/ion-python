@@ -100,9 +100,18 @@ class IonPyDecimal(Decimal):
     __qualname__ = 'IonPyDecimal'
     ion_type = IonType.DECIMAL
 
-    def __new__(cls, ion_type=IonType.DECIMAL, value=None, annotations=()):
-        v = super().__new__(cls, value)
-        v.ion_annotations = annotations
+    def __new__(cls,  *args, **kwargs):
+        if len(args) == 1:
+            v = super().__new__(cls, args[0])
+            v.ion_annotations = ()
+        elif len(args) == 2:
+            v = super().__new__(cls, args[1])
+            v.ion_annotations = ()
+        elif len(args) == 3:
+            v = super().__new__(cls, args[1])
+            v.ion_annotations = args[2]
+        else:
+            raise Exception('Invalid arguments provided.')
         return v
 
     def __copy__(self):
@@ -156,11 +165,22 @@ class IonPyDecimal(Decimal):
 class IonPyBytes(bytes):
     __name__ = 'IonPyBytes'
     __qualname__ = 'IonPyBytes'
+    ion_type = IonType.BLOB
 
-    def __new__(cls, ion_type=IonType.BLOB, value=None, annotations=()):
-        v = super().__new__(cls, value)
-        v.ion_annotations = annotations
-        v.ion_type = ion_type
+    def __new__(cls,  *args, **kwargs):
+        if len(args) == 1:
+            v = super().__new__(cls, args[0])
+            v.ion_annotations = ()
+        elif len(args) == 2:
+            v = super().__new__(cls, args[1])
+            v.ion_annotations = ()
+            v.ion_type = args[0]
+        elif len(args) == 3:
+            v = super().__new__(cls, args[1])
+            v.ion_type = args[0]
+            v.ion_annotations = args[2]
+        else:
+            raise Exception('Invalid arguments provided.')
         return v
 
     def __copy__(self):
@@ -216,9 +236,18 @@ class IonPyInt(int):
     __qualname__ = 'IonPyInt'
     ion_type = IonType.INT
 
-    def __new__(cls, ion_type=IonType.INT, value=None, annotations=()):
-        v = super().__new__(cls, value)
-        v.ion_annotations = annotations
+    def __new__(cls, *args, **kwargs):
+        if len(args) == 1:
+            v = super().__new__(cls, args[0])
+            v.ion_annotations = ()
+        elif len(args) == 2:
+            v = super().__new__(cls, args[1])
+            v.ion_annotations = ()
+        elif len(args) == 3:
+            v = super().__new__(cls, args[1])
+            v.ion_annotations = args[2]
+        else:
+            raise Exception('Invalid arguments provided.')
         return v
 
     def __copy__(self):
@@ -277,9 +306,18 @@ class IonPyBool(int):
     def __repr__(self):
         return str(bool(self))
 
-    def __new__(cls, ion_type=IonType.BOOL, value=None, annotations=()):
-        v = super().__new__(cls, value)
-        v.ion_annotations = annotations
+    def __new__(cls, *args, **kwargs):
+        if len(args) == 1:
+            v = super().__new__(cls, args[0])
+            v.ion_annotations = ()
+        elif len(args) == 2:
+            v = super().__new__(cls, args[1])
+            v.ion_annotations = ()
+        elif len(args) == 3:
+            v = super().__new__(cls, args[1])
+            v.ion_annotations = args[2]
+        else:
+            raise Exception('Invalid arguments provided.')
         return v
 
     def __copy__(self):
@@ -335,9 +373,18 @@ class IonPyFloat(float):
     __qualname__ = 'IonPyFloat'
     ion_type = IonType.FLOAT
 
-    def __new__(cls, ion_type=IonType.FLOAT, value=None, annotations=()):
-        v = super().__new__(cls, value)
-        v.ion_annotations = annotations
+    def __new__(cls, *args, **kwargs):
+        if len(args) == 1:
+            v = super().__new__(cls, args[0])
+            v.ion_annotations = ()
+        elif len(args) == 2:
+            v = super().__new__(cls, args[1])
+            v.ion_annotations = ()
+        elif len(args) == 3:
+            v = super().__new__(cls, args[1])
+            v.ion_annotations = args[2]
+        else:
+            raise Exception('Invalid arguments provided.')
         return v
 
     def __copy__(self):
@@ -393,9 +440,18 @@ class IonPyText(str):
     __qualname__ = 'IonPyText'
     ion_type = IonType.STRING
 
-    def __new__(cls, ion_type=IonType.STRING, value=None, annotations=()):
-        v = super().__new__(cls, value)
-        v.ion_annotations = annotations
+    def __new__(cls, *args, **kwargs):
+        if len(args) == 1:
+            v = super().__new__(cls, args[0])
+            v.ion_annotations = ()
+        elif len(args) == 2:
+            v = super().__new__(cls, args[1])
+            v.ion_annotations = ()
+        elif len(args) == 3:
+            v = super().__new__(cls, args[1])
+            v.ion_annotations = args[2]
+        else:
+            raise Exception('Invalid arguments provided.')
         return v
 
     def __copy__(self):
@@ -531,10 +587,18 @@ class IonPySymbol(SymbolToken):
     __qualname__ = 'IonPySymbol'
     ion_type = IonType.SYMBOL
 
-    # a good signature: IonPySymbol(ion_type, symbol_token, annotation)
-    def __new__(cls, ion_type=IonType.SYMBOL, value=None, annotations=()):
-        v = super().__new__(cls, *value)
-        v.ion_annotations = annotations
+    def __new__(cls, *args, **kwargs):
+        if len(args) == 1:
+            v = super().__new__(cls, *args[0])
+            v.ion_annotations = ()
+        elif len(args) == 2:
+            v = super().__new__(cls, *args[1])
+            v.ion_annotations = ()
+        elif len(args) == 3:
+            v = super().__new__(cls, *args[1])
+            v.ion_annotations = args[2]
+        else:
+            raise Exception('Invalid arguments provided.')
         return v
 
     def __copy__(self):
@@ -593,14 +657,23 @@ class IonPySymbol(SymbolToken):
 class IonPyList(list):
     __name__ = 'IonPyList'
     __qualname__ = 'IonPyList'
+    # `LIST` by default, but may be `SEXP` according to customer needs
+    ion_type = IonType.LIST
 
-    def __init__(self, ion_type=IonType.LIST, value=None, annotations=()):
-        if value is None:
-            value = []
-        super().__init__(value)
-        self.ion_annotations = annotations
-        # it's possible to be Sexp
-        self.ion_type = ion_type
+    def __init__(self, *args, **kwargs):
+        if len(args) == 1:
+            super().__init__([] if args[0] is None else args[0])
+            self.ion_annotations = ()
+        elif len(args) == 2:
+            super().__init__([] if args[1] is None else args[1])
+            self.ion_type = args[0]
+            self.ion_annotations = ()
+        elif len(args) == 3:
+            super().__init__([] if args[1] is None else args[1])
+            self.ion_type = args[0]
+            self.ion_annotations = args[2]
+        else:
+            raise Exception('Invalid arguments provided.')
 
     def __copy__(self):
         args, kwargs = self._to_constructor_args(self)
@@ -663,10 +736,19 @@ class IonPyDict(MutableMapping):
     __qualname__ = 'IonPyDict'
     ion_type = IonType.STRUCT
 
-    def __init__(self, ion_type=IonType.STRUCT, value=None, annotations=()):
-        super().__init__()
-        self.ion_annotations = annotations
+    def __init__(self, *args, **kwargs):
+        self.ion_annotations = ()
         self.__store = OrderedDict()
+        if len(args) == 1:
+            value = args[0]
+        elif len(args) == 2:
+            value = args[1]
+        elif len(args) == 3:
+            self.ion_annotations = args[2]
+            value = args[1]
+        else:
+            raise Exception('Invalid arguments provided.')
+
         if value is not None:
             for key, value in iter(value.items()):
                 if key in self.__store.keys():
