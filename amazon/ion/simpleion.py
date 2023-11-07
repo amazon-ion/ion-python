@@ -242,6 +242,14 @@ def dumps(obj, imports=None, binary=True, sequence_as_stream=False, skipkeys=Fal
           for_json=None, ignore_nan=False, int_as_string_bitcount=None, iterable_as_array=False, tuple_as_sexp=False,
           omit_version_marker=False, **kw):
     """Serialize ``obj`` as Python ``string`` or ``bytes`` object, using the conversion table used by ``dump`` (above).
+    Common examples are below, please refer to the
+    [Ion Cookbook](https://amazon-ion.github.io/ion-docs/guides/cookbook.html) for detailed information.
+
+    Write an Ion string in text format:
+        ``simpleion.dumps(ion_object, binary=False)``
+
+    Write an Ion string in binary format:
+        ``simpleion.dumps(ion_object, binary=True)``
 
     Args:
         obj (Any): A python object to serialize according to the above table. Any Python object which is neither an
@@ -452,7 +460,22 @@ def loads(ion_str, catalog=None, single_value=True, encoding='utf-8', cls=None, 
           parse_int=None, parse_constant=None, object_pairs_hook=None, use_decimal=None, parse_eagerly=True,
           text_buffer_size_limit=None, **kw):
     """Deserialize ``ion_str``, which is a string representation of an Ion object, to a Python object using the
-    conversion table used by load (above).
+    conversion table used by load (above). Common examples are below, please refer to the
+    [Ion Cookbook](https://amazon-ion.github.io/ion-docs/guides/cookbook.html) for detailed information.
+
+    Read an Ion string:
+        ``simpleion.loads(ion_string)``
+
+    Read an Ion string using an iterator:
+        ``
+        it = simpleion.loads(ion_string, parse_eagerly=True)
+        # iterate through top-level Ion objects
+        next(it)
+        next(it)
+        ``
+
+    Read an Ion string with 50k text_buffer_size_limit:
+        ``simpleion.loads(ion_string, text_buffer_size_limit=50000)``
 
     Args:
         fp (str): A string representation of Ion data.
