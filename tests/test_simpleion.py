@@ -739,3 +739,10 @@ def test_setting_c_ext_flag():
 
     value = loads("{a:1}")
     dumps(value)
+
+
+# Test used for confirming whether two types of float constructors generate the same Ion values.
+def test_ion_py_float_constructor():
+    value_1 = IonPyFloat(5.6)
+    value_2 = IonPyFloat(IonType.FLOAT, 5.6, ())
+    assert True is ion_equals(value_1, value_2)
