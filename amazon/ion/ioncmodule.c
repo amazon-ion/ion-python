@@ -48,6 +48,18 @@ static PyObject* _ionpysymbol_cls;
 static PyObject* _ionpybytes_cls;
 static PyObject* _ionpylist_cls;
 static PyObject* _ionpydict_cls;
+static PyObject* _ionpynull_fromvalue;
+static PyObject* _ionpybool_fromvalue;
+static PyObject* _ionpyint_fromvalue;
+static PyObject* _ionpyfloat_fromvalue;
+static PyObject* _ionpydecimal_fromvalue;
+static PyObject* _ionpytimestamp_fromvalue;
+static PyObject* _ionpytext_fromvalue;
+static PyObject* _ionpysymbol_fromvalue;
+static PyObject* _ionpybytes_fromvalue;
+static PyObject* _ionpylist_fromvalue;
+static PyObject* _ionpydict_fromvalue;
+
 static PyObject* _ion_core_module;
 static PyObject* _py_ion_type;
 static PyObject* py_ion_type_table[14];
@@ -1104,7 +1116,7 @@ iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BOOL in_s
             ion_type = ION_TYPE_INT(null_type);
             py_value = Py_None; // INCREFs and returns Python None.
             emit_bare_values = emit_bare_values && (ion_type == tid_NULL_INT);
-            ion_nature_constructor = _ionpynull_cls;
+            ion_nature_constructor = _ionpynull_fromvalue;
             break;
         }
         case tid_BOOL_INT:
@@ -1112,7 +1124,7 @@ iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BOOL in_s
             BOOL bool_value;
             IONCHECK(ion_reader_read_bool(hreader, &bool_value));
             py_value = PyBool_FromLong(bool_value);
-            ion_nature_constructor = _ionpybool_cls;
+            ion_nature_constructor = _ionpybool_fromvalue;
             break;
         }
         case tid_INT_INT:
@@ -1135,7 +1147,7 @@ iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BOOL in_s
             py_value = PyLong_FromString(ion_int_str, NULL, 10);
             PyMem_Free(ion_int_str);
 
-            ion_nature_constructor = _ionpyint_cls;
+            ion_nature_constructor = _ionpyint_fromvalue;
             break;
         }
         case tid_FLOAT_INT:
@@ -1143,7 +1155,7 @@ iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BOOL in_s
             double double_value;
             IONCHECK(ion_reader_read_double(hreader, &double_value));
             py_value = Py_BuildValue("d", double_value);
-            ion_nature_constructor = _ionpyfloat_cls;
+            ion_nature_constructor = _ionpyfloat_fromvalue;
             break;
         }
         case tid_DECIMAL_INT:
@@ -1203,13 +1215,13 @@ iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BOOL in_s
                free(read_number);
             }
 
-            ion_nature_constructor = _ionpydecimal_cls;
+            ion_nature_constructor = _ionpydecimal_fromvalue;
             break;
         }
         case tid_TIMESTAMP_INT:
         {
             IONCHECK(ionc_read_timestamp(hreader, &py_value));
-            ion_nature_constructor = _ionpytimestamp_cls;
+            ion_nature_constructor = _ionpytimestamp_fromvalue;
             break;
         }
         case tid_SYMBOL_INT:
@@ -1217,7 +1229,7 @@ iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BOOL in_s
             emit_bare_values = FALSE; // Symbol values must always be emitted as IonNature because of ambiguity with string.
             ION_STRING string_value;
             IONCHECK(ion_reader_read_string(hreader, &string_value));
-            ion_nature_constructor = _ionpysymbol_cls;
+            ion_nature_constructor = _ionpysymbol_fromvalue;
             py_value = ion_string_to_py_symboltoken(&string_value);
             break;
         }
@@ -1226,7 +1238,7 @@ iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BOOL in_s
             ION_STRING string_value;
             IONCHECK(ion_reader_read_string(hreader, &string_value));
             py_value = ion_build_py_string(&string_value);
-            ion_nature_constructor = _ionpytext_cls;
+            ion_nature_constructor = _ionpytext_fromvalue;
             break;
         }
         case tid_CLOB_INT:
@@ -1258,12 +1270,12 @@ iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BOOL in_s
             if (length) {
                 PyMem_Free(buf);
             }
-            ion_nature_constructor = _ionpybytes_cls;
+            ion_nature_constructor = _ionpybytes_fromvalue;
             break;
         }
         case tid_STRUCT_INT:
         {
-            ion_nature_constructor = _ionpydict_cls;
+            ion_nature_constructor = _ionpydict_fromvalue;
             //Init a IonPyDict
             PyObject* new_dict = PyDict_New();
             py_value = PyObject_CallFunctionObjArgs(
@@ -1288,7 +1300,7 @@ iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BOOL in_s
         {
             py_value = PyList_New(0);
             IONCHECK(ionc_read_into_container(hreader, py_value, /*is_struct=*/FALSE, emit_bare_values));
-            ion_nature_constructor = _ionpylist_cls;
+            ion_nature_constructor = _ionpylist_fromvalue;
             break;
         }
         case tid_DATAGRAM_INT:
@@ -1560,6 +1572,18 @@ PyObject* ionc_init_module(void) {
     _ionpysymbol_cls            = PyObject_GetAttrString(_simpletypes_module, "IonPySymbol");
     _ionpylist_cls              = PyObject_GetAttrString(_simpletypes_module, "IonPyList");
     _ionpydict_cls              = PyObject_GetAttrString(_simpletypes_module, "IonPyDict");
+
+    _ionpynull_fromvalue        = PyObject_GetAttrString(_ionpynull_cls, "from_value");
+    _ionpybool_fromvalue        = PyObject_GetAttrString(_ionpybool_cls, "from_value");
+    _ionpyint_fromvalue         = PyObject_GetAttrString(_ionpyint_cls, "from_value");
+    _ionpyfloat_fromvalue       = PyObject_GetAttrString(_ionpyfloat_cls, "from_value");
+    _ionpydecimal_fromvalue     = PyObject_GetAttrString(_ionpydecimal_cls, "from_value");
+    _ionpytimestamp_fromvalue   = PyObject_GetAttrString(_ionpytimestamp_cls, "from_value");
+    _ionpybytes_fromvalue       = PyObject_GetAttrString(_ionpybytes_cls, "from_value");
+    _ionpytext_fromvalue        = PyObject_GetAttrString(_ionpytext_cls, "from_value");
+    _ionpysymbol_fromvalue      = PyObject_GetAttrString(_ionpysymbol_cls, "from_value");
+    _ionpylist_fromvalue        = PyObject_GetAttrString(_ionpylist_cls, "from_value");
+    _ionpydict_fromvalue        = PyObject_GetAttrString(_ionpydict_cls, "from_value");
 
 
     _ion_core_module            = PyImport_ImportModule("amazon.ion.core");

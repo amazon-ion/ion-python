@@ -28,7 +28,7 @@ from amazon.ion import simpleion
 from amazon.ion.exceptions import IonException
 from amazon.ion.symbols import SymbolToken, SYSTEM_SYMBOL_TABLE
 from amazon.ion.writer_binary import _IVM
-from amazon.ion.core import IonType, IonEvent, IonEventType, OffsetTZInfo, Multimap
+from amazon.ion.core import IonType, IonEvent, IonEventType, OffsetTZInfo, Multimap, TimestampPrecision
 from amazon.ion.simple_types import IonPyDict, IonPyText, IonPyList, IonPyNull, IonPyBool, IonPyInt, IonPyFloat, \
     IonPyDecimal, IonPyTimestamp, IonPyBytes, IonPySymbol
 from amazon.ion.equivalence import ion_equals, obj_has_ion_type_and_annotation
