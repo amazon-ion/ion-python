@@ -582,7 +582,6 @@ class IonPyList(list):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.ion_annotations = ()
-        # it's possible to be Sexp
 
     def __copy__(self):
         args, kwargs = self._to_constructor_args(self)
