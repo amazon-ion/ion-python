@@ -160,7 +160,6 @@ class IonPyBytes(bytes):
     def __new__(cls, *args, **kwargs):
         v = super().__new__(cls, *args, **kwargs)
         v.ion_annotations = ()
-        # v.ion_type = ion_type
         return v
 
     def __copy__(self):
@@ -584,7 +583,6 @@ class IonPyList(list):
         super().__init__(*args, **kwargs)
         self.ion_annotations = ()
         # it's possible to be Sexp
-        # self.ion_type = ion_type
 
     def __copy__(self):
         args, kwargs = self._to_constructor_args(self)
