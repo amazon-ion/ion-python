@@ -761,6 +761,6 @@ def test_ion_py_objects_construction(v):
     """These tests are related to the issue https://github.com/amazon-ion/ion-python/issues/297
 
     Note that IonPyTimestamp.from_value sets the default precision and fraction, while the original constructor doesn't.
-    So, we compare if they represent the same instance; in other words, we set timestamps_instants_only to True.
+    So, we compare if they represent the same instant; in other words, we set timestamps_instants_only to True.
     """
     assert True is ion_equals(v[0], v[1], timestamps_instants_only=True)
