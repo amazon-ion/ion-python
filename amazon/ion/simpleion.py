@@ -39,12 +39,27 @@ c_ext = True
 try:
     import amazon.ion.ionc as ionc
 except ModuleNotFoundError:
+<<<<<<< Updated upstream
     c_ext = False
 except ImportError as e:
     warnings.warn(
         f"Failed to load c-extension module: {e.msg} using pure-python implementation",
         ImportWarning)
     c_ext = False
+=======
+    __IS_C_EXTENSION_SUPPORTED = False
+except ImportError as e:
+    __IS_C_EXTENSION_SUPPORTED = False
+    warnings.warn(
+        f"Failed to load c-extension module: {e.msg} falling back to pure python implementation",
+        ImportWarning)
+
+# TODO: when we release a new major version, come up with a better way to encapsulate these two variables.
+# __IS_C_EXTENSION_SUPPORTED is a private flag indicating whether the c extension was loaded/is supported.
+# c_ext is a user-facing flag to check whether the c extension is available and/or disable the c extension.
+# However, if you mutate it, then it can no longer be used to see if the c extension is available.
+c_ext = __IS_C_EXTENSION_SUPPORTED
+>>>>>>> Stashed changes
 
 _ION_CONTAINER_END_EVENT = IonEvent(IonEventType.CONTAINER_END)
 _IVM = b'\xe0\x01\x00\xea'
