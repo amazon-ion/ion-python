@@ -28,7 +28,7 @@ from amazon.ion import simpleion
 from amazon.ion.exceptions import IonException
 from amazon.ion.symbols import SymbolToken, SYSTEM_SYMBOL_TABLE
 from amazon.ion.writer_binary import _IVM
-from amazon.ion.core import IonType, IonEvent, IonEventType, OffsetTZInfo, Multimap
+from amazon.ion.core import IonType, IonEvent, IonEventType, OffsetTZInfo, Multimap, TimestampPrecision
 from amazon.ion.simple_types import IonPyDict, IonPyText, IonPyList, IonPyNull, IonPyBool, IonPyInt, IonPyFloat, \
     IonPyDecimal, IonPyTimestamp, IonPyBytes, IonPySymbol
 from amazon.ion.equivalence import ion_equals, obj_has_ion_type_and_annotation
@@ -739,3 +739,28 @@ def test_setting_c_ext_flag():
 
     value = loads("{a:1}")
     dumps(value)
+
+
+@parametrize(
+    (IonPyNull(), IonPyNull.from_value(IonType.NULL, None, ())),
+    (IonPyDecimal(5.6), IonPyDecimal.from_value(IonType.DECIMAL, 5.6, ())),
+    (IonPyBytes(b'asdf'), IonPyBytes.from_value(IonType.CLOB, b'asdf', ())),
+    (IonPyInt(123), IonPyInt.from_value(IonType.INT, 123, ())),
+    (IonPyBool(True), IonPyBool.from_value(IonType.BOOL, True, ())),
+    (IonPyFloat(5.6), IonPyFloat.from_value(IonType.FLOAT, 5.6, ())),
+    (IonPyText(u'string'), IonPyText.from_value(IonType.STRING, u'string', ())),
+    (IonPyTimestamp(year=1, month=1, day=1, tzinfo=OffsetTZInfo(timedelta(minutes=-1))),
+     IonPyTimestamp.from_value(IonType.TIMESTAMP,
+                               datetime(year=1, month=1, day=1, tzinfo=OffsetTZInfo(timedelta(minutes=-1))),
+                               ())),
+    (IonPySymbol(text='symbol', sid=None, location=None), IonPySymbol.from_value(IonType.SYMBOL, 'symbol', ())),
+    (IonPyList([]), IonPyList.from_value(IonType.LIST, [], ())),
+    (IonPyDict({}), IonPyDict.from_value(IonType.STRUCT, {}, ())),
+)
+def test_ion_py_objects_construction(v):
+    """These tests are related to the issue https://github.com/amazon-ion/ion-python/issues/297
+
+    Note that the IonPyTimestamp constructor only sets the attributes for the base datetime type which does not have precision or fractional seconds. IonPyTimestamp.from_value sets these attributes after construction.
+    So, we compare if they represent the same instant; in other words, we set timestamps_instants_only to True.
+    """
+    assert True is ion_equals(v[0], v[1], timestamps_instants_only=True)

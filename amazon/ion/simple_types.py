@@ -100,9 +100,9 @@ class IonPyDecimal(Decimal):
     __qualname__ = 'IonPyDecimal'
     ion_type = IonType.DECIMAL
 
-    def __new__(cls, ion_type=IonType.DECIMAL, value=None, annotations=()):
-        v = super().__new__(cls, value)
-        v.ion_annotations = annotations
+    def __new__(cls, *args, **kwargs):
+        v = super().__new__(cls, *args, **kwargs)
+        v.ion_annotations = ()
         return v
 
     def __copy__(self):
@@ -114,7 +114,7 @@ class IonPyDecimal(Decimal):
 
     @staticmethod
     def _to_constructor_args(value):
-        return (None, value,), {}
+        return (value,), {}
 
     @classmethod
     def from_event(cls, ion_event):
@@ -157,10 +157,9 @@ class IonPyBytes(bytes):
     __name__ = 'IonPyBytes'
     __qualname__ = 'IonPyBytes'
 
-    def __new__(cls, ion_type=IonType.BLOB, value=None, annotations=()):
-        v = super().__new__(cls, value)
-        v.ion_annotations = annotations
-        v.ion_type = ion_type
+    def __new__(cls, *args, **kwargs):
+        v = super().__new__(cls, *args, **kwargs)
+        v.ion_annotations = ()
         return v
 
     def __copy__(self):
@@ -172,7 +171,7 @@ class IonPyBytes(bytes):
 
     @staticmethod
     def _to_constructor_args(value):
-        return (None, value,), {}
+        return (value, ), {}
 
     @classmethod
     def from_event(cls, ion_event):
@@ -216,9 +215,9 @@ class IonPyInt(int):
     __qualname__ = 'IonPyInt'
     ion_type = IonType.INT
 
-    def __new__(cls, ion_type=IonType.INT, value=None, annotations=()):
-        v = super().__new__(cls, value)
-        v.ion_annotations = annotations
+    def __new__(cls, *args, **kwargs):
+        v = super().__new__(cls, *args, **kwargs)
+        v.ion_annotations = ()
         return v
 
     def __copy__(self):
@@ -230,7 +229,7 @@ class IonPyInt(int):
 
     @staticmethod
     def _to_constructor_args(value):
-        return (None, value,), {}
+        return (value, ), {}
 
     @classmethod
     def from_event(cls, ion_event):
@@ -277,9 +276,9 @@ class IonPyBool(int):
     def __repr__(self):
         return str(bool(self))
 
-    def __new__(cls, ion_type=IonType.BOOL, value=None, annotations=()):
-        v = super().__new__(cls, value)
-        v.ion_annotations = annotations
+    def __new__(cls, *args, **kwargs):
+        v = super().__new__(cls, *args, **kwargs)
+        v.ion_annotations = ()
         return v
 
     def __copy__(self):
@@ -291,7 +290,7 @@ class IonPyBool(int):
 
     @staticmethod
     def _to_constructor_args(value):
-        return (None, value,), {}
+        return (value, ), {}
 
     @classmethod
     def from_event(cls, ion_event):
@@ -335,9 +334,9 @@ class IonPyFloat(float):
     __qualname__ = 'IonPyFloat'
     ion_type = IonType.FLOAT
 
-    def __new__(cls, ion_type=IonType.FLOAT, value=None, annotations=()):
-        v = super().__new__(cls, value)
-        v.ion_annotations = annotations
+    def __new__(cls, *args, **kwargs):
+        v = super().__new__(cls, *args, **kwargs)
+        v.ion_annotations = ()
         return v
 
     def __copy__(self):
@@ -349,7 +348,7 @@ class IonPyFloat(float):
 
     @staticmethod
     def _to_constructor_args(value):
-        return (None, value,), {}
+        return (value, ), {}
 
     @classmethod
     def from_event(cls, ion_event):
@@ -393,9 +392,9 @@ class IonPyText(str):
     __qualname__ = 'IonPyText'
     ion_type = IonType.STRING
 
-    def __new__(cls, ion_type=IonType.STRING, value=None, annotations=()):
-        v = super().__new__(cls, value)
-        v.ion_annotations = annotations
+    def __new__(cls, *args, **kwargs):
+        v = super().__new__(cls, *args, **kwargs)
+        v.ion_annotations = ()
         return v
 
     def __copy__(self):
@@ -407,7 +406,7 @@ class IonPyText(str):
 
     @staticmethod
     def _to_constructor_args(value):
-        return (None, value,), {}
+        return (value, ), {}
 
     @classmethod
     def from_event(cls, ion_event):
@@ -452,22 +451,8 @@ class IonPyTimestamp(Timestamp):
     ion_type = IonType.TIMESTAMP
 
     def __new__(cls, *args, **kwargs):
-        # The from_value like signature
-        if isinstance(args[0], IonType):
-            value = args[1]
-            annotations = ()
-            if len(args) > 2 and args[2] is not None:
-                annotations = args[2]
-            if value is not None:
-                args_new, kwargs = cls._to_constructor_args(value)
-            else:
-                args_new, kwargs = (None, None, ()), {}
-            v = super().__new__(cls, *args_new, **kwargs)
-            v.ion_type = args[0]
-            v.ion_annotations = annotations
-        # Regular timestamp constructor
-        else:
-            v = super().__new__(cls, *args, **kwargs)
+        v = super().__new__(cls, *args, **kwargs)
+        v.ion_annotations = ()
         return v
 
     def __copy__(self):
@@ -532,9 +517,9 @@ class IonPySymbol(SymbolToken):
     ion_type = IonType.SYMBOL
 
     # a good signature: IonPySymbol(ion_type, symbol_token, annotation)
-    def __new__(cls, ion_type=IonType.SYMBOL, value=None, annotations=()):
-        v = super().__new__(cls, *value)
-        v.ion_annotations = annotations
+    def __new__(cls, *args, **kwargs):
+        v = super().__new__(cls, *args, **kwargs)
+        v.ion_annotations = ()
         return v
 
     def __copy__(self):
@@ -547,9 +532,9 @@ class IonPySymbol(SymbolToken):
     @staticmethod
     def _to_constructor_args(st):
         try:
-            args = (None, (st.text, st.sid, st.location), ())
+            args = (st.text, st.sid, st.location)
         except AttributeError:
-            args = (None, (st, None, None), ())
+            args = (st, None, None)
         kwargs = {}
         return args, kwargs
 
@@ -594,13 +579,9 @@ class IonPyList(list):
     __name__ = 'IonPyList'
     __qualname__ = 'IonPyList'
 
-    def __init__(self, ion_type=IonType.LIST, value=None, annotations=()):
-        if value is None:
-            value = []
-        super().__init__(value)
-        self.ion_annotations = annotations
-        # it's possible to be Sexp
-        self.ion_type = ion_type
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.ion_annotations = ()
 
     def __copy__(self):
         args, kwargs = self._to_constructor_args(self)
@@ -611,14 +592,14 @@ class IonPyList(list):
 
     @staticmethod
     def _to_constructor_args(value):
-        return (None, value,), {}
+        return (value, ), {}
 
     @classmethod
     def from_event(cls, ion_event):
         if ion_event.value is not None:
             args, kwargs = cls._to_constructor_args(ion_event.value)
         else:
-            args, kwargs = (None, [], ()), {}
+            args, kwargs = (), {}
         value = cls(*args, **kwargs)
         value.ion_type = ion_event.ion_type
         value.ion_annotations = ion_event.annotations
@@ -663,12 +644,12 @@ class IonPyDict(MutableMapping):
     __qualname__ = 'IonPyDict'
     ion_type = IonType.STRUCT
 
-    def __init__(self, ion_type=IonType.STRUCT, value=None, annotations=()):
+    def __init__(self, *args, **kwargs):
         super().__init__()
-        self.ion_annotations = annotations
+        self.ion_annotations = ()
         self.__store = OrderedDict()
-        if value is not None:
-            for key, value in iter(value.items()):
+        if args is not None and len(args) > 0:
+            for key, value in iter(args[0].items()):
                 if key in self.__store.keys():
                     self.__store[key].append(value)
                 else:
@@ -747,14 +728,14 @@ class IonPyDict(MutableMapping):
 
     @staticmethod
     def _to_constructor_args(value):
-        return (None, value,), {}
+        return (value, ), {}
 
     @classmethod
     def from_event(cls, ion_event):
         if ion_event.value is not None:
             args, kwargs = cls._to_constructor_args(ion_event.value)
         else:
-            args, kwargs = (None, None, ()), {}
+            args, kwargs = (), {}
         value = cls(*args, **kwargs)
         value.ion_type = ion_event.ion_type
         value.ion_annotations = ion_event.annotations
