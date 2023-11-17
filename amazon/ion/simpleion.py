@@ -14,6 +14,7 @@
 
 """Provides a ``simplejson``-like API for dumping and loading Ion data."""
 import io
+import warnings
 from datetime import datetime
 from decimal import Decimal
 from io import BytesIO, TextIOBase
@@ -37,6 +38,12 @@ try:
     __IS_C_EXTENSION_SUPPORTED = True
 except ModuleNotFoundError:
     __IS_C_EXTENSION_SUPPORTED = False
+except ImportError as e:
+    __IS_C_EXTENSION_SUPPORTED = False
+    warnings.warn(
+        f"Failed to load c-extension module: {e.msg} falling back to pure python implementation",
+        ImportWarning)
+
 # TODO: when we release a new major version, come up with a better way to encapsulate these two variables.
 # __IS_C_EXTENSION_SUPPORTED is a private flag indicating whether the c extension was loaded/is supported.
 # c_ext is a user-facing flag to check whether the c extension is available and/or disable the c extension.
