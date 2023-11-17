@@ -1,5 +1,11 @@
+### 0.11.2 (2023-11-16)
+* Uses the latest ion-c version to build the C extension. (#299)
+* Changes IonPyObjects' constructor to match their parent classes. (#298)
+* Adds common examples for the simpleion load/dump APIs. (#294)
+* Add support for large decimals with >34 digits. (#293) 
+
 ### 0.11.1 (2023-10-09)
-Drops the support for Python versions older than 3.8.
+* Drops the support for Python versions older than 3.8.
 
 ### 0.11.0 (2023-10-09)
 * Refactors the benchmark tool
