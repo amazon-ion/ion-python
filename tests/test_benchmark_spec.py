@@ -1,3 +1,5 @@
+import platform
+import sys
 from os.path import abspath, join, dirname
 
 from amazon.ionbenchmark.benchmark_spec import BenchmarkSpec
@@ -12,7 +14,11 @@ _minimal_spec = BenchmarkSpec(_minimal_params, working_directory=_generate_test_
 
 
 def test_get_input_file_size():
-    assert _minimal_spec.get_input_file_size() == 161
+    size = _minimal_spec.get_input_file_size()
+    if platform.system() == 'Windows':
+        assert size == 167
+    else:
+        assert size == 161
 
 
 def test_get_format():

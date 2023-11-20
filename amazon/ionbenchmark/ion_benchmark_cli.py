@@ -111,7 +111,8 @@ def compare_command():
             with open(output_file_for_comparison, 'bw') as o:
                 ion.dump(report, o, binary=False)
 
-        if not args['--quiet']:
+        # Disabled tabulate method on Windows due to the issue#307 - https://github.com/amazon-ion/ion-python/issues/307
+        if not args['--quiet'] and platform.system() != 'Windows':
             print(tabulate(report, tablefmt='fancy_grid', headers='keys'))
 
         if has_regression:

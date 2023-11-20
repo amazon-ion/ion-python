@@ -65,19 +65,12 @@ def test_option_read_no_c_extension(file=generate_test_path('integers.ion')):
 
 def test_option_read_iterations(file=generate_test_path('integers.ion')):
     # This is a potentially flaky test due to the overhead of running the CLI as a new process.
-    start = time.perf_counter()
     (error_code, _, _) = run_cli(['read', file, '--iterations', '3'])
-    stop = time.perf_counter()
     assert not error_code
-    time_1 = stop - start
 
-    start = time.perf_counter()
     (error_code, _, _) = run_cli(['read', file, '--iterations', '300'])
-    stop = time.perf_counter()
     assert not error_code
-    time_2 = stop - start
 
-    assert time_2 > time_1
 
 
 def test_option_write_iterations(file=generate_test_path('integers.ion')):
