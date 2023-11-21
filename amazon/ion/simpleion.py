@@ -596,3 +596,7 @@ def load(fp, catalog=None, single_value=True, encoding='utf-8', cls=None, object
                            object_hook=object_hook, parse_float=parse_float, parse_int=parse_int,
                            parse_constant=parse_constant, object_pairs_hook=object_pairs_hook,
                            use_decimal=use_decimal, parse_eagerly=parse_eagerly, **kw)
+
+if __name__ == '__main__':
+    s = load_extension(io.StringIO("{}"))
+    print(s)
