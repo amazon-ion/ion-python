@@ -70,6 +70,7 @@ static PyObject* _ion_symbols_module;
 static PyObject* _py_symboltoken_constructor;
 static PyObject* _exception_module;
 static PyObject* _ion_exception_cls;
+static PyObject* _add_item;
 static decContext dec_context;
 
 typedef struct {
@@ -213,16 +214,14 @@ static PyObject* ion_build_py_string(ION_STRING* string_value) {
  */
 static void ionc_add_to_container(PyObject* pyContainer, PyObject* element, BOOL in_struct, ION_STRING* field_name) {
     if (in_struct) {
-        PyObject* py_attr = PyUnicode_FromString("add_item");
         PyObject* py_field_name = ion_build_py_string(field_name);
         PyObject_CallMethodObjArgs(
             pyContainer,
-            py_attr,
+            _add_item,
             py_field_name,
             (PyObject*)element,
             NULL
         );
-        Py_DECREF(py_attr);
         Py_DECREF(py_field_name);
     }
     else {
@@ -1110,7 +1109,7 @@ iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BOOL in_s
                 IONCHECK(ion_reader_read_null(hreader, &null_type));
             }
             else {
-                null_type = tid_SYMBOL_INT;
+                null_type = tid_SYMBOL;
             }
 
             ion_type = ION_TYPE_INT(null_type);
@@ -1593,6 +1592,7 @@ PyObject* ionc_init_module(void) {
 
     _ion_symbols_module         = PyImport_ImportModule("amazon.ion.symbols");
     _py_symboltoken_constructor = PyObject_GetAttrString(_ion_symbols_module, "SymbolToken");
+    _add_item                   = PyUnicode_FromString("add_item");
 
     py_ion_type_table[0x0] = PyObject_GetAttrString(_py_ion_type, "NULL");
     py_ion_type_table[0x1] = PyObject_GetAttrString(_py_ion_type, "BOOL");
