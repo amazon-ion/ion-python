@@ -28,7 +28,6 @@ try:
 except:
     from collections import MutableMapping
 
-from collections import OrderedDict
 from decimal import Decimal
 
 from amazon.ion.core import IonType, IonEvent, Timestamp, TIMESTAMP_FRACTIONAL_SECONDS_FIELD, TIMESTAMP_PRECISION_FIELD, \
@@ -647,13 +646,10 @@ class IonPyDict(MutableMapping):
     def __init__(self, *args, **kwargs):
         super().__init__()
         self.ion_annotations = ()
-        self.__store = OrderedDict()
-        if args is not None and len(args) > 0:
-            for key, value in iter(args[0].items()):
-                if key in self.__store.keys():
-                    self.__store[key].append(value)
-                else:
-                    self.__store[key] = [value]
+        self.__store = {}
+        if args:
+            for key, value in args[0].items():
+                self.__store.setdefault(key, []).append(value)
 
     def __getitem__(self, key):
         """
@@ -691,10 +687,7 @@ class IonPyDict(MutableMapping):
         Add a value for the given key. This operation appends the value to the end of the value list instead of
         overwriting the existing value.
         """
-        if key in self.__store:
-            self.__store[key].append(value)
-        else:
-            self.__store[key] = [value]
+        self.__store.setdefault(key, []).append(value)
 
     def get_all_values(self, key):
         """
@@ -714,10 +707,7 @@ class IonPyDict(MutableMapping):
         """
         Return a list of the IonPyDict's (key, value) tuple pairs.
         """
-        output = []
-        for k, v in self.iteritems():
-            output.append((k, v))
-        return output
+        return [i for i in self.iteritems()]
 
     def __copy__(self):
         args, kwargs = self._to_constructor_args(self)
@@ -751,6 +741,21 @@ class IonPyDict(MutableMapping):
         value.ion_type = ion_type
         value.ion_annotations = annotations
         return value
+
+    @classmethod
+    def _factory(cls, store, annotations=()):
+        '''
+        **Internal Use Only**
+
+        Expects callers to pass a store object for the data that
+        matches the internal representation.
+        '''
+        ipd = IonPyDict.__new__(IonPyDict)
+        MutableMapping.__init__(ipd)
+        ipd.__store = store
+        ipd.ion_annotations = annotations
+
+        return ipd
 
     def to_event(self, event_type, field_name=None, in_struct=False, depth=None):
         value = None

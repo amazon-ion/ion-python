@@ -58,7 +58,7 @@ static PyObject* _ionpytext_fromvalue;
 static PyObject* _ionpysymbol_fromvalue;
 static PyObject* _ionpybytes_fromvalue;
 static PyObject* _ionpylist_fromvalue;
-static PyObject* _ionpydict_fromvalue;
+static PyObject* _ionpydict_factory;
 
 static PyObject* _ion_core_module;
 static PyObject* _py_ion_type;
@@ -70,6 +70,7 @@ static PyObject* _ion_symbols_module;
 static PyObject* _py_symboltoken_constructor;
 static PyObject* _exception_module;
 static PyObject* _ion_exception_cls;
+static PyObject* _add_item;
 static decContext dec_context;
 
 typedef struct {
@@ -200,35 +201,6 @@ static PyObject* ion_build_py_string(ION_STRING* string_value) {
     // NOTE: this does a copy, which is good.
     if (!string_value->value) return Py_None;
     return PyUnicode_FromStringAndSize((char*)(string_value->value), string_value->length);
-}
-
-/*
- *  Adds an element to a List or struct
- *
- *  Args:
- *      pyContainer:  A container that the element is added to
- *      element:  The element to be added to the container
- *      in_struct:  if the current state is in a struct
- *      field_name:  The field name of the element if it is inside a struct
- */
-static void ionc_add_to_container(PyObject* pyContainer, PyObject* element, BOOL in_struct, ION_STRING* field_name) {
-    if (in_struct) {
-        PyObject* py_attr = PyUnicode_FromString("add_item");
-        PyObject* py_field_name = ion_build_py_string(field_name);
-        PyObject_CallMethodObjArgs(
-            pyContainer,
-            py_attr,
-            py_field_name,
-            (PyObject*)element,
-            NULL
-        );
-        Py_DECREF(py_attr);
-        Py_DECREF(py_field_name);
-    }
-    else {
-        PyList_Append(pyContainer, (PyObject*)element);
-    }
-    Py_XDECREF(element);
 }
 
 /*
@@ -1038,6 +1010,34 @@ static iERR ionc_read_into_container(hREADER hreader, PyObject* container, BOOL 
 }
 
 /*
+ *  Adds an element to a List or struct
+ *
+ *  Args:
+ *      pyContainer:  A container that the element is added to
+ *      element:  The element to be added to the container
+ *      in_struct:  if the current state is in a struct
+ *      field_name:  The field name of the element if it is inside a struct
+ */
+static void ionc_add_to_container(PyObject* pyContainer, PyObject* element, BOOL in_struct, ION_STRING* field_name) {
+    if (in_struct) {
+        // this builds the "hash-map of lists" structure that the IonPyDict object
+        // expects for its __store
+        PyObject* py_field_name = ion_build_py_string(field_name);
+        PyObject* empty = PyList_New(0);
+        // SetDefault performs get|set with a single hash of the key
+        PyObject* found = PyDict_SetDefault(pyContainer, py_field_name, empty);
+        PyList_Append(found, element);
+
+        Py_XDECREF(py_field_name);
+        Py_XDECREF(empty);
+    }
+    else {
+        PyList_Append(pyContainer, (PyObject*)element);
+    }
+    Py_XDECREF(element);
+}
+
+/*
  *  Helper function for 'ionc_read_all', reads an ion value
  *
  *  Args:
@@ -1110,7 +1110,7 @@ iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BOOL in_s
                 IONCHECK(ion_reader_read_null(hreader, &null_type));
             }
             else {
-                null_type = tid_SYMBOL_INT;
+                null_type = tid_SYMBOL;
             }
 
             ion_type = ION_TYPE_INT(null_type);
@@ -1275,19 +1275,27 @@ iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BOOL in_s
         }
         case tid_STRUCT_INT:
         {
-            ion_nature_constructor = _ionpydict_fromvalue;
-            //Init a IonPyDict
-            PyObject* new_dict = PyDict_New();
-            py_value = PyObject_CallFunctionObjArgs(
-                ion_nature_constructor,
-                py_ion_type_table[ion_type >> 8],
-                new_dict,
-                py_annotations,
-                NULL
-            );
-            Py_XDECREF(new_dict);
+            PyObject* data = PyDict_New();
+            IONCHECK(ionc_read_into_container(hreader, data, /*is_struct=*/TRUE, emit_bare_values));
 
-            IONCHECK(ionc_read_into_container(hreader, py_value, /*is_struct=*/TRUE, emit_bare_values));
+            py_value = PyObject_CallFunctionObjArgs(
+
+                    _ionpydict_factory,
+                    data,
+                    py_annotations,
+                    NULL
+            );
+            if (py_value == NULL) {
+                printf("struct py value is null");
+                PyErr_Print();
+
+                goto fail;
+            }
+            Py_XDECREF(data);
+
+            // This is subtle. It's not that we're emitting a "bare value" here,
+            // in fact, we are explicitly creating an IonPy value. But this short-circuits
+            // the general IonPyFoo creation logic after switch.
             emit_bare_values = TRUE;
             break;
         }
@@ -1583,8 +1591,7 @@ PyObject* ionc_init_module(void) {
     _ionpytext_fromvalue        = PyObject_GetAttrString(_ionpytext_cls, "from_value");
     _ionpysymbol_fromvalue      = PyObject_GetAttrString(_ionpysymbol_cls, "from_value");
     _ionpylist_fromvalue        = PyObject_GetAttrString(_ionpylist_cls, "from_value");
-    _ionpydict_fromvalue        = PyObject_GetAttrString(_ionpydict_cls, "from_value");
-
+    _ionpydict_factory           = PyObject_GetAttrString(_ionpydict_cls, "_factory");
 
     _ion_core_module            = PyImport_ImportModule("amazon.ion.core");
     _py_timestamp_precision     = PyObject_GetAttrString(_ion_core_module, "TimestampPrecision");
@@ -1651,4 +1658,3 @@ PyInit_ionc(void)
 {
     return init_module();
 }
-
