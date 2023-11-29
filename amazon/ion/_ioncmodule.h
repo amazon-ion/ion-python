@@ -2,8 +2,8 @@
 #define _IONCMODULE_H_
 
 #include "structmember.h"
-#include "decNumber/decimal128.h"
-#include "ionc/ion.h"
+#include "decimal128.h"
+#include "ion.h"
 
 PyObject* ionc_init_module(void);
 iERR ionc_write_value(hWRITER writer, PyObject* obj, PyObject* tuple_as_sexp);
