@@ -1028,8 +1028,8 @@ static void ionc_add_to_container(PyObject* pyContainer, PyObject* element, BOOL
         PyObject* found = PyDict_SetDefault(pyContainer, py_field_name, empty);
         PyList_Append(found, element);
 
-        Py_XDECREF(py_field_name);
-        Py_XDECREF(empty);
+        Py_DECREF(py_field_name);
+        Py_DECREF(empty);
     }
     else {
         PyList_Append(pyContainer, (PyObject*)element);
@@ -1279,20 +1279,16 @@ iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BOOL in_s
             IONCHECK(ionc_read_into_container(hreader, data, /*is_struct=*/TRUE, emit_bare_values));
 
             py_value = PyObject_CallFunctionObjArgs(
-
                     _ionpydict_factory,
                     data,
                     py_annotations,
                     NULL
             );
-            if (py_value == NULL) {
-                printf("struct py value is null");
-                PyErr_Print();
-
-                goto fail;
-            }
             Py_XDECREF(data);
-
+            // could be null if the function signature changed in the python code
+            if (py_value == NULL) {
+                FAILWITH(IERR_READ_ERROR);
+            }
             // This is subtle. It's not that we're emitting a "bare value" here,
             // in fact, we are explicitly creating an IonPy value. But this short-circuits
             // the general IonPyFoo creation logic after switch.

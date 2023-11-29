@@ -742,8 +742,8 @@ class IonPyDict(MutableMapping):
         value.ion_annotations = annotations
         return value
 
-    @classmethod
-    def _factory(cls, store, annotations=()):
+    @staticmethod
+    def _factory(store, annotations=()):
         '''
         **Internal Use Only**
 
