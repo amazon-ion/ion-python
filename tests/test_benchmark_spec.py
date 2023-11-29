@@ -1,6 +1,5 @@
-import platform
-import sys
 from os.path import abspath, join, dirname
+from pathlib import Path
 
 from amazon.ionbenchmark.benchmark_spec import BenchmarkSpec
 
@@ -14,13 +13,9 @@ _minimal_spec = BenchmarkSpec(_minimal_params, working_directory=_generate_test_
 
 
 def test_get_input_file_size():
-    size = _minimal_spec.get_input_file_size()
-    # Different operating systems use different file structures, which, as a result, leads to varying amounts of
-    # space being used for storing files.
-    if platform.system() == 'Windows':
-        assert size == 167
-    else:
-        assert size == 161
+    real_size = _minimal_spec.get_input_file_size()
+    exp_size = Path(join(_generate_test_path("sample_spec"), _minimal_params['input_file'])).stat().st_size
+    assert real_size == exp_size
 
 
 def test_get_format():
