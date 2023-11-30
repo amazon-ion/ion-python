@@ -1,3 +1,7 @@
+### 0.11.3 (2023-11-30)
+* Enables Windows and Linux's build and test workflow (#304) 
+* Build dict for IonPyDict in ioncmodule (#309)
+
 ### 0.11.2 (2023-11-16)
 * Uses the latest ion-c version to build the C extension. (#299)
 * Changes IonPyObjects' constructor to match their parent classes. (#298)
