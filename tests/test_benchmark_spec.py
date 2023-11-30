@@ -1,4 +1,5 @@
 from os.path import abspath, join, dirname
+from pathlib import Path
 
 from amazon.ionbenchmark.benchmark_spec import BenchmarkSpec
 
@@ -12,7 +13,9 @@ _minimal_spec = BenchmarkSpec(_minimal_params, working_directory=_generate_test_
 
 
 def test_get_input_file_size():
-    assert _minimal_spec.get_input_file_size() == 161
+    real_size = _minimal_spec.get_input_file_size()
+    exp_size = Path(join(_generate_test_path("sample_spec"), _minimal_params['input_file'])).stat().st_size
+    assert real_size == exp_size
 
 
 def test_get_format():
