@@ -46,7 +46,7 @@ def run_setup():
 
     setup(
         name='amazon.ion',
-        version='0.11.2',
+        version='0.11.3',
         description='A Python implementation of Amazon Ion.',
         url='http://github.com/amazon-ion/ion-python',
         author='Amazon Ion Team',
