@@ -1018,17 +1018,15 @@ static iERR ionc_read_into_container(hREADER hreader, PyObject* container, BOOL 
  *      in_struct:  if the current state is in a struct
  *      field_name:  The field name of the element if it is inside a struct
  */
-static void ionc_add_to_container(PyObject* pyContainer, PyObject* element, BOOL in_struct, ION_STRING* field_name) {
+static void ionc_add_to_container(PyObject* pyContainer, PyObject* element, BOOL in_struct, PyObject* field_name) {
     if (in_struct) {
         // this builds the "hash-map of lists" structure that the IonPyDict object
         // expects for its __store
-        PyObject* py_field_name = ion_build_py_string(field_name);
         PyObject* empty = PyList_New(0);
         // SetDefault performs get|set with a single hash of the key
-        PyObject* found = PyDict_SetDefault(pyContainer, py_field_name, empty);
+        PyObject* found = PyDict_SetDefault(pyContainer, field_name, empty);
         PyList_Append(found, element);
 
-        Py_DECREF(py_field_name);
         Py_DECREF(empty);
     }
     else {
@@ -1057,22 +1055,11 @@ iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BOOL in_s
     PyObject*   py_annotations = NULL;
     PyObject*   py_value = NULL;
     PyObject*   ion_nature_constructor = NULL;
-
-    char    field_name_value[FIELD_NAME_MAX_LEN];
-    int     field_name_len = 0;
-    BOOL    None_field_name = TRUE;
+    PyObject*   py_field_name = NULL;
 
     if (in_struct) {
         IONCHECK(ion_reader_get_field_name(hreader, &field_name));
-        field_name_len = field_name.length;
-        if (field_name_len > FIELD_NAME_MAX_LEN) {
-            _FAILWITHMSG(IERR_INVALID_ARG,
-                "Filed name overflow, please try again with pure python.");
-        }
-        if (field_name.value != NULL) {
-            None_field_name = FALSE;
-            strcpy(field_name_value, field_name.value);
-        }
+        py_field_name = ion_build_py_string(&field_name);
     }
 
     IONCHECK(ion_reader_get_annotation_count(hreader, &annotation_count));
@@ -1323,17 +1310,13 @@ iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BOOL in_s
         );
         if (py_value != Py_None) Py_XDECREF(py_value);
     }
-    Py_XDECREF(py_annotations);
 
-    if (in_struct && !None_field_name) {
-        ION_STRING_INIT(&field_name);
-        ion_string_assign_cstr(&field_name, field_name_value, field_name_len);
-    }
-    ionc_add_to_container(container, final_py_value, in_struct, &field_name);
+    ionc_add_to_container(container, final_py_value, in_struct, py_field_name);
 
 fail:
+    Py_XDECREF(py_annotations);
+    if (py_field_name && py_field_name != Py_None) Py_DECREF(py_field_name);
     if (err) {
-        Py_XDECREF(py_annotations);
         Py_XDECREF(py_value);
     }
     cRETURN;
