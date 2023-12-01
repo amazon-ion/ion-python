@@ -27,9 +27,11 @@ Options:
      -h, --help                         Show this screen.
      -v, --version                      Display the tool version
 """
+import gc
 import itertools
 import os
 import platform
+from time import sleep
 
 import amazon.ion.simpleion as ion
 from docopt import docopt
@@ -284,6 +286,9 @@ def _run_benchmarks(specs: list, report_fields, output_file):
     report = []
 
     for benchmark_spec in specs:
+        # collect gc then take a breath
+        gc.collect()
+        sleep(1)
         # TODO. currently, we must provide the tool to convert to a corresponding file format for read benchmarking.
         #  For example, we must provide a CBOR file for CBOR APIs benchmarking. We cannot benchmark CBOR APIs by giving
         #  a JSON file. Lack of format conversion prevents us from benchmarking different formats concurrently.

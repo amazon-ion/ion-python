@@ -21,11 +21,11 @@ class IonLoadDump:
 
     def loads(self, s):
         ion.c_ext = self._c_ext
-        return ion.loads(s, single_value=self._single_value)
+        return ion.loads(s, single_value=self._single_value, parse_eagerly=False)
 
     def load(self, fp):
         ion.c_ext = self._c_ext
-        return ion.load(fp, single_value=self._single_value)
+        return ion.load(fp, single_value=self._single_value, parse_eagerly=False)
 
     def dumps(self, obj):
         ion.c_ext = self._c_ext

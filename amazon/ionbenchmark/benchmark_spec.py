@@ -7,7 +7,8 @@ from pathlib import Path
 import amazon.ionbenchmark.ion_load_dump as _ion_load_dump
 
 from amazon.ion.simple_types import IonPySymbol
-
+from amazon.ionbenchmark.cbor_load_dump import CborLoadDump
+from amazon.ionbenchmark.json_load_dump import JsonLoadDump
 
 # Global defaults for CLI test specs
 _tool_defaults = {
@@ -16,6 +17,7 @@ _tool_defaults = {
     'io_type': 'buffer',
     'command': 'read',
     'api': 'load_dump',
+    'max_items': 10000
 }
 
 
@@ -158,6 +160,9 @@ class BenchmarkSpec(dict):
     def get_warmups(self):
         return self["warmups"]
 
+    def get_max_items(self):
+        return self["max_items"]
+
     def derive_operation_name(self):
         match_arg = [self.get_io_type(), self.get_command(), self.get_api()]
         if match_arg == ['buffer', 'read', 'load_dump']:
@@ -199,8 +204,7 @@ class BenchmarkSpec(dict):
         elif data_format == 'ion_text':
             return _ion_load_dump.IonLoadDump(binary=False, c_ext=self['py_c_extension'])
         elif data_format == 'json':
-            import json
-            return json
+            return JsonLoadDump()
         elif data_format == 'ujson':
             import ujson
             return ujson
@@ -211,8 +215,7 @@ class BenchmarkSpec(dict):
             import rapidjson
             return rapidjson
         elif data_format == 'cbor':
-            import cbor
-            return cbor
+            return CborLoadDump()
         elif data_format == 'cbor2':
             import cbor2
             return cbor2

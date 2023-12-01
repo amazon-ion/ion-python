@@ -112,10 +112,19 @@ def _create_test_fun(benchmark_spec: BenchmarkSpec):
 
     elif match_arg == ['file', 'read', 'load_dump']:
         data_file = benchmark_spec.get_input_file()
+        max_items = benchmark_spec.get_max_items()
 
         def test_fn():
             with open(data_file, "rb") as f:
-                return loader_dumper.load(f)
+                ct = 0
+                for v in loader_dumper.load(f):
+                    #print(v)
+                    ct += 1
+                    if ct >= max_items:
+                        break
+
+                #print(ct)
+                return ct
 
     elif match_arg == ['file', 'write', 'load_dump']:
         data_obj = benchmark_spec.get_data_object()
