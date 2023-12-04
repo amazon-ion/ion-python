@@ -21,7 +21,6 @@ C_EXT = True if not hasattr(sys, 'pypy_translation_info') else False
 
 def run_setup():
     if C_EXT and _install_ionc():
-        print('C extension is enabled!')
         kw = dict(
             ext_modules=[
                 Extension(
@@ -39,6 +38,7 @@ def run_setup():
                 ),
             ],
         )
+        print('C extension is enabled!')
     else:
         print('Using pure python implementation.')
         kw = dict()
