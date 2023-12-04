@@ -147,10 +147,11 @@ static int offset_seconds(PyObject* timedelta) {
  */
 static int ion_type_from_py(PyObject* obj) {
     PyObject* ion_type = NULL;
-    if (PyObject_HasAttrString(obj, "ion_type")) {
-        ion_type = PyObject_GetAttrString(obj, "ion_type");
+    ion_type = PyObject_GetAttrString(obj, "ion_type");
+    if (ion_type == NULL) {
+        PyErr_Clear();
+        return tid_none_INT;
     }
-    if (ion_type == NULL) return tid_none_INT;
     int c_type = c_ion_type_table[PyLong_AsSsize_t(ion_type)];
     Py_DECREF(ion_type);
     return c_type;
@@ -288,11 +289,12 @@ static iERR ionc_write_symboltoken(hWRITER writer, PyObject* symboltoken, BOOL i
 static iERR ionc_write_annotations(hWRITER writer, PyObject* obj) {
     iENTER;
     PyObject* annotations = NULL;
-    if (PyObject_HasAttrString(obj, "ion_annotations")) {
-        annotations = PyObject_GetAttrString(obj, "ion_annotations");
+    annotations = PyObject_GetAttrString(obj, "ion_annotations");
+    if (annotations == NULL || PyObject_Not(annotations)) {
+        PyErr_Clear();
+        // Proceed as if the attribute is not there.
+        SUCCEED();
     }
-
-    if (annotations == NULL || PyObject_Not(annotations)) SUCCEED();
 
     annotations = PySequence_Fast(annotations, "expected sequence");
     Py_ssize_t len = PySequence_Size(annotations);
@@ -557,16 +559,20 @@ iERR ionc_write_value(hWRITER writer, PyObject* obj, PyObject* tuple_as_sexp) {
         }
 
         ION_TIMESTAMP timestamp_value;
-        PyObject *fractional_seconds, *fractional_decimal_tuple, *py_exponent, *py_digits;
+        PyObject *fractional_seconds, *fractional_decimal_tuple, *py_exponent, *py_digits, *precision_attr;
         int year, month, day, hour, minute, second;
         short precision, fractional_precision;
         int final_fractional_precision, final_fractional_seconds;
-        if (PyObject_HasAttrString(obj, "precision") && PyObject_GetAttrString(obj, "precision") != Py_None) {
+        precision_attr = PyObject_GetAttrString(obj, "precision");
+        if (precision_attr == NULL) {
+            PyErr_Clear();
+        }
+        else if (precision_attr != Py_None) {
             // This is a Timestamp.
             precision = int_attr_by_name(obj, "precision");
             fractional_precision = int_attr_by_name(obj, "fractional_precision");
-            if (PyObject_HasAttrString(obj, "fractional_seconds")) {
-                fractional_seconds = PyObject_GetAttrString(obj, "fractional_seconds");
+            fractional_seconds = PyObject_GetAttrString(obj, "fractional_seconds");
+            if (fractional_seconds != NULL) {
                 fractional_decimal_tuple = PyObject_CallMethod(fractional_seconds, "as_tuple", NULL);
                 py_exponent = PyObject_GetAttrString(fractional_decimal_tuple, "exponent");
                 py_digits = PyObject_GetAttrString(fractional_decimal_tuple, "digits");
@@ -593,6 +599,7 @@ iERR ionc_write_value(hWRITER writer, PyObject* obj, PyObject* tuple_as_sexp) {
                 Py_DECREF(py_digits);
 
             } else {
+                PyErr_Clear();
                 final_fractional_precision = fractional_precision;
                 final_fractional_seconds = int_attr_by_name(obj, "microsecond");
             }
