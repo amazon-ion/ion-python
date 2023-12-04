@@ -3,11 +3,9 @@
 """
 import datetime
 import decimal
-import itertools
 import random
-import uuid
 
-from amazon.ion.core import Timestamp, TimestampPrecision, timestamp
+from amazon.ion.core import Timestamp, TimestampPrecision
 from amazon.ion.simple_types import IonPySymbol
 from amazon.ion.simpleion import dumps
 
@@ -1089,7 +1087,7 @@ breeds = [
     'Golden Retriever',
     'Akita',
     'Chow',
-    'Shi-tzu'
+    'Shi-tzu',
     'Komondor',
     'Newfoundland',
 ]
@@ -1109,8 +1107,8 @@ def generate_date():
     # return (earliest + datetime.timedelta(days=random.randint(0, 8760))).date()
     date = earliest + datetime.timedelta(days=random.randint(0, 8760))
 
-    #return Timestamp(date.year, date.month, date.day, precision=TimestampPrecision.DAY)
-    return date.isoformat()
+    return Timestamp(date.year, date.month, date.day, precision=TimestampPrecision.DAY)
+    #return date.isoformat()
 
 
 def generate_timestamp():
@@ -1127,6 +1125,43 @@ def generate_timestamp():
     return dt.isoformat()
 
 
+street_prefixes = ['Main', 'Elm', 'Oak', 'Park', 'Washington', 'Adams', 'Jefferson', 'Lincoln', 'Madison', 'Monroe',
+            'Jackson', 'Harrison', 'Tyler', 'Polk', 'Taylor', 'Fillmore', 'Pierce', 'Buchanan', 'Hayes', 'Garfield',
+            'Arthur', 'Cleveland', 'McKinley', 'Roosevelt', 'Taft', 'Wilson', 'Harding', 'Coolidge', 'Hoover', 'Truman',
+            'Eisenhower', 'Kennedy', 'Johnson', 'Nixon', 'Ford', 'Carter', 'Reagan', 'Bush', 'Clinton', 'Bush', 'Obama',
+            'Spring', 'Summer', 'Autumn', 'Winter', 'January', 'February', 'March', 'April', 'May', 'June',
+            'July', 'August', 'September', 'October', 'November', 'December', 'North', 'South', 'East', 'West',
+            'Broad', 'Park', 'Oak', 'Pine', 'Maple', 'Elm', 'Church', 'River', 'Lake', 'Hill',
+            'View', 'Bridge', 'Fourth', 'Main', 'First', 'Second', 'Third', 'Fifth', 'Sixth',
+            'Seventh', 'Eighth', 'Ninth', 'Tenth']
+
+street_suffixes = ['St', 'Ave', 'Rd', 'Blvd', 'Dr']
+
+states = ['AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA',
+          'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD',
+          'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ',
+          'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC',
+          'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY']
+
+def generate_street_addr():
+    return f"%d %s %s" % (random.randint(0, 999),
+                  random.choice(street_suffixes),
+                  random.choice(street_suffixes))
+
+
+shows = ['Crufts', 'Westminster', 'Anaheim', 'AKC National Championship']
+award_types = ['Best in Show',  'Best of Breed', 'Best in Class', 'Honorary Mention']
+
+def generate_awards():
+    random_byte = random.randint(0, 255)
+    l = []
+    while random_byte & 3 == 3:
+        l.append(random.choice(award_types) + " " + random.choice(shows))
+        random_byte >>= 2
+
+    return l
+
+
 if __name__ == '__main__':
     for i in range(2000):
         owner_given = random.choice(given_names)
@@ -1141,14 +1176,20 @@ if __name__ == '__main__':
 
         dog = {
             'record_id': record_id,
-            'record_version': record_ts,
-
-            'owner': owner_given + " " + owner_family,
             'name': dog_name + " " + owner_family,
             'breed': IonPySymbol(breed, None, None),
-            'vaccines': [IonPySymbol(v, None, None) for v in vaccine_list],
             'weight': weight,
             'birthdate': bday,
+            'owner': owner_given + " " + owner_family,
+            # todo: perf of timestamps is sooo bad it skews everything
+            #'record_version': record_ts,
+            'address': {
+                'street': generate_street_addr(),
+                'state': IonPySymbol.from_text(random.choice(states)),
+                'zip': random.randint(10000, 99999)
+            },
+            'awards': generate_awards(),
+            'vaccines': vaccine_list,
         }
 
         print(dumps(dog, binary=False))

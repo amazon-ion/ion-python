@@ -548,6 +548,10 @@ class IonPySymbol(SymbolToken):
         value.ion_annotations = ion_event.annotations
         return value
 
+    @staticmethod
+    def from_text(text):
+        return IonPySymbol(text, None, None)
+
     @classmethod
     def from_value(cls, ion_type, value, annotations=()):
         if value is None:
