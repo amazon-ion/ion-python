@@ -1327,7 +1327,10 @@ iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BOOL in_s
 
 fail:
     Py_XDECREF(py_annotations);
-    if (py_field_name) Py_DECREF(py_field_name);
+    // note: we're not actually increffing None when we have a field name that is
+    // none, but over refcounting None is not really harmful.
+    // todo: consider increffing Py_None in ion_build_py_string
+    if (py_field_name && py_field_name != Py_None) Py_DECREF(py_field_name);
     if (err) {
         Py_XDECREF(py_value);
     }
