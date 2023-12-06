@@ -535,10 +535,10 @@ def dump_extension(obj, fp, binary=True, sequence_as_stream=False, tuple_as_sexp
     fp.write(res)
 
 
-def load_extension(fp, single_value=True, parse_eagerly=True, text_buffer_size_limit=None):
+def load_extension(fp, single_value=True, parse_eagerly=True, text_buffer_size_limit=None, emit_bare_values=False):
     """
     Args:
-        fp (str): A string representation of Ion data.
+        fp (buffer): A file-handle or other object that implementes the buffer protocol
         single_value (Optional[True|False]): When True, the data in ``ion_str`` is interpreted as a single Ion value,
             and will be returned without an enclosing container. If True and there are multiple top-level values in
             the Ion stream, IonException will be raised. NOTE: this means that when data is dumped using
@@ -548,8 +548,12 @@ def load_extension(fp, single_value=True, parse_eagerly=True, text_buffer_size_l
         text_buffer_size_limit (int): The maximum byte size allowed for text values when the C extension is enabled
             (default: 512 bytes). This option only has an effect when the C extension is enabled (and it is enabled by
             default). When the C extension is disabled, there is no limit on the size of text values.
+        emit_bare_values (bool): When possible to do losslessly, the parser will emit values as their native python
+            type, instead of their IonPy type. Any value that is an IonSexp, IonSymbol, IonClob, typed-null or has
+            annotations is not emitted as a native python value. Timestamp values are emitted as Ion Timestamps, not
+            python datetimes.
     """
-    iterator = ionc.ionc_read(fp, emit_bare_values=False, text_buffer_size_limit=text_buffer_size_limit)
+    iterator = ionc.ionc_read(fp, emit_bare_values=emit_bare_values, text_buffer_size_limit=text_buffer_size_limit)
     if single_value:
         try:
             value = next(iterator)

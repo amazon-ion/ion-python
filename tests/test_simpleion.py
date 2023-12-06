@@ -13,7 +13,7 @@
 # License.
 from datetime import datetime, timedelta
 from functools import partial
-from io import BytesIO
+from io import BytesIO, StringIO
 
 from decimal import Decimal
 from itertools import chain
@@ -28,7 +28,7 @@ from amazon.ion import simpleion
 from amazon.ion.exceptions import IonException
 from amazon.ion.symbols import SymbolToken, SYSTEM_SYMBOL_TABLE
 from amazon.ion.writer_binary import _IVM
-from amazon.ion.core import IonType, IonEvent, IonEventType, OffsetTZInfo, Multimap, TimestampPrecision
+from amazon.ion.core import IonType, IonEvent, IonEventType, OffsetTZInfo, Multimap, TimestampPrecision, Timestamp
 from amazon.ion.simple_types import IonPyDict, IonPyText, IonPyList, IonPyNull, IonPyBool, IonPyInt, IonPyFloat, \
     IonPyDecimal, IonPyTimestamp, IonPyBytes, IonPySymbol
 from amazon.ion.equivalence import ion_equals, obj_has_ion_type_and_annotation
@@ -709,7 +709,40 @@ def test_loads_unicode_utf8_conversion():
     loads(data, parse_eagerly=True)
 
 
+@parametrize(
+    ("31", int, 31),
+    ("true", bool, True),
+    ("null", type(None), None),
+    ("null.int", IonPyNull, lambda x: x.ion_type == IonType.INT),
+    ("12e-1", float, 1.2),
+    ("1.2", Decimal, Decimal("1.2")),
+    ("2020-08-01T01:05:00-00:00", Timestamp, Timestamp(2020, 8, 1, 1, 5, 0, precision=TimestampPrecision.SECOND)),
+    ('"bar"', str, "bar"),
+    ("bar", IonPySymbol, IonPySymbol("bar", None, None)),
+    ('{{ "foo" }}', IonPyBytes, lambda x: x.ion_type == IonType.CLOB),
+    ("[]", list, []),
+    # regression test for sexp suppressing bare_values for children
+    ("(31)", IonPyList, lambda x: x.ion_type == IonType.SEXP and type(x[0]) == int),
+    ("foo::31", IonPyInt, lambda x: len(x.ion_annotations) == 1)
+)
+def test_bare_values(params):
+    # This function only tests c extension
+    if not c_ext:
+        return
+
+    ion_text, expected_type, expectation = params
+
+    value = simpleion.load_extension(StringIO(ion_text), emit_bare_values=True)
+
+    assert type(value) == expected_type
+    if callable(expectation):
+        expectation(value)
+    else:
+        assert ion_equals(value, expectation)
+
+
 # See issue https://github.com/amazon-ion/ion-python/issues/232
+
 def test_loads_large_string():
     # This function only tests c extension
     if not c_ext:
