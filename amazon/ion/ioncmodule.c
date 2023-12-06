@@ -1211,6 +1211,7 @@ iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BOOL in_s
                 py_value = dec_tuple;
             } else {
                 py_value = PyObject_CallFunctionObjArgs(_decimal_constructor, dec_tuple, NULL);
+                Py_DECREF(dec_tuple);
             }
 
             ion_nature_constructor = _ionpydecimal_fromvalue;
