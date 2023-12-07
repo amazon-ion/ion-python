@@ -204,22 +204,6 @@ static PyObject* ion_build_py_string(ION_STRING* string_value) {
 }
 
 /*
- *  Converts an ion decimal string to a python-decimal-accept string. NOTE: ion spec uses 'd' in a decimal number
- *  while python decimal object accepts 'e'
- *
- *  Args:
- *      dec_str:  A C string representing a decimal number
- *
- */
-static void c_decstr_to_py_decstr(char* dec_str) {
-    for (int i = 0; i < strlen(dec_str); i++) {
-        if (dec_str[i] == 'd' || dec_str[i] == 'D') {
-            dec_str[i] = 'e';
-        }
-    }
-}
-
-/*
  *  Returns a python symbol token using an ION_STRING
  *
  *  Args:
@@ -543,6 +527,7 @@ iERR ionc_write_value(hWRITER writer, PyObject* obj, PyObject* tuple_as_sexp) {
 
         ION_DECIMAL decimal_value;
         IONCHECK(ion_decimal_from_string(&decimal_value, decimal_c_str, &dec_context));
+        // todo: don't we need to also free decimal_c_str?
         Py_DECREF(decimal_str);
 
         IONCHECK(ion_writer_write_ion_decimal(writer, &decimal_value));
@@ -856,7 +841,20 @@ fail:
 /******************************************************************************
 *       Read/Load APIs                                                        *
 ******************************************************************************/
-
+/*
+ *  Converts an ion decimal string to a python-decimal-accept string.
+ *
+ *  Args:
+ *      dec_str:  A C string representing a decimal number
+ *
+ */
+static void c_decstr_to_py_decstr(char* dec_str, int dec_len) {
+    for (int i = 0; i < dec_len; i++) {
+        if (dec_str[i] == 'd' || dec_str[i] == 'D') {
+            dec_str[i] = 'e';
+        }
+    }
+}
 
 static PyObject* ionc_get_timestamp_precision(int precision) {
     int precision_index = -1;
@@ -899,6 +897,7 @@ static iERR ionc_read_timestamp(hREADER hreader, PyObject** timestamp_out) {
     switch (precision) {
         case ION_TS_FRAC:
         {
+
             decQuad fraction = timestamp_value.fraction;
             decQuad tmp;
 
@@ -1124,16 +1123,14 @@ iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BOOL in_s
             IONCHECK(ion_int_init(&ion_int_value, hreader));
             IONCHECK(ion_reader_read_ion_int(hreader, &ion_int_value));
             SIZE int_char_len, int_char_written;
+            // ion_int_char_length includes 1 char for \0
+            // which ion_int_to_char sets at end.
             IONCHECK(ion_int_char_length(&ion_int_value, &int_char_len));
-            char* ion_int_str = (char*)PyMem_Malloc(int_char_len + 1); // Leave room for \0
+            char* ion_int_str = (char*)PyMem_Malloc(int_char_len);
             err = ion_int_to_char(&ion_int_value, (BYTE*)ion_int_str, int_char_len, &int_char_written);
             if (err) {
                 PyMem_Free(ion_int_str);
                 IONCHECK(err);
-            }
-            if (int_char_len < int_char_written) {
-                PyMem_Free(ion_int_str);
-                _FAILWITHMSG(IERR_BUFFER_TOO_SMALL, "Not enough space given to represent int as string.");
             }
             py_value = PyLong_FromString(ion_int_str, NULL, 10);
             PyMem_Free(ion_int_str);
@@ -1153,66 +1150,25 @@ iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BOOL in_s
         {
             ION_DECIMAL decimal_value;
             IONCHECK(ion_reader_read_ion_decimal(hreader, &decimal_value));
-
-            decNumber *read_number;
-            decQuad read_quad;
-
-            // Determine ion decimal type.
-            if (decimal_value.type == ION_DECIMAL_TYPE_QUAD) {
-                read_quad = decimal_value.value.quad_value;
-                read_number = (decNumber *)malloc(sizeof(decNumber));
-                decQuadToNumber(&read_quad, read_number);
-            } else if (decimal_value.type == ION_DECIMAL_TYPE_NUMBER
-                        || decimal_value.type == ION_DECIMAL_TYPE_NUMBER_OWNED) {
-                read_number = decimal_value.value.num_value;
-            } else {
-                _FAILWITHMSG(IERR_INVALID_ARG, "Unknown type of Ion Decimal.")
+            SIZE dec_len = ION_DECIMAL_STRLEN(&decimal_value);
+            char* dec_str = (char*)PyMem_Malloc(dec_len + 1);
+            // returns iERR but only error condition that would cause that is null decimal value
+            iERR e = ion_decimal_to_string(&decimal_value, dec_str);
+            if (e) {
+                ion_decimal_free(&decimal_value);
+                PyMem_Free(dec_str);
+                FAILWITH(e);
             }
+            dec_str[dec_len] = '\0';
+            c_decstr_to_py_decstr(dec_str, dec_len);
 
-            int read_number_digits = read_number->digits;
-            int read_number_bits =  read_number->bits;
-            int read_number_exponent = read_number->exponent;
-            int sign = ((DECNEG & read_number->bits) == DECNEG) ? 1 : 0;
-            // No need to release below PyObject* since PyTuple "steals" its reference.
-            PyObject* digits_tuple = PyTuple_New(read_number_digits);
-
-            // Returns a decimal tuple to avoid losing precision.
-            // Decimal tuple format: (sign, (digits tuple), exponent).
-            PyObject *dec_tuple = PyTuple_New(3);
-            PyTuple_SetItem(dec_tuple, 0, PyLong_FromLong(sign));
-            PyTuple_SetItem(dec_tuple, 1, digits_tuple);
-            PyTuple_SetItem(dec_tuple, 2, PyLong_FromLong(read_number_exponent));
-
-            int count = (read_number_digits + DECDPUN - 1) / DECDPUN;
-            int index = 0;
-            int remainder = read_number_digits % DECDPUN;
-
-            // "i" represents the index of a decNumberUnit in lsu array.
-            for (int i = count - 1; i >= 0; i--) {
-                int cur_digits = read_number->lsu[i];
-                int end_index = (i == count - 1 && remainder > 0) ? remainder : DECDPUN;
-
-                // "j" represents the j-th digit of a decNumberUnit we are going to convert.
-                for (int j = 0; j < end_index; j++) {
-                    int cur_digit = cur_digits % 10;
-                    cur_digits = cur_digits / 10;
-                    int write_index = (i == count - 1 && remainder > 0)
-                                        ? remainder - index - 1 : index + DECDPUN - 2 * j - 1;
-                    PyTuple_SetItem(digits_tuple, write_index, PyLong_FromLong(cur_digit));
-                    index++;
-                }
-            }
-
-            ion_decimal_free(&decimal_value);
-            if (decimal_value.type == ION_DECIMAL_TYPE_QUAD) {
-               free(read_number);
-            }
             if (wrap_py_value) {
-                py_value = dec_tuple;
+                py_value = Py_BuildValue("s", dec_str);
             } else {
-                py_value = PyObject_CallFunctionObjArgs(_decimal_constructor, dec_tuple, NULL);
-                Py_DECREF(dec_tuple);
+                py_value = PyObject_CallFunction(_decimal_constructor, "s", dec_str, NULL);
             }
+            ion_decimal_free(&decimal_value);
+            PyMem_Free(dec_str);
 
             ion_nature_constructor = _ionpydecimal_fromvalue;
             break;
