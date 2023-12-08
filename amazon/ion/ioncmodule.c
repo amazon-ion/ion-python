@@ -1048,7 +1048,7 @@ static void ionc_add_to_container(PyObject* pyContainer, PyObject* element, BOOL
 iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BOOL in_struct, BOOL emit_bare_values_global) {
     iENTER;
 
-    BOOL        emit_bare_values = emit_bare_values_global;
+    BOOL        wrap_py_value = !emit_bare_values_global;
     BOOL        is_null;
     ION_STRING  field_name;
     SIZE        annotation_count;
@@ -1064,7 +1064,7 @@ iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BOOL in_s
 
     IONCHECK(ion_reader_get_annotation_count(hreader, &annotation_count));
     if (annotation_count > 0) {
-        emit_bare_values = FALSE;
+        wrap_py_value = TRUE;
         ION_STRING* annotations = (ION_STRING*)PyMem_Malloc(annotation_count * sizeof(ION_STRING));
         err = ion_reader_get_annotations(hreader, annotations, annotation_count, &annotation_count);
         if (err) {
@@ -1101,8 +1101,12 @@ iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BOOL in_s
             }
 
             ion_type = ION_TYPE_INT(null_type);
-            py_value = Py_None; // INCREFs and returns Python None.
-            emit_bare_values = emit_bare_values && (ion_type == tid_NULL_INT);
+            py_value = Py_None;
+            // you wouldn't think you need to incref Py_None, and in
+            // newer C API versions you won't, but for now you do.
+            // see https://github.com/python/cpython/issues/103906 for more
+            Py_INCREF(py_value);
+            wrap_py_value = wrap_py_value || (ion_type != tid_NULL_INT);
             ion_nature_constructor = _ionpynull_fromvalue;
             break;
         }
@@ -1149,6 +1153,7 @@ iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BOOL in_s
         {
             ION_DECIMAL decimal_value;
             IONCHECK(ion_reader_read_ion_decimal(hreader, &decimal_value));
+
             decNumber *read_number;
             decQuad read_quad;
 
@@ -1173,10 +1178,10 @@ iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BOOL in_s
 
             // Returns a decimal tuple to avoid losing precision.
             // Decimal tuple format: (sign, (digits tuple), exponent).
-            py_value = PyTuple_New(3);
-            PyTuple_SetItem(py_value, 0, PyLong_FromLong(sign));
-            PyTuple_SetItem(py_value, 1, digits_tuple);
-            PyTuple_SetItem(py_value, 2, PyLong_FromLong(read_number_exponent));
+            PyObject *dec_tuple = PyTuple_New(3);
+            PyTuple_SetItem(dec_tuple, 0, PyLong_FromLong(sign));
+            PyTuple_SetItem(dec_tuple, 1, digits_tuple);
+            PyTuple_SetItem(dec_tuple, 2, PyLong_FromLong(read_number_exponent));
 
             int count = (read_number_digits + DECDPUN - 1) / DECDPUN;
             int index = 0;
@@ -1198,8 +1203,15 @@ iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BOOL in_s
                 }
             }
 
+            ion_decimal_free(&decimal_value);
             if (decimal_value.type == ION_DECIMAL_TYPE_QUAD) {
                free(read_number);
+            }
+            if (wrap_py_value) {
+                py_value = dec_tuple;
+            } else {
+                py_value = PyObject_CallFunctionObjArgs(_decimal_constructor, dec_tuple, NULL);
+                Py_DECREF(dec_tuple);
             }
 
             ion_nature_constructor = _ionpydecimal_fromvalue;
@@ -1213,7 +1225,8 @@ iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BOOL in_s
         }
         case tid_SYMBOL_INT:
         {
-            emit_bare_values = FALSE; // Symbol values must always be emitted as IonNature because of ambiguity with string.
+            // Symbols must always be emitted as IonPySymbol, to avoid ambiguity with string.
+            wrap_py_value = TRUE;
             ION_STRING string_value;
             IONCHECK(ion_reader_read_string(hreader, &string_value));
             ion_nature_constructor = _ionpysymbol_fromvalue;
@@ -1230,7 +1243,8 @@ iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BOOL in_s
         }
         case tid_CLOB_INT:
         {
-            emit_bare_values = FALSE; // Clob values must always be emitted as IonNature because of ambiguity with blob.
+            // Clob values must always be emitted as IonPyBytes, to avoid ambiguity with blob.
+            wrap_py_value = TRUE;
             // intentional fall-through
         }
         case tid_BLOB_INT:
@@ -1263,7 +1277,7 @@ iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BOOL in_s
         case tid_STRUCT_INT:
         {
             PyObject* data = PyDict_New();
-            IONCHECK(ionc_read_into_container(hreader, data, /*is_struct=*/TRUE, emit_bare_values));
+            IONCHECK(ionc_read_into_container(hreader, data, /*is_struct=*/TRUE, emit_bare_values_global));
 
             py_value = PyObject_CallFunctionObjArgs(
                     _ionpydict_factory,
@@ -1276,21 +1290,20 @@ iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BOOL in_s
             if (py_value == NULL) {
                 FAILWITH(IERR_READ_ERROR);
             }
-            // This is subtle. It's not that we're emitting a "bare value" here,
-            // in fact, we are explicitly creating an IonPy value. But this short-circuits
-            // the general IonPyFoo creation logic after switch.
-            emit_bare_values = TRUE;
+            // we've already wrapped the py value
+            wrap_py_value = FALSE;
             break;
         }
         case tid_SEXP_INT:
         {
-            emit_bare_values = FALSE; // Sexp values must always be emitted as IonNature because of ambiguity with list.
+            // Sexp values must always be emitted as IonPyList to avoid ambiguity with list.
+            wrap_py_value = TRUE;
             // intentional fall-through
         }
         case tid_LIST_INT:
         {
             py_value = PyList_New(0);
-            IONCHECK(ionc_read_into_container(hreader, py_value, /*is_struct=*/FALSE, emit_bare_values));
+            IONCHECK(ionc_read_into_container(hreader, py_value, /*is_struct=*/FALSE, emit_bare_values_global));
             ion_nature_constructor = _ionpylist_fromvalue;
             break;
         }
@@ -1300,7 +1313,7 @@ iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BOOL in_s
         }
 
     PyObject* final_py_value = py_value;
-    if (!emit_bare_values) {
+    if (wrap_py_value) {
         final_py_value = PyObject_CallFunctionObjArgs(
             ion_nature_constructor,
             py_ion_type_table[ion_type >> 8],
@@ -1308,13 +1321,16 @@ iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BOOL in_s
             py_annotations,
             NULL
         );
-        if (py_value != Py_None) Py_XDECREF(py_value);
+        Py_XDECREF(py_value);
     }
 
     ionc_add_to_container(container, final_py_value, in_struct, py_field_name);
 
 fail:
     Py_XDECREF(py_annotations);
+    // note: we're not actually increffing None when we have a field name that has
+    // no text, which we technically _should_ be doing.
+    // todo: consider increffing Py_None in ion_build_py_string
     if (py_field_name && py_field_name != Py_None) Py_DECREF(py_field_name);
     if (err) {
         Py_XDECREF(py_value);
