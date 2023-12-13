@@ -96,6 +96,7 @@ def _create_test_fun(benchmark_spec: BenchmarkSpec):
     """
     loader_dumper = benchmark_spec.get_loader_dumper()
     match_arg = [benchmark_spec.get_io_type(), benchmark_spec.get_command(), benchmark_spec.get_api()]
+    format_option = benchmark_spec.get_format()
 
     if match_arg == ['buffer', 'read', 'load_dump']:
         with open(benchmark_spec.get_input_file(), 'rb') as f:
@@ -114,8 +115,23 @@ def _create_test_fun(benchmark_spec: BenchmarkSpec):
         data_file = benchmark_spec.get_input_file()
 
         def test_fn():
-            with open(data_file, "rb") as f:
-                return loader_dumper.load(f)
+            # previously:
+            # with open(data_file, "rb") as f:
+            #     return loader_dumper.load(f)
+            if _format.format_is_ion(format_option):
+                with open(data_file, "rb") as f:
+                    return loader_dumper.load(f)
+            elif _format.format_is_json(format_option):
+                with open(data_file, 'r') as f:
+                    for jsonL in f.readlines():
+                        loader_dumper.loads(jsonL)
+            elif _format.format_is_cbor(format_option):
+                with open(data_file, 'br') as f:
+                    while True:
+                        try:
+                            loader_dumper.load(f)
+                        except EOFError:
+                            break
 
     elif match_arg == ['file', 'write', 'load_dump']:
         data_obj = benchmark_spec.get_data_object()
