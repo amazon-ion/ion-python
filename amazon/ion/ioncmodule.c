@@ -527,7 +527,6 @@ iERR ionc_write_value(hWRITER writer, PyObject* obj, PyObject* tuple_as_sexp) {
 
         ION_DECIMAL decimal_value;
         IONCHECK(ion_decimal_from_string(&decimal_value, decimal_c_str, &dec_context));
-        // todo: don't we need to also free decimal_c_str?
         Py_DECREF(decimal_str);
 
         IONCHECK(ion_writer_write_ion_decimal(writer, &decimal_value));
