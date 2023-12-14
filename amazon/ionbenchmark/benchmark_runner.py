@@ -128,8 +128,13 @@ def _create_test_fun(benchmark_spec: BenchmarkSpec):
                             break
             elif _format.format_is_json(format_option):
                 with open(data_file, 'r') as f:
-                    for jsonL in f.readlines():
-                        loader_dumper.loads(jsonL)
+                    # for jsonL in f.readlines():
+                    #     loader_dumper.loads(jsonL)
+                    while True:
+                        jsonl = f.readline()
+                        if jsonl == '':
+                            break
+                        loader_dumper.loads(jsonl)
             elif _format.format_is_cbor(format_option):
                 with open(data_file, 'br') as f:
                     while True:
