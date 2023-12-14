@@ -115,6 +115,7 @@ def _create_test_fun(benchmark_spec: BenchmarkSpec):
 
         def test_fn():
             format_option = benchmark_spec.get_format()
+            # TODO below logic should go to JSON_load_dump and CBOR_load_dump
             # previously:
             # with open(data_file, "rb") as f:
             #     return loader_dumper.load(f)
@@ -148,12 +149,15 @@ def _create_test_fun(benchmark_spec: BenchmarkSpec):
         data_format = benchmark_spec.get_format()
         if _format.format_is_binary(data_format) or _format.format_is_ion(data_format):
             def test_fn():
-                with tempfile.TemporaryFile(mode="wb") as f:
-                    return loader_dumper.dump(data_obj, f)
+                with tempfile.TemporaryFile(mode="ab") as f:
+                    for top_level_obj in data_obj:
+                        loader_dumper.dump(top_level_obj, f)
         else:
             def test_fn():
-                with tempfile.TemporaryFile(mode="wt") as f:
-                    return loader_dumper.dump(data_obj, f)
+                # TODO do we need a newline for jsonl?
+                with tempfile.TemporaryFile(mode="at") as f:
+                    for top_level_obj in data_obj:
+                        loader_dumper.dump(top_level_obj, f)
 
     else:
         raise NotImplementedError(f"Argument combination not supported: {match_arg}")
