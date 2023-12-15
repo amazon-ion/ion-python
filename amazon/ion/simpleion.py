@@ -165,7 +165,7 @@ def load(fp, catalog=None, single_value=True, parse_eagerly=True, text_buffer_si
 
     Read Ion values using an iterator:
         ``
-        it = simpleion.load(file_handle, parse_eagerly=True)
+        it = simpleion.load(file_handle, parse_eagerly=False)
         # iterate through top-level Ion objects
         next(it)
         next(it)
