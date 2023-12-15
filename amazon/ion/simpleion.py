@@ -12,13 +12,53 @@
 # specific language governing permissions and limitations under the
 # License.
 
-"""Provides a ``simplejson``-like API for dumping and loading Ion data."""
+"""Provides a ``simplejson``-like API for dumping and loading Ion data.
+
+The below table describes how types from the Ion data model map to the IonPy types
+in simple_types.py as well as what other Python types are supported on dump.
+
+        +-------------------+-------------------+-----------------------------------+
+        | Ion Data Type     | IonPy Type        | Other Dump Mappings               |
+        |-------------------+-------------------|-----------------------------------|
+        | null.<type>       | IonPyNull(<type>) | None                              |
+        |-------------------+-------------------|-----------------------------------|
+        | bool              |    IonPyBool      | bool                              |
+        |-------------------+-------------------|-----------------------------------|
+        | int               |    IonPyInt       | int                               |
+        |-------------------+-------------------|-----------------------------------|
+        | float             |    IonPyFloat     | float                             |
+        |-------------------+-------------------|-----------------------------------|
+        | decimal           |   IonPyDecimal    | decimal.Decimal                   |
+        |-------------------+-------------------|-----------------------------------|
+        | timestamp         |  IonPyTimestamp   | Timestamp, datetime               |
+        |-------------------+-------------------|-----------------------------------|
+        | symbol            |   IonPySymbol     | IonPyText(SYMBOL), SymbolToken    |
+        |-------------------+-------------------|-----------------------------------|
+        | string            | IonPyText(STRING) | str, unicode                      |
+        |-------------------+-------------------|-----------------------------------|
+        | clob              |  IonPyBytes(CLOB) |                                   |
+        |-------------------+-------------------|-----------------------------------|
+        | blob              |  IonPyBytes(BLOB) | bytes                             |
+        |-------------------+-------------------|-----------------------------------|
+        | list              |   IonPyList(LIST) | list, tuple (tuple_as_sexp=False) |
+        |-------------------+-------------------|-----------------------------------|
+        | sexp              |   IonPyList(SEXP) | tuple (tuple_as_sexp=True)        |
+        |-------------------+-------------------|-----------------------------------|
+        | struct            |     IonPyDict     | dict, namedtuple                  |
+        +-------------------+-------------------+-----------------------------------+
+
+A C-extension is used when available for greater performance. That is enabled by default but may be
+disabled as below:
+    ``simpleion.c_ext = False``
+
+"""
 import io
 import warnings
 from datetime import datetime
 from decimal import Decimal
 from io import BytesIO, TextIOBase
 from types import GeneratorType
+from typing import Union
 
 from amazon.ion.reader_text import text_reader
 from amazon.ion.writer_text import text_writer
@@ -50,112 +90,142 @@ except ImportError as e:
 # However, if you mutate it, then it can no longer be used to see if the c extension is available.
 c_ext = __IS_C_EXTENSION_SUPPORTED
 
-_ION_CONTAINER_END_EVENT = IonEvent(IonEventType.CONTAINER_END)
-_IVM = b'\xe0\x01\x00\xea'
-_TEXT_TYPES = (TextIOBase, io.StringIO)
 
+def dump(obj, fp, imports=None, binary=True, sequence_as_stream=False, indent=None,
+         tuple_as_sexp=False, omit_version_marker=False):
+    """Serialize ``obj`` as an Ion formatted stream and write it to fp.
 
-def dump_python(obj, fp, imports=None, binary=True, sequence_as_stream=False, skipkeys=False, ensure_ascii=True,
-                check_circular=True, allow_nan=True, cls=None, indent=None, separators=None, encoding='utf-8',
-                default=None,
-                use_decimal=True, namedtuple_as_object=True, tuple_as_array=True, bigint_as_string=False,
-                sort_keys=False,
-                item_sort_key=None, for_json=None, ignore_nan=False, int_as_string_bitcount=None,
-                iterable_as_array=False,
-                tuple_as_sexp=False, omit_version_marker=False, **kw):
-    """Serialize ``obj`` as an Ion-formatted stream to ``fp`` (a file-like object), using the following conversion
-    table::
-        +-------------------+-------------------+
-        |  Python           |       Ion         |
-        |-------------------+-------------------|
-        | None              |    null.null      |
-        |-------------------+-------------------|
-        | IonPyNull(<type>) |    null.<type>    |
-        |-------------------+-------------------|
-        | True, False,      |                   |
-        | IonPyInt(BOOL),   |     bool          |
-        | IonPyBool,        |                   |
-        |-------------------+-------------------|
-        | int (Python 2, 3) |                   |
-        | long (Python 2),  |      int          |
-        | IonPyInt(INT)     |                   |
-        |-------------------+-------------------|
-        | float, IonPyFloat |     float         |
-        |-------------------+-------------------|
-        | Decimal,          |                   |
-        | IonPyDecimal      |     decimal       |
-        |-------------------+-------------------|
-        | datetime,         |                   |
-        | Timestamp,        |    timestamp      |
-        | IonPyTimestamp    |                   |
-        |-------------------+-------------------|
-        | SymbolToken,      |                   |
-        | IonPySymbol,      |     symbol        |
-        | IonPyText(SYMBOL) |                   |
-        |-------------------+-------------------|
-        | str (Python 3),   |                   |
-        | unicode (Python2),|     string        |
-        | IonPyText(STRING) |                   |
-        |-------------------+-------------------|
-        | IonPyBytes(CLOB)  |     clob          |
-        |-------------------+-------------------|
-        | str (Python 2),   |                   |
-        | bytes (Python 3)  |     blob          |
-        | IonPyBytes(BLOB)  |                   |
-        |-------------------+-------------------|
-        | list,             |                   |
-        | tuple (when       |                   |
-        |  tuple_as_sexp=   |     list          |
-        |  False)           |                   |
-        | IonPyList(LIST)   |                   |
-        |-------------------+-------------------|
-        | tuple (when       |                   |
-        |  tuple_as_sexp=   |     sexp          |
-        |  True),           |                   |
-        | IonPyList(SEXP)   |                   |
-        |-------------------+-------------------|
-        | dict, namedtuple, |                   |
-        | IonPyDict         |     struct        |
-        +-------------------+-------------------+
+    The python object hierarchy is mapped to the Ion data model as described in the module pydoc.
+
+    Common examples are below, please refer to the
+    [Ion Cookbook](https://amazon-ion.github.io/ion-docs/guides/cookbook.html) for detailed information.
+
+    Write an object as Ion Text to the file handle:
+        ``simpleion.dump(ion_object, file_handle, binary=False)``
+
+    Write an object as Ion Binary to the file handle:
+        ``simpleion.dump(ion_object, binary=True)``
 
     Args:
         obj (Any): A python object to serialize according to the above table. Any Python object which is neither an
             instance of nor inherits from one of the types in the above table will raise TypeError.
-        fp (BaseIO): A file-like object.
+        fp: Object that implements the buffer protocol to write data to.
         imports (Optional[Sequence[SymbolTable]]): A sequence of shared symbol tables to be used by by the writer.
         binary (Optional[True|False]): When True, outputs binary Ion. When false, outputs text Ion.
         sequence_as_stream (Optional[True|False]): When True, if ``obj`` is a sequence, it will be treated as a stream
             of top-level Ion values (i.e. the resulting Ion data will begin with ``obj``'s first element).
             Default: False.
-        skipkeys: NOT IMPLEMENTED
-        ensure_ascii: NOT IMPLEMENTED
-        check_circular: NOT IMPLEMENTED
-        allow_nan: NOT IMPLEMENTED
-        cls: NOT IMPLEMENTED
         indent (Str): If binary is False and indent is a string, then members of containers will be pretty-printed with
             a newline followed by that string repeated for each level of nesting. None (the default) selects the most
             compact representation without any newlines. Example: to indent with four spaces per level of nesting,
             use ``'    '``.
-        separators: NOT IMPLEMENTED
-        encoding: NOT IMPLEMENTED
-        default: NOT IMPLEMENTED
-        use_decimal: NOT IMPLEMENTED
-        namedtuple_as_object: NOT IMPLEMENTED
-        tuple_as_array: NOT IMPLEMENTED
-        bigint_as_string: NOT IMPLEMENTED
-        sort_keys: NOT IMPLEMENTED
-        item_sort_key: NOT IMPLEMENTED
-        for_json: NOT IMPLEMENTED
-        ignore_nan: NOT IMPLEMENTED
-        int_as_string_bitcount: NOT IMPLEMENTED
-        iterable_as_array: NOT IMPLEMENTED
         tuple_as_sexp (Optional[True|False]): When True, all tuple values will be written as Ion s-expressions.
             When False, all tuple values will be written as Ion lists. Default: False.
-        omit_version_marker (Optional|True|False): If binary is False and omit_version_marker is True, omits the
+        omit_version_marker (Optional[True|False]): If binary is False and omit_version_marker is True, omits the
             Ion Version Marker ($ion_1_0) from the output.  Default: False.
-        **kw: NOT IMPLEMENTED
 
+    Returns None.
     """
+    if c_ext and __IS_C_EXTENSION_SUPPORTED and (imports is None and indent is None):
+        return dump_extension(obj, fp, binary=binary, sequence_as_stream=sequence_as_stream,
+                              tuple_as_sexp=tuple_as_sexp, omit_version_marker=omit_version_marker)
+    else:
+        return dump_python(obj, fp, imports=imports, binary=binary, sequence_as_stream=sequence_as_stream,
+                           indent=indent,
+                           tuple_as_sexp=tuple_as_sexp, omit_version_marker=omit_version_marker)
+
+
+def dumps(obj, imports=None, binary=True, sequence_as_stream=False,
+          indent=None, tuple_as_sexp=False, omit_version_marker=False):
+    """Serialize obj as described by dump, return the serialized data as bytes or unicode.
+
+    Returns:
+         Union[str|bytes]: The string or binary representation of the data.  if ``binary=True``, this will be a
+             ``bytes`` object, otherwise this will be a ``str`` object
+    """
+    ion_buffer = io.BytesIO()
+
+    dump(obj, ion_buffer, imports=imports, sequence_as_stream=sequence_as_stream, binary=binary,
+         indent=indent, tuple_as_sexp=tuple_as_sexp, omit_version_marker=omit_version_marker)
+
+    ret_val = ion_buffer.getvalue()
+    ion_buffer.close()
+    if not binary:
+        ret_val = ret_val.decode('utf-8')
+    return ret_val
+
+
+def load(fp, catalog=None, single_value=True, parse_eagerly=True, text_buffer_size_limit=None):
+    """Deserialize Ion values from ``fp``, a file-handle to an Ion stream, as Python object(s) using the
+    conversion table described in the pydoc. Common examples are below, please refer to the
+    [Ion Cookbook](https://amazon-ion.github.io/ion-docs/guides/cookbook.html) for detailed information.
+
+    Read an Ion value from file_handle:
+        ``simpleion.load(file_handle)``
+
+    Read Ion values using an iterator:
+        ``
+        it = simpleion.load(file_handle, parse_eagerly=False)
+        # iterate through top-level Ion objects
+        next(it)
+        next(it)
+        ``
+
+    Read an Ion value with 50k text_buffer_size_limit:
+        ``simpleion.load(file_handle, text_buffer_size_limit=50000)``
+
+    Args:
+        fp: a file handle or other object that implements the buffer protocol.
+        catalog (Optional[SymbolTableCatalog]): The catalog to use for resolving symbol table imports.
+        single_value (Optional[True|False]): When True, the data in the ``fp`` is interpreted as a single Ion value,
+            and will be returned without an enclosing container. If True and there are multiple top-level values in
+            the Ion stream, IonException will be raised. NOTE: this means that when data is dumped using
+            ``sequence_as_stream=True``, it must be loaded using ``single_value=False``. Default: True.
+        parse_eagerly: (Optional[True|False]) Used in conjunction with ``single_value=False`` to return the result as
+            list or an iterator. Lazy parsing is significantly more efficient for many-valued streams.
+        text_buffer_size_limit (int): The maximum byte size allowed for text values when the C extension is enabled
+            (default: 4096 bytes). This option only has an effect when the C extension is enabled (and it is enabled by
+            default). When the C extension is disabled, there is no limit on the size of text values.
+
+    Returns (Any):
+        if single_value is True:
+            A Python object representing a single Ion value.
+        else:
+            A sequence of Python objects representing a stream of Ion values, may be a list or an iterator.
+    """
+
+    if c_ext and __IS_C_EXTENSION_SUPPORTED and catalog is None:
+        return load_extension(fp, parse_eagerly=parse_eagerly, single_value=single_value,
+                              text_buffer_size_limit=text_buffer_size_limit)
+    else:
+        return load_python(fp, catalog=catalog, single_value=single_value, parse_eagerly=parse_eagerly)
+
+
+def loads(ion_str: Union[bytes, str], catalog=None, single_value=True, parse_eagerly=True, text_buffer_size_limit=None):
+    """Deserialize Ion value(s) from the bytes or str object. Behavior is as described by load."""
+
+    if isinstance(ion_str, bytes):
+        ion_buffer = BytesIO(ion_str)
+    elif isinstance(ion_str, str):
+        ion_buffer = io.StringIO(ion_str)
+    else:
+        raise TypeError('Unsupported text: %r' % ion_str)
+
+    return load(ion_buffer, catalog=catalog, single_value=single_value,
+                parse_eagerly=parse_eagerly, text_buffer_size_limit=text_buffer_size_limit)
+
+
+# ... implementation from here down ...
+
+
+_ION_CONTAINER_END_EVENT = IonEvent(IonEventType.CONTAINER_END)
+_IVM = b'\xe0\x01\x00\xea'
+_TEXT_TYPES = (TextIOBase, io.StringIO)
+
+
+def dump_python(obj, fp, imports=None, binary=True, sequence_as_stream=False,
+                indent=None, tuple_as_sexp=False, omit_version_marker=False):
+    """'pure' Python implementation. Users should prefer to call ``dump``."""
     raw_writer = binary_writer(imports) if binary else text_writer(indent=indent)
     writer = blocking_writer(raw_writer, fp)
     from_type = _FROM_TYPE_TUPLE_AS_SEXP if tuple_as_sexp else _FROM_TYPE
@@ -242,139 +312,8 @@ def _dump(obj, writer, from_type, field=None, in_struct=False, depth=0):
     writer.send(event)
 
 
-def dumps(obj, imports=None, binary=True, sequence_as_stream=False, skipkeys=False, ensure_ascii=True,
-          check_circular=True,
-          allow_nan=True, cls=None, indent=None, separators=None, encoding='utf-8', default=None, use_decimal=True,
-          namedtuple_as_object=True, tuple_as_array=True, bigint_as_string=False, sort_keys=False, item_sort_key=None,
-          for_json=None, ignore_nan=False, int_as_string_bitcount=None, iterable_as_array=False, tuple_as_sexp=False,
-          omit_version_marker=False, **kw):
-    """Serialize ``obj`` as Python ``string`` or ``bytes`` object, using the conversion table used by ``dump`` (above).
-    Common examples are below, please refer to the
-    [Ion Cookbook](https://amazon-ion.github.io/ion-docs/guides/cookbook.html) for detailed information.
-
-    Write an Ion string in text format:
-        ``simpleion.dumps(ion_object, binary=False)``
-
-    Write an Ion string in binary format:
-        ``simpleion.dumps(ion_object, binary=True)``
-
-    Args:
-        obj (Any): A python object to serialize according to the above table. Any Python object which is neither an
-            instance of nor inherits from one of the types in the above table will raise TypeError.
-        imports (Optional[Sequence[SymbolTable]]): A sequence of shared symbol tables to be used by by the writer.
-        binary (Optional[True|False]): When True, outputs binary Ion. When false, outputs text Ion.
-        sequence_as_stream (Optional[True|False]): When True, if ``obj`` is a sequence, it will be treated as a stream
-            of top-level Ion values (i.e. the resulting Ion data will begin with ``obj``'s first element).
-            Default: False.
-        skipkeys: NOT IMPLEMENTED
-        ensure_ascii: NOT IMPLEMENTED
-        check_circular: NOT IMPLEMENTED
-        allow_nan: NOT IMPLEMENTED
-        cls: NOT IMPLEMENTED
-        indent (Str): If binary is False and indent is a string, then members of containers will be pretty-printed with
-            a newline followed by that string repeated for each level of nesting. None (the default) selects the most
-            compact representation without any newlines. Example: to indent with four spaces per level of nesting,
-            use ``'    '``.
-        separators: NOT IMPLEMENTED
-        encoding: NOT IMPLEMENTED
-        default: NOT IMPLEMENTED
-        use_decimal: NOT IMPLEMENTED
-        namedtuple_as_object: NOT IMPLEMENTED
-        tuple_as_array: NOT IMPLEMENTED
-        bigint_as_string: NOT IMPLEMENTED
-        sort_keys: NOT IMPLEMENTED
-        item_sort_key: NOT IMPLEMENTED
-        for_json: NOT IMPLEMENTED
-        ignore_nan: NOT IMPLEMENTED
-        int_as_string_bitcount: NOT IMPLEMENTED
-        iterable_as_array: NOT IMPLEMENTED
-        tuple_as_sexp (Optional[True|False]): When True, all tuple values will be written as Ion s-expressions.
-            When False, all tuple values will be written as Ion lists. Default: False.
-        omit_version_marker (Optional|True|False): If binary is False and omit_version_marker is True, omits the
-            Ion Version Marker ($ion_1_0) from the output.  Default: False.
-        **kw: NOT IMPLEMENTED
-
-    Returns:
-        Union[str|bytes]: The string or binary representation of the data.  if ``binary=True``, this will be a
-            ``bytes`` object, otherwise this will be a ``str`` object (or ``unicode`` in the case of Python 2.x)
-    """
-    ion_buffer = io.BytesIO()
-
-    dump(obj, ion_buffer, imports=imports, sequence_as_stream=sequence_as_stream, binary=binary, skipkeys=skipkeys,
-         ensure_ascii=ensure_ascii, check_circular=check_circular,
-         allow_nan=allow_nan, cls=cls, indent=indent, separators=separators, encoding=encoding, default=default,
-         use_decimal=use_decimal, namedtuple_as_object=namedtuple_as_object, tuple_as_array=tuple_as_array,
-         bigint_as_string=bigint_as_string, sort_keys=sort_keys, item_sort_key=item_sort_key, for_json=for_json,
-         ignore_nan=ignore_nan, int_as_string_bitcount=int_as_string_bitcount, iterable_as_array=iterable_as_array,
-         tuple_as_sexp=tuple_as_sexp, omit_version_marker=omit_version_marker, **kw)
-
-    ret_val = ion_buffer.getvalue()
-    ion_buffer.close()
-    if not binary:
-        ret_val = ret_val.decode('utf-8')
-    return ret_val
-
-
-def load_python(fp, catalog=None, single_value=True, encoding='utf-8', cls=None, object_hook=None, parse_float=None,
-                parse_int=None, parse_constant=None, object_pairs_hook=None, use_decimal=None, parse_eagerly=True,
-                **kw):
-    """Deserialize ``fp`` (a file-like object), which contains a text or binary Ion stream, to a Python object using the
-    following conversion table::
-        +-------------------+-------------------+
-        |  Ion              |     Python        |
-        |-------------------+-------------------|
-        | null.<type>       | IonPyNull(<type>) |
-        |-------------------+-------------------|
-        | bool              |    IonPyBool      |
-        |-------------------+-------------------|
-        | int               |    IonPyInt       |
-        |-------------------+-------------------|
-        | float             |    IonPyFloat     |
-        |-------------------+-------------------|
-        | decimal           |   IonPyDecimal    |
-        |-------------------+-------------------|
-        | timestamp         |  IonPyTimestamp   |
-        |-------------------+-------------------|
-        | symbol            |   IonPySymbol     |
-        |-------------------+-------------------|
-        | string            | IonPyText(STRING) |
-        |-------------------+-------------------|
-        | clob              |  IonPyBytes(CLOB) |
-        |-------------------+-------------------|
-        | blob              |  IonPyBytes(BLOB) |
-        |-------------------+-------------------|
-        | list              |   IonPyList(LIST) |
-        |-------------------+-------------------|
-        | sexp              |   IonPyList(SEXP) |
-        |-------------------+-------------------|
-        | struct            |     IonPyDict     |
-        +-------------------+-------------------+
-
-    Args:
-        fp (BaseIO): A file-like object containing Ion data.
-        catalog (Optional[SymbolTableCatalog]): The catalog to use for resolving symbol table imports.
-        single_value (Optional[True|False]): When True, the data in ``obj`` is interpreted as a single Ion value, and
-            will be returned without an enclosing container. If True and there are multiple top-level values in the Ion
-            stream, IonException will be raised. NOTE: this means that when data is dumped using
-            ``sequence_as_stream=True``, it must be loaded using ``single_value=False``. Default: True.
-        parse_eagerly: (Optional[True|False]) Used in conjunction with ``single_value=False`` to return the result as list
-            or an iterator
-        encoding: NOT IMPLEMENTED
-        cls: NOT IMPLEMENTED
-        object_hook: NOT IMPLEMENTED
-        parse_float: NOT IMPLEMENTED
-        parse_int: NOT IMPLEMENTED
-        parse_constant: NOT IMPLEMENTED
-        object_pairs_hook: NOT IMPLEMENTED
-        use_decimal: NOT IMPLEMENTED
-        **kw: NOT IMPLEMENTED
-
-    Returns (Any):
-        if single_value is True:
-            A Python object representing a single Ion value.
-        else:
-            A sequence of Python objects representing a stream of Ion values.
-    """
+def load_python(fp, catalog=None, single_value=True, parse_eagerly=True):
+    """'pure' Python implementation. Users should prefer to call ``load``."""
     if isinstance(fp, _TEXT_TYPES):
         raw_reader = text_reader(is_unicode=True)
     else:
@@ -463,70 +402,9 @@ def _load(out, reader, end_type=IonEventType.STREAM_END, in_struct=False):
         event = reader.send(NEXT_EVENT)
 
 
-def loads(ion_str, catalog=None, single_value=True, encoding='utf-8', cls=None, object_hook=None, parse_float=None,
-          parse_int=None, parse_constant=None, object_pairs_hook=None, use_decimal=None, parse_eagerly=True,
-          text_buffer_size_limit=None, **kw):
-    """Deserialize ``ion_str``, which is a string representation of an Ion object, to a Python object using the
-    conversion table used by load (above). Common examples are below, please refer to the
-    [Ion Cookbook](https://amazon-ion.github.io/ion-docs/guides/cookbook.html) for detailed information.
-
-    Read an Ion string:
-        ``simpleion.loads(ion_string)``
-
-    Read an Ion string using an iterator:
-        ``
-        it = simpleion.loads(ion_string, parse_eagerly=True)
-        # iterate through top-level Ion objects
-        next(it)
-        next(it)
-        ``
-
-    Read an Ion string with 50k text_buffer_size_limit:
-        ``simpleion.loads(ion_string, text_buffer_size_limit=50000)``
-
-    Args:
-        fp (str): A string representation of Ion data.
-        catalog (Optional[SymbolTableCatalog]): The catalog to use for resolving symbol table imports.
-        single_value (Optional[True|False]): When True, the data in ``ion_str`` is interpreted as a single Ion value,
-            and will be returned without an enclosing container. If True and there are multiple top-level values in
-            the Ion stream, IonException will be raised. NOTE: this means that when data is dumped using
-            ``sequence_as_stream=True``, it must be loaded using ``single_value=False``. Default: True.
-        parse_eagerly: (Optional[True|False]) Used in conjunction with ``single_value=False`` to return the result as list
-            or an iterator
-        text_buffer_size_limit (int): The maximum byte size allowed for text values when the C extension is enabled
-            (default: 512 bytes). This option only has an effect when the C extension is enabled (and it is enabled by
-            default). When the C extension is disabled, there is no limit on the size of text values.
-        encoding: NOT IMPLEMENTED
-        cls: NOT IMPLEMENTED
-        object_hook: NOT IMPLEMENTED
-        parse_float: NOT IMPLEMENTED
-        parse_int: NOT IMPLEMENTED
-        parse_constant: NOT IMPLEMENTED
-        object_pairs_hook: NOT IMPLEMENTED
-        use_decimal: NOT IMPLEMENTED
-        **kw: NOT IMPLEMENTED
-
-    Returns (Any):
-        if single_value is True:
-            A Python object representing a single Ion value.
-        else:
-            A sequence of Python objects representing a stream of Ion values.
-    """
-
-    if isinstance(ion_str, bytes):
-        ion_buffer = BytesIO(ion_str)
-    elif isinstance(ion_str, str):
-        ion_buffer = io.StringIO(ion_str)
-    else:
-        raise TypeError('Unsupported text: %r' % ion_str)
-
-    return load(ion_buffer, catalog=catalog, single_value=single_value, encoding=encoding, cls=cls,
-                object_hook=object_hook, parse_float=parse_float, parse_int=parse_int, parse_constant=parse_constant,
-                object_pairs_hook=object_pairs_hook, use_decimal=use_decimal, parse_eagerly=parse_eagerly,
-                text_buffer_size_limit=text_buffer_size_limit)
-
-
 def dump_extension(obj, fp, binary=True, sequence_as_stream=False, tuple_as_sexp=False, omit_version_marker=False):
+    """C-extension implementation. Users should prefer to call ``dump``."""
+
     res = ionc.ionc_write(obj, binary, sequence_as_stream, tuple_as_sexp)
 
     # TODO support "omit_version_marker" rather than hacking.
@@ -536,18 +414,9 @@ def dump_extension(obj, fp, binary=True, sequence_as_stream=False, tuple_as_sexp
 
 
 def load_extension(fp, single_value=True, parse_eagerly=True, text_buffer_size_limit=None, emit_bare_values=False):
-    """
-    Args:
-        fp (buffer): A file-handle or other object that implementes the buffer protocol
-        single_value (Optional[True|False]): When True, the data in ``ion_str`` is interpreted as a single Ion value,
-            and will be returned without an enclosing container. If True and there are multiple top-level values in
-            the Ion stream, IonException will be raised. NOTE: this means that when data is dumped using
-            ``sequence_as_stream=True``, it must be loaded using ``single_value=False``. Default: True.
-        parse_eagerly: (Optional[True|False]) Used in conjunction with ``single_value=False`` to return the result as list
-            or an iterator
-        text_buffer_size_limit (int): The maximum byte size allowed for text values when the C extension is enabled
-            (default: 512 bytes). This option only has an effect when the C extension is enabled (and it is enabled by
-            default). When the C extension is disabled, there is no limit on the size of text values.
+    """C-extension implementation. Users should prefer to call ``dump``.
+
+    TODO: move the below arg desc up into the user method when exposed there.
         emit_bare_values (bool): When possible to do losslessly, the parser will emit values as their native python
             type, instead of their IonPy type. Any value that is an IonSexp, IonSymbol, IonClob, typed-null or has
             annotations is not emitted as a native python value. Timestamp values are emitted as Ion Timestamps, not
@@ -568,35 +437,3 @@ def load_extension(fp, single_value=True, parse_eagerly=True, text_buffer_size_l
     if parse_eagerly:
         return list(iterator)
     return iterator
-
-
-def dump(obj, fp, imports=None, binary=True, sequence_as_stream=False, skipkeys=False, ensure_ascii=True,
-         check_circular=True, allow_nan=True, cls=None, indent=None, separators=None, encoding='utf-8', default=None,
-         use_decimal=True, namedtuple_as_object=True, tuple_as_array=True, bigint_as_string=False, sort_keys=False,
-         item_sort_key=None, for_json=None, ignore_nan=False, int_as_string_bitcount=None, iterable_as_array=False,
-         tuple_as_sexp=False, omit_version_marker=False, **kw):
-    if c_ext and __IS_C_EXTENSION_SUPPORTED and (imports is None and indent is None):
-        return dump_extension(obj, fp, binary=binary, sequence_as_stream=sequence_as_stream,
-                              tuple_as_sexp=tuple_as_sexp, omit_version_marker=omit_version_marker)
-    else:
-        return dump_python(obj, fp, imports=imports, binary=binary, sequence_as_stream=sequence_as_stream,
-                           skipkeys=skipkeys, ensure_ascii=ensure_ascii, check_circular=check_circular,
-                           allow_nan=allow_nan, cls=cls, indent=indent, separators=separators, encoding=encoding,
-                           default=default, use_decimal=use_decimal, namedtuple_as_object=namedtuple_as_object,
-                           tuple_as_array=tuple_as_array, bigint_as_string=bigint_as_string, sort_keys=sort_keys,
-                           item_sort_key=item_sort_key, for_json=for_json, ignore_nan=ignore_nan,
-                           int_as_string_bitcount=int_as_string_bitcount, iterable_as_array=iterable_as_array,
-                           tuple_as_sexp=tuple_as_sexp, omit_version_marker=omit_version_marker, **kw)
-
-
-def load(fp, catalog=None, single_value=True, encoding='utf-8', cls=None, object_hook=None, parse_float=None,
-         parse_int=None, parse_constant=None, object_pairs_hook=None, use_decimal=None, parse_eagerly=True,
-         text_buffer_size_limit=None, **kw):
-    if c_ext and __IS_C_EXTENSION_SUPPORTED and catalog is None:
-        return load_extension(fp, parse_eagerly=parse_eagerly, single_value=single_value,
-                              text_buffer_size_limit=text_buffer_size_limit)
-    else:
-        return load_python(fp, catalog=catalog, single_value=single_value, encoding=encoding, cls=cls,
-                           object_hook=object_hook, parse_float=parse_float, parse_int=parse_int,
-                           parse_constant=parse_constant, object_pairs_hook=object_pairs_hook,
-                           use_decimal=use_decimal, parse_eagerly=parse_eagerly, **kw)
