@@ -1180,12 +1180,10 @@ iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BOOL in_s
         }
         case tid_SYMBOL_INT:
         {
-            // Symbols must always be emitted as IonPySymbol, to avoid ambiguity with string.
-            wrap_py_value = TRUE;
             ION_STRING string_value;
             IONCHECK(ion_reader_read_string(hreader, &string_value));
-            ion_nature_constructor = _ionpysymbol_fromvalue;
             py_value = ion_string_to_py_symboltoken(&string_value);
+            ion_nature_constructor = _ionpysymbol_fromvalue;
             break;
         }
         case tid_STRING_INT:

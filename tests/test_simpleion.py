@@ -718,7 +718,7 @@ def test_loads_unicode_utf8_conversion():
     ("1.2", Decimal, Decimal("1.2")),
     ("2020-08-01T01:05:00-00:00", Timestamp, Timestamp(2020, 8, 1, 1, 5, 0, precision=TimestampPrecision.SECOND)),
     ('"bar"', str, "bar"),
-    ("bar", IonPySymbol, IonPySymbol("bar", None, None)),
+    ("bar", SymbolToken, SymbolToken("bar", None, None)),
     ('{{ "foo" }}', IonPyBytes, lambda x: x.ion_type == IonType.CLOB),
     ("[]", list, []),
     # regression test for sexp suppressing bare_values for children
