@@ -6,8 +6,7 @@ from pathlib import Path
 
 import amazon.ionbenchmark.ion_load_dump as _ion_load_dump
 
-from amazon.ion.simple_types import IonPySymbol
-
+from amazon.ion.symbols import SymbolToken
 
 # Global defaults for CLI test specs
 _tool_defaults = {
@@ -98,7 +97,7 @@ class BenchmarkSpec(dict):
 
         # Convert symbols to strings
         for k in merged.keys():
-            if isinstance(merged[k], IonPySymbol):
+            if isinstance(merged[k], SymbolToken):
                 merged[k] = merged[k].text
 
         # If not an absolute path, make relative to the working directory.
