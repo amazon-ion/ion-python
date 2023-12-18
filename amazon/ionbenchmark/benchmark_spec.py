@@ -7,7 +7,7 @@ from pathlib import Path
 import amazon.ionbenchmark.ion_load_dump as _ion_load_dump
 
 from amazon.ion.simple_types import IonPySymbol
-
+from amazon.ionbenchmark.Format import format_is_ion, format_is_json, format_is_cbor
 
 # Global defaults for CLI test specs
 _tool_defaults = {
@@ -176,12 +176,36 @@ class BenchmarkSpec(dict):
 
     def get_data_object(self):
         """
-        Get the data object to be used for testing. Used for benchmarks that write data.
+        Get a list that holds all data objects to be used for testing. Used for benchmarks that write data.
         """
         if not self._data_object:
             loader = self.get_loader_dumper()
-            with open(self.get_input_file(), "rb") as fp:
-                self._data_object = loader.load(fp)
+            format_option = self.get_format()
+            read_file = self.get_input_file()
+            if format_is_ion(format_option):
+                with open(read_file, "rb") as fp:
+                    it = loader.load(fp, parse_eagerly=False)
+                    self._data_object = list(it)
+            elif format_is_json(format_option):
+                with open(read_file, 'r') as f:
+                    json_objects = []
+                    for jsonL in f.readlines():
+                        json_objects.append(loader.loads(jsonL))
+                    # while True:
+                    #     jsonl = f.readline()
+                    #     if jsonl == '':
+                    #         break
+                    #     json_objects.append(loader.loads(jsonl))
+                    self._data_object = json_objects
+            elif format_is_cbor(format_option):
+                with open(read_file, 'br') as f:
+                    cbor_objects = []
+                    while True:
+                        try:
+                            cbor_objects.append(loader.load(f))
+                        except EOFError:
+                            break
+                    self._data_object = cbor_objects
         return self._data_object
 
     def get_loader_dumper(self):

@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import gc
+import json
 import os
 import platform
 import tempfile
@@ -15,7 +16,6 @@ from amazon.ionbenchmark.sample_dist import SampleDist
 _pypy = platform.python_implementation() == 'PyPy'
 if not _pypy:
     import tracemalloc
-
 
 class BenchmarkResult:
     """
@@ -114,20 +114,51 @@ def _create_test_fun(benchmark_spec: BenchmarkSpec):
         data_file = benchmark_spec.get_input_file()
 
         def test_fn():
-            with open(data_file, "rb") as f:
-                return loader_dumper.load(f)
+            format_option = benchmark_spec.get_format()
+            # TODO below logic should go to JSON_load_dump and CBOR_load_dump
+            # previously:
+            # with open(data_file, "rb") as f:
+            #     return loader_dumper.load(f)
+            if _format.format_is_ion(format_option):
+                with open(data_file, "rb") as f:
+                    it = loader_dumper.load(f, parse_eagerly=False)
+                    while True:
+                        try:
+                            next(it)
+                        except StopIteration:
+                            break
+            elif _format.format_is_json(format_option):
+                with open(data_file, 'r') as f:
+                    # for jsonL in f.readlines():
+                    #     loader_dumper.loads(jsonL)
+                    while True:
+                        jsonl = f.readline()
+                        if jsonl == '':
+                            break
+                        loader_dumper.loads(jsonl)
+            elif _format.format_is_cbor(format_option):
+                with open(data_file, 'br') as f:
+                    while True:
+                        try:
+                            loader_dumper.load(f)
+                        except EOFError:
+                            break
 
     elif match_arg == ['file', 'write', 'load_dump']:
+        # should return a list that holding all top_level values.
         data_obj = benchmark_spec.get_data_object()
         data_format = benchmark_spec.get_format()
         if _format.format_is_binary(data_format) or _format.format_is_ion(data_format):
             def test_fn():
-                with tempfile.TemporaryFile(mode="wb") as f:
-                    return loader_dumper.dump(data_obj, f)
+                with tempfile.TemporaryFile(mode="ab") as f:
+                    for top_level_obj in data_obj:
+                        loader_dumper.dump(top_level_obj, f)
         else:
             def test_fn():
-                with tempfile.TemporaryFile(mode="wt") as f:
-                    return loader_dumper.dump(data_obj, f)
+                with tempfile.TemporaryFile(mode="at") as f:
+                    for top_level_obj in data_obj:
+                        loader_dumper.dump(top_level_obj, f)
+                        # f.write(loader_dumper.dumps(top_level_obj))
 
     else:
         raise NotImplementedError(f"Argument combination not supported: {match_arg}")
