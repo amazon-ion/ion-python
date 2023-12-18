@@ -564,10 +564,7 @@ iERR ionc_write_value(hWRITER writer, PyObject* obj, PyObject* tuple_as_sexp) {
         short precision, fractional_precision;
         int final_fractional_precision, final_fractional_seconds;
         precision_attr = PyObject_GetAttrString(obj, "precision");
-        if (precision_attr == NULL) {
-            PyErr_Clear();
-        }
-        else if (precision_attr != Py_None) {
+        if (precision_attr != NULL && precision_attr != Py_None) {
             // This is a Timestamp.
             precision = int_attr_by_name(obj, "precision");
             fractional_precision = int_attr_by_name(obj, "fractional_precision");
@@ -597,7 +594,7 @@ iERR ionc_write_value(hWRITER writer, PyObject* obj, PyObject* tuple_as_sexp) {
                 Py_DECREF(fractional_decimal_tuple);
                 Py_DECREF(py_exponent);
                 Py_DECREF(py_digits);
-
+                Py_DECREF(precision_attr);
             } else {
                 PyErr_Clear();
                 final_fractional_precision = fractional_precision;
@@ -605,6 +602,7 @@ iERR ionc_write_value(hWRITER writer, PyObject* obj, PyObject* tuple_as_sexp) {
             }
         }
         else {
+            PyErr_Clear();
             // This is a naive datetime. It always has maximum precision.
             precision = SECOND_PRECISION;
             final_fractional_precision = MICROSECOND_DIGITS;
