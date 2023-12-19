@@ -420,14 +420,23 @@ fail:
  */
 static iERR ionc_write_big_int(hWRITER writer, PyObject *obj) {
     iENTER;
-    PyObject* int_str = PyObject_CallMethod(obj, "__str__", NULL);
-    ION_STRING string_value;
-    ion_string_from_py(int_str, &string_value);
-    ION_INT ion_int_value;
+    PyObject* int_str = NULL;
+    int overflow;
+    long long int_value = PyLong_AsLongLongAndOverflow(obj, &overflow);
 
-    IONCHECK(ion_int_init(&ion_int_value, NULL));
-    IONCHECK(ion_int_from_string(&ion_int_value, &string_value));
-    IONCHECK(ion_writer_write_ion_int(writer, &ion_int_value));
+    if (!overflow && PyErr_Occurred() == NULL) {
+        // Value fits within int64, write it as int64
+        IONCHECK(ion_writer_write_int64(writer, int_value));
+    } else{
+        PyErr_Clear();
+        int_str = PyObject_Str(obj);
+        ION_STRING string_value;
+        ion_string_from_py(int_str, &string_value);
+        ION_INT ion_int_value;
+        IONCHECK(ion_int_init(&ion_int_value, NULL));
+        IONCHECK(ion_int_from_string(&ion_int_value, &string_value));
+        IONCHECK(ion_writer_write_ion_int(writer, &ion_int_value));
+    }
 fail:
     Py_XDECREF(int_str);
     cRETURN;
