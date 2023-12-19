@@ -1123,21 +1123,29 @@ iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BOOL in_s
         }
         case tid_INT_INT:
         {
-            ION_INT ion_int_value;
-            IONCHECK(ion_int_init(&ion_int_value, hreader));
-            IONCHECK(ion_reader_read_ion_int(hreader, &ion_int_value));
-            SIZE int_char_len, int_char_written;
-            // ion_int_char_length includes 1 char for \0
-            // which ion_int_to_char sets at end.
-            IONCHECK(ion_int_char_length(&ion_int_value, &int_char_len));
-            char* ion_int_str = (char*)PyMem_Malloc(int_char_len);
-            err = ion_int_to_char(&ion_int_value, (BYTE*)ion_int_str, int_char_len, &int_char_written);
-            if (err) {
+            int64_t int64_value;
+            err = ion_reader_read_int64(hreader, &int64_value);
+            if (err == IERR_OK) {
+                py_value = PyLong_FromLongLong(int64_value);
+            } else if (err == IERR_NUMERIC_OVERFLOW) {
+                ION_INT ion_int_value;
+                IONCHECK(ion_int_init(&ion_int_value, hreader));
+                IONCHECK(ion_reader_read_ion_int(hreader, &ion_int_value));
+                SIZE int_char_len, int_char_written;
+                // ion_int_char_length includes 1 char for \0
+                // which ion_int_to_char sets at end.
+                IONCHECK(ion_int_char_length(&ion_int_value, &int_char_len));
+                char* ion_int_str = (char*)PyMem_Malloc(int_char_len);
+                err = ion_int_to_char(&ion_int_value, (BYTE*)ion_int_str, int_char_len, &int_char_written);
+                if (err) {
+                    PyMem_Free(ion_int_str);
+                    IONCHECK(err);
+                }
+                py_value = PyLong_FromString(ion_int_str, NULL, 10);
                 PyMem_Free(ion_int_str);
-                IONCHECK(err);
+            } else {
+                FAILWITH(err)
             }
-            py_value = PyLong_FromString(ion_int_str, NULL, 10);
-            PyMem_Free(ion_int_str);
 
             ion_nature_constructor = _ionpyint_fromvalue;
             break;
