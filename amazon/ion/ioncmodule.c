@@ -427,7 +427,7 @@ static iERR ionc_write_big_int(hWRITER writer, PyObject *obj) {
     if (!overflow && PyErr_Occurred() == NULL) {
         // Value fits within int64, write it as int64
         IONCHECK(ion_writer_write_int64(writer, int_value));
-    } else{
+    } else {
         PyErr_Clear();
         int_str = PyObject_Str(obj);
         ION_STRING string_value;
