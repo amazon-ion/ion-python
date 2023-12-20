@@ -28,7 +28,7 @@ static char _err_msg[ERR_MSG_MAX_LEN];
 #define _FAILWITHMSG(x, msg) { err = x; snprintf(_err_msg, ERR_MSG_MAX_LEN, msg); goto fail; }
 
 #define IONC_BYTES_FORMAT "y#"
-#define IONC_READ_ARGS_FORMAT "OOO"
+#define IONC_READ_ARGS_FORMAT "OiO"
 
 static PyObject* IONC_STREAM_BYTES_READ_SIZE;
 static PyObject* _math_module;
@@ -99,7 +99,7 @@ typedef struct {
     hREADER reader;
     ION_READER_OPTIONS _reader_options;
     BOOL closed;
-    BOOL emit_bare_values;
+    int value_model;
     _ION_READ_STREAM_HANDLE file_handler_state;
 } ionc_read_Iterator;
 
@@ -1023,14 +1023,14 @@ fail:
  *      hreader:  An ion reader
  *      container:  A container that elements are read from
  *      is_struct:  If the container is an ion struct
- *      emit_bare_values: Decides if the value needs to be wrapped
+ *      value_model: Flags to control what types of values are emitted.
  *
  */
-static iERR ionc_read_into_container(hREADER hreader, PyObject* container, BOOL is_struct, BOOL emit_bare_values) {
+static iERR ionc_read_into_container(hREADER hreader, PyObject* container, BOOL is_struct, int value_model) {
     iENTER;
     IONCHECK(ion_reader_step_in(hreader));
     IONCHECK(Py_EnterRecursiveCall(" while reading an Ion container"));
-    err = ionc_read_all(hreader, container, is_struct, emit_bare_values);
+    err = ionc_read_all(hreader, container, is_struct, value_model);
     Py_LeaveRecursiveCall();
     IONCHECK(err);
     IONCHECK(ion_reader_step_out(hreader));
@@ -1070,13 +1070,12 @@ static void ionc_add_to_container(PyObject* pyContainer, PyObject* element, BOOL
  *      hreader:  An ion reader
  *      ION_TYPE:  The ion type of the reading value as an int
  *      in_struct:  If the current state is in a struct
- *      emit_bare_values_global: Decides if the value needs to be wrapped
+ *      value_model: Flags to control what types of values are emitted.
  *
  */
-iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BOOL in_struct, BOOL emit_bare_values_global) {
+iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BOOL in_struct, int value_model) {
     iENTER;
-
-    BOOL        wrap_py_value = !emit_bare_values_global;
+    BOOL        wrap_py_value = !value_model;
     BOOL        is_null;
     ION_STRING  field_name;
     SIZE        annotation_count;
@@ -1268,7 +1267,7 @@ iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BOOL in_s
         case tid_STRUCT_INT:
         {
             PyObject* data = PyDict_New();
-            IONCHECK(ionc_read_into_container(hreader, data, /*is_struct=*/TRUE, emit_bare_values_global));
+            IONCHECK(ionc_read_into_container(hreader, data, /*is_struct=*/TRUE, value_model));
 
             py_value = PyObject_CallFunctionObjArgs(
                     _ionpydict_factory,
@@ -1294,7 +1293,7 @@ iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BOOL in_s
         case tid_LIST_INT:
         {
             py_value = PyList_New(0);
-            IONCHECK(ionc_read_into_container(hreader, py_value, /*is_struct=*/FALSE, emit_bare_values_global));
+            IONCHECK(ionc_read_into_container(hreader, py_value, /*is_struct=*/FALSE, value_model));
             ion_nature_constructor = _ionpylist_fromvalue;
             break;
         }
@@ -1339,7 +1338,7 @@ fail:
  *      emit_bare_values: Decides if the value needs to be wrapped
  *
  */
-iERR ionc_read_all(hREADER hreader, PyObject* container, BOOL in_struct, BOOL emit_bare_values) {
+iERR ionc_read_all(hREADER hreader, PyObject* container, BOOL in_struct, int value_model) {
     iENTER;
     ION_TYPE t;
     for (;;) {
@@ -1348,7 +1347,7 @@ iERR ionc_read_all(hREADER hreader, PyObject* container, BOOL in_struct, BOOL em
             assert(t == tid_EOF && "next() at end");
             break;
         }
-        IONCHECK(ionc_read_value(hreader, t, container, in_struct, emit_bare_values));
+        IONCHECK(ionc_read_value(hreader, t, container, in_struct, value_model));
     }
     iRETURN;
 }
@@ -1410,7 +1409,6 @@ PyObject* ionc_read_iter_next(PyObject *self) {
     ionc_read_Iterator *iterator = (ionc_read_Iterator*) self;
     PyObject* container = NULL;
     hREADER reader = iterator->reader;
-    BOOL emit_bare_values = iterator->emit_bare_values;
 
     if (iterator->closed) {
         PyErr_SetNone(PyExc_StopIteration);
@@ -1428,7 +1426,7 @@ PyObject* ionc_read_iter_next(PyObject *self) {
     }
 
     container = PyList_New(0);
-    IONCHECK(ionc_read_value(reader, t, container, FALSE, emit_bare_values));
+    IONCHECK(ionc_read_value(reader, t, container, FALSE, iterator->value_model));
     Py_ssize_t len = PyList_Size(container);
     if (len != 1) {
         _FAILWITHMSG(IERR_INVALID_ARG, "assertion failed: len == 1");
@@ -1468,13 +1466,17 @@ void ionc_read_iter_dealloc(PyObject *self) {
 PyObject* ionc_read(PyObject* self, PyObject *args, PyObject *kwds) {
     iENTER;
     PyObject *py_file = NULL; // TextIOWrapper
-    PyObject *emit_bare_values;
+    int value_model = 0;
     PyObject *text_buffer_size_limit;
     ionc_read_Iterator *iterator = NULL;
-    static char *kwlist[] = {"file", "emit_bare_values", "text_buffer_size_limit", NULL};
+    static char *kwlist[] = {"file", "value_model", "text_buffer_size_limit", NULL};
+    // todo: this could be simpler and likely faster by converting to c types here.
     if (!PyArg_ParseTupleAndKeywords(args, kwds, IONC_READ_ARGS_FORMAT, kwlist, &py_file,
-                                        &emit_bare_values, &text_buffer_size_limit)) {
+                                     &value_model, &text_buffer_size_limit)) {
         FAILWITH(IERR_INVALID_ARG);
+    }
+    if (value_model > 1) {
+        FAILWITHMSG(IERR_INVALID_ARG, "Only ION_PY and MIXED value models are currently supported!")
     }
 
     iterator = PyObject_New(ionc_read_Iterator, &ionc_read_IteratorType);
@@ -1489,7 +1491,7 @@ PyObject* ionc_read(PyObject* self, PyObject *args, PyObject *kwds) {
 
     iterator->closed = FALSE;
     iterator->file_handler_state.py_file = py_file;
-    iterator->emit_bare_values = emit_bare_values == Py_True;
+    iterator->value_model = value_model;
     memset(&iterator->reader, 0, sizeof(iterator->reader));
     memset(&iterator->_reader_options, 0, sizeof(iterator->_reader_options));
     iterator->_reader_options.decimal_context = &dec_context;
