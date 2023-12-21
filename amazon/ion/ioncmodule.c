@@ -72,6 +72,22 @@ static PyObject* _exception_module;
 static PyObject* _ion_exception_cls;
 static PyObject* _add_item;
 static decContext dec_context;
+static PyObject* ion_type_str;
+static PyObject* ion_annotations_str;
+static PyObject* text_str;
+static PyObject* sid_str;
+static PyObject* precision_str;
+static PyObject* fractional_seconds_str;
+static PyObject* exponent_str;
+static PyObject* digits_str;
+static PyObject* fractional_precision_str;
+static PyObject* year_str;
+static PyObject* month_str;
+static PyObject* day_str;
+static PyObject* hour_str;
+static PyObject* minute_str;
+static PyObject* second_str;
+static PyObject* microsecond_str;
 
 typedef struct {
     PyObject *py_file; // a TextIOWrapper-like object
@@ -116,8 +132,8 @@ static PyTypeObject ionc_read_IteratorType = {
  *  Returns:
  *      An attribute as an int
  */
-static int int_attr_by_name(PyObject* obj, char* attr_name) {
-    PyObject* py_int = PyObject_GetAttrString(obj, attr_name);
+static int int_attr_by_name(PyObject* obj, PyObject* attr_name) {
+    PyObject* py_int = PyObject_GetAttr(obj, attr_name);
     int c_int = 0;
     if (py_int != Py_None) {
         c_int = (int)PyLong_AsSsize_t(py_int);
@@ -147,7 +163,7 @@ static int offset_seconds(PyObject* timedelta) {
  */
 static int ion_type_from_py(PyObject* obj) {
     PyObject* ion_type = NULL;
-    ion_type = PyObject_GetAttrString(obj, "ion_type");
+    ion_type = PyObject_GetAttr(obj, ion_type_str);
     if (ion_type == NULL) {
         PyErr_Clear();
         return tid_none_INT;
@@ -251,9 +267,9 @@ static PyObject* ion_string_to_py_symboltoken(ION_STRING* string_value) {
  */
 static iERR ionc_write_symboltoken(hWRITER writer, PyObject* symboltoken, BOOL is_value) {
     iENTER;
-    PyObject* symbol_text = PyObject_GetAttrString(symboltoken, "text");
+    PyObject* symbol_text = PyObject_GetAttr(symboltoken, text_str);
     if (symbol_text == Py_None) {
-        PyObject* py_sid = PyObject_GetAttrString(symboltoken, "sid");
+        PyObject* py_sid = PyObject_GetAttr(symboltoken, sid_str);
         SID sid = PyLong_AsSsize_t(py_sid);
         if (is_value) {
             err = _ion_writer_write_symbol_id_helper(writer, sid);
@@ -289,7 +305,7 @@ static iERR ionc_write_symboltoken(hWRITER writer, PyObject* symboltoken, BOOL i
 static iERR ionc_write_annotations(hWRITER writer, PyObject* obj) {
     iENTER;
     PyObject* annotations = NULL;
-    annotations = PyObject_GetAttrString(obj, "ion_annotations");
+    annotations = PyObject_GetAttr(obj, ion_annotations_str);
     if (annotations == NULL || PyObject_Not(annotations)) {
         PyErr_Clear();
         // Proceed as if the attribute is not there.
@@ -572,16 +588,16 @@ iERR ionc_write_value(hWRITER writer, PyObject* obj, PyObject* tuple_as_sexp) {
         int year, month, day, hour, minute, second;
         short precision, fractional_precision;
         int final_fractional_precision, final_fractional_seconds;
-        precision_attr = PyObject_GetAttrString(obj, "precision");
+        precision_attr = PyObject_GetAttr(obj, precision_str);
         if (precision_attr != NULL && precision_attr != Py_None) {
             // This is a Timestamp.
-            precision = int_attr_by_name(obj, "precision");
-            fractional_precision = int_attr_by_name(obj, "fractional_precision");
-            fractional_seconds = PyObject_GetAttrString(obj, "fractional_seconds");
+            precision = int_attr_by_name(obj, precision_str);
+            fractional_precision = int_attr_by_name(obj, fractional_precision_str);
+            fractional_seconds = PyObject_GetAttr(obj, fractional_seconds_str);
             if (fractional_seconds != NULL) {
                 fractional_decimal_tuple = PyObject_CallMethod(fractional_seconds, "as_tuple", NULL);
-                py_exponent = PyObject_GetAttrString(fractional_decimal_tuple, "exponent");
-                py_digits = PyObject_GetAttrString(fractional_decimal_tuple, "digits");
+                py_exponent = PyObject_GetAttr(fractional_decimal_tuple, exponent_str);
+                py_digits = PyObject_GetAttr(fractional_decimal_tuple, digits_str);
                 int exp = PyLong_AsLong(py_exponent) * -1;
                 if (exp > MAX_TIMESTAMP_PRECISION) {
                     final_fractional_precision = MAX_TIMESTAMP_PRECISION;
@@ -607,7 +623,7 @@ iERR ionc_write_value(hWRITER writer, PyObject* obj, PyObject* tuple_as_sexp) {
             } else {
                 PyErr_Clear();
                 final_fractional_precision = fractional_precision;
-                final_fractional_seconds = int_attr_by_name(obj, "microsecond");
+                final_fractional_seconds = int_attr_by_name(obj, microsecond_str);
             }
         }
         else {
@@ -615,17 +631,17 @@ iERR ionc_write_value(hWRITER writer, PyObject* obj, PyObject* tuple_as_sexp) {
             // This is a naive datetime. It always has maximum precision.
             precision = SECOND_PRECISION;
             final_fractional_precision = MICROSECOND_DIGITS;
-            final_fractional_seconds = int_attr_by_name(obj, "microsecond");
+            final_fractional_seconds = int_attr_by_name(obj, microsecond_str);
         }
 
-        year = int_attr_by_name(obj, "year");
+        year = int_attr_by_name(obj, year_str);
         if (precision == SECOND_PRECISION) {
-            month = int_attr_by_name(obj, "month");
-            day = int_attr_by_name(obj, "day");
-            hour = int_attr_by_name(obj, "hour");
-            minute = int_attr_by_name(obj, "minute");
-            second = int_attr_by_name(obj, "second");
-            int microsecond = int_attr_by_name(obj, "microsecond");
+            month = int_attr_by_name(obj, month_str);
+            day = int_attr_by_name(obj, day_str);
+            hour = int_attr_by_name(obj, hour_str);
+            minute = int_attr_by_name(obj, minute_str);
+            second = int_attr_by_name(obj, second_str);
+            int microsecond = int_attr_by_name(obj, microsecond_str);
             if (final_fractional_precision > 0) {
                 decQuad fraction;
                 decNumber helper, dec_number_precision;
@@ -651,19 +667,19 @@ iERR ionc_write_value(hWRITER writer, PyObject* obj, PyObject* tuple_as_sexp) {
             }
         }
         else if (precision == MINUTE_PRECISION) {
-            month = int_attr_by_name(obj, "month");
-            day = int_attr_by_name(obj, "day");
-            hour = int_attr_by_name(obj, "hour");
-            minute = int_attr_by_name(obj, "minute");
+            month = int_attr_by_name(obj, month_str);
+            day = int_attr_by_name(obj, day_str);
+            hour = int_attr_by_name(obj, hour_str);
+            minute = int_attr_by_name(obj, minute_str);
             IONCHECK(ion_timestamp_for_minute(&timestamp_value, year, month, day, hour, minute));
         }
         else if (precision == DAY_PRECISION) {
-            month = int_attr_by_name(obj, "month");
-            day = int_attr_by_name(obj, "day");
+            month = int_attr_by_name(obj, month_str);
+            day = int_attr_by_name(obj, day_str);
             IONCHECK(ion_timestamp_for_day(&timestamp_value, year, month, day));
         }
         else if (precision == MONTH_PRECISION) {
-            month = int_attr_by_name(obj, "month");
+            month = int_attr_by_name(obj, month_str);
             IONCHECK(ion_timestamp_for_month(&timestamp_value, year, month));
         }
         else if (precision == YEAR_PRECISION) {
@@ -1615,6 +1631,22 @@ PyObject* ionc_init_module(void) {
     dec_context.digits = 10000;
     dec_context.emax = DEC_MAX_MATH;
     dec_context.emin = -DEC_MAX_MATH;
+    ion_type_str = PyUnicode_FromString("ion_type");
+    ion_annotations_str = PyUnicode_FromString("ion_annotations");
+    text_str = PyUnicode_FromString("text");
+    sid_str = PyUnicode_FromString("sid");
+    precision_str = PyUnicode_FromString("precision");
+    fractional_seconds_str = PyUnicode_FromString("fractional_seconds");
+    exponent_str = PyUnicode_FromString("exponent");
+    digits_str = PyUnicode_FromString("digits");
+    fractional_precision_str = PyUnicode_FromString("fractional_precision");
+    year_str = PyUnicode_FromString("year");
+    month_str = PyUnicode_FromString("month");
+    day_str = PyUnicode_FromString("day");
+    hour_str = PyUnicode_FromString("hour");
+    minute_str = PyUnicode_FromString("minute");
+    second_str = PyUnicode_FromString("second");
+    microsecond_str = PyUnicode_FromString("microsecond");
 
     return m;
 }
