@@ -72,6 +72,8 @@ static PyObject* _exception_module;
 static PyObject* _ion_exception_cls;
 static PyObject* _add_item;
 static decContext dec_context;
+static PyObject* ion_type_str;
+static PyObject* ion_annotations_str;
 
 typedef struct {
     PyObject *py_file; // a TextIOWrapper-like object
@@ -147,7 +149,7 @@ static int offset_seconds(PyObject* timedelta) {
  */
 static int ion_type_from_py(PyObject* obj) {
     PyObject* ion_type = NULL;
-    ion_type = PyObject_GetAttrString(obj, "ion_type");
+    ion_type = PyObject_GetAttr(obj, ion_type_str);
     if (ion_type == NULL) {
         PyErr_Clear();
         return tid_none_INT;
@@ -289,7 +291,7 @@ static iERR ionc_write_symboltoken(hWRITER writer, PyObject* symboltoken, BOOL i
 static iERR ionc_write_annotations(hWRITER writer, PyObject* obj) {
     iENTER;
     PyObject* annotations = NULL;
-    annotations = PyObject_GetAttrString(obj, "ion_annotations");
+    annotations = PyObject_GetAttr(obj, ion_annotations_str);
     if (annotations == NULL || PyObject_Not(annotations)) {
         PyErr_Clear();
         // Proceed as if the attribute is not there.
@@ -1615,7 +1617,8 @@ PyObject* ionc_init_module(void) {
     dec_context.digits = 10000;
     dec_context.emax = DEC_MAX_MATH;
     dec_context.emin = -DEC_MAX_MATH;
-
+    ion_type_str = PyUnicode_FromString("ion_type");
+    ion_annotations_str = PyUnicode_FromString("ion_annotations");
     return m;
 }
 
