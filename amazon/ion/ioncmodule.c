@@ -132,7 +132,7 @@ static PyTypeObject ionc_read_IteratorType = {
  *  Returns:
  *      An attribute as an int
  */
-static int int_attr_by_name(PyObject* obj, int* attr_name) {
+static int int_attr_by_name(PyObject* obj, PyObject* attr_name) {
     PyObject* py_int = PyObject_GetAttr(obj, attr_name);
     int c_int = 0;
     if (py_int != Py_None) {
