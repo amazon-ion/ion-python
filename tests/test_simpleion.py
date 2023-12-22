@@ -732,7 +732,7 @@ def test_bare_values(params):
 
     ion_text, expected_type, expectation = params
 
-    value = simpleion.load_extension(StringIO(ion_text), value_model=IonPyValueModel.MIXED)
+    value = simpleion.load_extension(StringIO(ion_text), value_model=IonPyValueModel.MAY_BE_BARE)
 
     assert type(value) is expected_type
     if callable(expectation):
@@ -749,7 +749,7 @@ def test_value_models_flags():
     ion_text = "31"
     value = simpleion.load_extension(StringIO(ion_text), value_model=IonPyValueModel.ION_PY)
     assert type(value) is IonPyInt
-    value = simpleion.load_extension(StringIO(ion_text), value_model=IonPyValueModel.MIXED)
+    value = simpleion.load_extension(StringIO(ion_text), value_model=IonPyValueModel.MAY_BE_BARE)
     assert type(value) is int
 
     try:

@@ -28,7 +28,7 @@ static char _err_msg[ERR_MSG_MAX_LEN];
 #define _FAILWITHMSG(x, msg) { err = x; snprintf(_err_msg, ERR_MSG_MAX_LEN, msg); goto fail; }
 
 #define IONC_BYTES_FORMAT "y#"
-#define IONC_READ_ARGS_FORMAT "OiO"
+#define IONC_READ_ARGS_FORMAT "ObO"
 
 static PyObject* IONC_STREAM_BYTES_READ_SIZE;
 static PyObject* _math_module;
@@ -99,7 +99,7 @@ typedef struct {
     hREADER reader;
     ION_READER_OPTIONS _reader_options;
     BOOL closed;
-    int value_model;
+    uint8_t value_model;
     _ION_READ_STREAM_HANDLE file_handler_state;
 } ionc_read_Iterator;
 
@@ -1023,10 +1023,10 @@ fail:
  *      hreader:  An ion reader
  *      container:  A container that elements are read from
  *      is_struct:  If the container is an ion struct
- *      value_model: Flags to control what types of values are emitted.
+ *      value_model: Flags to control how Ion values map to Python types
  *
  */
-static iERR ionc_read_into_container(hREADER hreader, PyObject* container, BOOL is_struct, int value_model) {
+static iERR ionc_read_into_container(hREADER hreader, PyObject* container, BOOL is_struct, uint8_t value_model) {
     iENTER;
     IONCHECK(ion_reader_step_in(hreader));
     IONCHECK(Py_EnterRecursiveCall(" while reading an Ion container"));
@@ -1070,10 +1070,10 @@ static void ionc_add_to_container(PyObject* pyContainer, PyObject* element, BOOL
  *      hreader:  An ion reader
  *      ION_TYPE:  The ion type of the reading value as an int
  *      in_struct:  If the current state is in a struct
- *      value_model: Flags to control what types of values are emitted.
+ *      value_model: Flags to control how Ion values map to Python types
  *
  */
-iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BOOL in_struct, int value_model) {
+iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BOOL in_struct, uint8_t value_model) {
     iENTER;
     BOOL        wrap_py_value = !value_model;
     BOOL        is_null;
@@ -1335,10 +1335,10 @@ fail:
  *      hreader:  An ion reader
  *      container:  A container that elements are read from
  *      in_struct:  If the current state is in a struct
- *      emit_bare_values: Decides if the value needs to be wrapped
+ *      value_model: Flags to control how Ion values map to Python types
  *
  */
-iERR ionc_read_all(hREADER hreader, PyObject* container, BOOL in_struct, int value_model) {
+iERR ionc_read_all(hREADER hreader, PyObject* container, BOOL in_struct, uint8_t value_model) {
     iENTER;
     ION_TYPE t;
     for (;;) {
@@ -1466,7 +1466,7 @@ void ionc_read_iter_dealloc(PyObject *self) {
 PyObject* ionc_read(PyObject* self, PyObject *args, PyObject *kwds) {
     iENTER;
     PyObject *py_file = NULL; // TextIOWrapper
-    int value_model = 0;
+    uint8_t value_model = 0;
     PyObject *text_buffer_size_limit;
     ionc_read_Iterator *iterator = NULL;
     static char *kwlist[] = {"file", "value_model", "text_buffer_size_limit", NULL};

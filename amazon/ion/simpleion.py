@@ -17,6 +17,8 @@
 The below table describes how types from the Ion data model map to the IonPy types
 in simple_types.py as well as what other Python types are supported on dump.
 
+TODO: add "bare" mapping to table.
+
         +-------------------+-------------------+-----------------------------------+
         | Ion Data Type     | IonPy Type        | Other Dump Mappings               |
         |-------------------+-------------------|-----------------------------------|
@@ -56,7 +58,7 @@ import io
 import warnings
 from datetime import datetime
 from decimal import Decimal
-from enum import IntEnum
+from enum import IntFlag
 from io import BytesIO, TextIOBase
 from types import GeneratorType
 from typing import Union
@@ -156,7 +158,7 @@ def dumps(obj, imports=None, binary=True, sequence_as_stream=False,
     return ret_val
 
 
-class IonPyValueModel(IntEnum):
+class IonPyValueModel(IntFlag):
     """Flags to control the types of values that are emitted from load(s).
 
     The flags may be mixed so that users can intentionally demote certain Ion
@@ -165,7 +167,7 @@ class IonPyValueModel(IntEnum):
     expense of data fidelity.
 
     For example:
-        value_model = IonPyValueModel.MIXED | IonPyValueModel.SYMBOL_AS_TEXT
+        model = IonPyValueModel.MAY_BE_BARE | IonPyValueModel.SYMBOL_AS_TEXT
 
     would mean that any Symbols without annotations would be emitted as str,
     any Symbols with annotations would be emitted as IonPyText(IonType.SYMBOL).
@@ -173,34 +175,47 @@ class IonPyValueModel(IntEnum):
     todo: add/extend this as desired. some possible additions:
         CLOB_AS_BYTES
         SEXP_AS______ (list, tuple, either?)
-        IGNORE_ANNOTATIONS
         TIMESTAMP_AS_DATETIME
-        ALWAYS_STD (union of all flags)
+        IGNORE_ANNOTATIONS
+        IGNORE_NULL_TYPING
+        ALWAYS_BARE (union of all flags)
     """
 
     ION_PY = 0
     """All values will be instances of the IonPy classes."""
 
-    MIXED = 1
+    MAY_BE_BARE = 1
     """Values will be of the IonPy classes when needed to ensure data fidelity,
-    otherwise they will be standard Python types.
+    otherwise they will be standard Python types or "core" Ion types, such as
+    SymbolToken or Timestamp.
+    
+    If a value has an annotation or the IonType would be ambiguous without the
+    IonPy wrapper, it will not be emitted as a bare value. The other flags can
+    be used to broaden which Ion values may be emitted as bare values.
+    
+    NOTE: Structs do not currently have a "bare" type.
     """
 
     SYMBOL_AS_TEXT = 2
     """Symbol values will be IonPyText(IonType.SYMBOL) or str if bare.
     
-    Symbol Ids are always lost if present. When bare values are emitted, the
-    type information (Symbol vs String) is also lost.
+    Symbol Ids and import locations are always lost if present. When bare values
+    are emitted, the type information (Symbol vs String) is also lost.
+    If the text is unknown, which may happen when the Symbol Id is within the
+    range of an imported table, but the text undefined, an exception is raised.
     """
 
     STRUCT_AS_STD_DICT = 4
-    """"Struct values will be IonPyStdDict or standard Python dicts if bare.
-    
+    """"Struct values will be __todo__ or standard Python dicts if bare.
+
     Like json, this will only preserve the final mapping for a given field.
     For example, given a struct:
     { foo: 17, foo: 31 }
-    
+
     The value for field 'foo' will be 31.
+
+    As noted in the pydoc for the class, there is no "bare" value for Structs:
+    the IonPyDict is both the IonPy wrapper and the multi-map.
     """
 
 
