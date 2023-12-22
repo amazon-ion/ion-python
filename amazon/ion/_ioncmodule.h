@@ -1,9 +1,14 @@
 #ifndef _IONCMODULE_H_
 #define _IONCMODULE_H_
 
+#include <Python.h>
 #include "structmember.h"
 #include "decimal128.h"
 #include "ion.h"
+
+extern decContext dec_context;
+extern PyObject *_decimal_constructor;
+extern PyTypeObject IonTimestamp_Type;
 
 PyObject* ionc_init_module(void);
 iERR ionc_write_value(hWRITER writer, PyObject* obj, PyObject* tuple_as_sexp);
@@ -15,5 +20,6 @@ iERR _ion_writer_write_symbol_id_helper(ION_WRITER *pwriter, SID value);
 iERR _ion_writer_add_annotation_sid_helper(ION_WRITER *pwriter, SID sid);
 iERR _ion_writer_write_field_sid_helper(ION_WRITER *pwriter, SID sid);
 ION_API_EXPORT void ion_helper_breakpoint(void);
+PyObject *IonTimestamp_FromTimestamp(ION_TIMESTAMP *ts);
 
 #endif

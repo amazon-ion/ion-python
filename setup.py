@@ -26,7 +26,7 @@ def run_setup():
             ext_modules=[
                 Extension(
                     'amazon.ion.ionc',
-                    sources=['amazon/ion/ioncmodule.c'],
+                    sources=['amazon/ion/ioncmodule.c', 'amazon/ion/timestamp.c'],
                     include_dirs=['amazon/ion/ion-c-build/include',
                                   'amazon/ion/ion-c-build/include/ionc',
                                   'amazon/ion/ion-c-build/include/decNumber'],
