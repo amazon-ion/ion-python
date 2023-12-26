@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import gc
+import json
 import os
 import platform
 import tempfile
@@ -15,7 +16,6 @@ from amazon.ionbenchmark.sample_dist import SampleDist
 _pypy = platform.python_implementation() == 'PyPy'
 if not _pypy:
     import tracemalloc
-
 
 class BenchmarkResult:
     """
@@ -145,6 +145,7 @@ def _create_test_fun(benchmark_spec: BenchmarkSpec):
                             break
 
     elif match_arg == ['file', 'write', 'load_dump']:
+        # should return a list that holding all top_level values.
         data_obj = benchmark_spec.get_data_object()
         data_format = benchmark_spec.get_format()
         if _format.format_is_binary(data_format) or _format.format_is_ion(data_format):
@@ -154,11 +155,10 @@ def _create_test_fun(benchmark_spec: BenchmarkSpec):
                         loader_dumper.dump(top_level_obj, f)
         else:
             def test_fn():
-                # TODO do we need a newline for jsonl?
                 with tempfile.TemporaryFile(mode="at") as f:
                     for top_level_obj in data_obj:
                         loader_dumper.dump(top_level_obj, f)
-
+                        # f.write(loader_dumper.dumps(top_level_obj))
     else:
         raise NotImplementedError(f"Argument combination not supported: {match_arg}")
 

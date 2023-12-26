@@ -176,7 +176,7 @@ class BenchmarkSpec(dict):
 
     def get_data_object(self):
         """
-        Get the data object to be used for testing. Used for benchmarks that write data.
+        Get a list that holds all data objects to be used for testing. Used for benchmarks that write data.
         """
         if not self._data_object:
             loader = self.get_loader_dumper()
@@ -189,18 +189,33 @@ class BenchmarkSpec(dict):
             elif format_is_json(format_option):
                 with open(read_file, 'r') as f:
                     json_objects = []
+<<<<<<< HEAD
                     while True:
                         jsonl = f.readline()
                         if jsonl == '':
                             break
                         json_objects.append(loader.loads(jsonl))
                         self._data_object = json_objects
+=======
+                    for jsonL in f.readlines():
+                        json_objects.append(loader.loads(jsonL))
+                    # while True:
+                    #     jsonl = f.readline()
+                    #     if jsonl == '':
+                    #         break
+                    #     json_objects.append(loader.loads(jsonl))
+                    self._data_object = json_objects
+>>>>>>> fd7372dfa0b
             elif format_is_cbor(format_option):
                 with open(read_file, 'br') as f:
                     cbor_objects = []
                     while True:
                         try:
+<<<<<<< HEAD
                             cbor_objects. append(loader.load(f))
+=======
+                            cbor_objects.append(loader.load(f))
+>>>>>>> fd7372dfa0b
                         except EOFError:
                             break
                     self._data_object = cbor_objects
