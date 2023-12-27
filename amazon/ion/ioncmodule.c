@@ -1075,7 +1075,10 @@ static void ionc_add_to_container(PyObject* pyContainer, PyObject* element, BOOL
  */
 iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BOOL in_struct, uint8_t value_model) {
     iENTER;
-    BOOL        wrap_py_value = !value_model;
+
+    BOOL        wrap_py_value = !(value_model & 1);
+    BOOL        symbol_as_text = value_model & 2;
+
     BOOL        is_null;
     ION_STRING  field_name;
     SIZE        annotation_count;
@@ -1219,8 +1222,15 @@ iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BOOL in_s
         {
             ION_STRING string_value;
             IONCHECK(ion_reader_read_string(hreader, &string_value));
-            py_value = ion_string_to_py_symboltoken(&string_value);
-            ion_nature_constructor = _ionpysymbol_fromvalue;
+            if (!symbol_as_text) {
+                py_value = ion_string_to_py_symboltoken(&string_value);
+                ion_nature_constructor = _ionpysymbol_fromvalue;
+            } else if (ion_string_is_null(&string_value)) {
+                _FAILWITHMSG(IERR_INVALID_STATE, "Cannot emit symbol with undefined text when SYMBOL_AS_TEXT is set.");
+            } else {
+                py_value = ion_build_py_string(&string_value);
+                ion_nature_constructor = _ionpytext_fromvalue;
+            }
             break;
         }
         case tid_STRING_INT:
@@ -1475,8 +1485,8 @@ PyObject* ionc_read(PyObject* self, PyObject *args, PyObject *kwds) {
                                      &value_model, &text_buffer_size_limit)) {
         FAILWITH(IERR_INVALID_ARG);
     }
-    if (value_model > 1) {
-        FAILWITHMSG(IERR_INVALID_ARG, "Only ION_PY and MIXED value models are currently supported!")
+    if (value_model > 3) {
+        _FAILWITHMSG(IERR_INVALID_ARG, "Only ION_PY, MAY_BE_BARE and SYMBOL_AS_TEXT value models are currently supported!")
     }
 
     iterator = PyObject_New(ionc_read_Iterator, &ionc_read_IteratorType);

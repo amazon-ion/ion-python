@@ -741,22 +741,47 @@ def test_bare_values(params):
         assert ion_equals(value, expectation)
 
 
-def test_value_models_flags():
+@parametrize(
+    ("foo", IonPyValueModel.ION_PY, IonPySymbol),
+    ("foo", IonPyValueModel.MAY_BE_BARE, SymbolToken),
+    ("foo", IonPyValueModel.SYMBOL_AS_TEXT, IonPyText, IonType.SYMBOL),
+    ("foo", IonPyValueModel.MAY_BE_BARE | IonPyValueModel.SYMBOL_AS_TEXT, str),
+    ("foo::bar", IonPyValueModel.MAY_BE_BARE, IonPySymbol),
+    ("foo::bar", IonPyValueModel.MAY_BE_BARE | IonPyValueModel.SYMBOL_AS_TEXT, IonPyText, IonType.SYMBOL),
+)
+def test_value_model_flags(params):
     # This function only tests c extension
     if not c_ext:
         return
 
-    ion_text = "31"
-    value = simpleion.load_extension(StringIO(ion_text), value_model=IonPyValueModel.ION_PY)
-    assert type(value) is IonPyInt
-    value = simpleion.load_extension(StringIO(ion_text), value_model=IonPyValueModel.MAY_BE_BARE)
-    assert type(value) is int
+    if len(params) == 3:
+        ion_text, value_model, expected_type = params
+        expected_ion_type = None
+    else:
+        ion_text, value_model, expected_type, expected_ion_type = params
 
-    try:
+    value = simpleion.load_extension(StringIO(ion_text), value_model=value_model)
+    assert type(value) is expected_type
+    if expected_ion_type:
+        assert value.ion_type == expected_ion_type
+
+
+def test_undefined_symbol_text_as_text():
+    ion_text = """
+    $ion_symbol_table::{ symbols:[ null ] }
+    $10
+    """
+    with raises(IonException, match="Cannot emit symbol with undefined text"):
         simpleion.load_extension(StringIO(ion_text), value_model=IonPyValueModel.SYMBOL_AS_TEXT)
-        assert False
-    except:
-        pass
+
+
+def test_invalid_value_model_flag():
+    # This function only tests c extension
+    if not c_ext:
+        return
+
+    with raises(IonException, match="value models are currently supported"):
+        simpleion.load_extension(StringIO("foo"), value_model=IonPyValueModel.STRUCT_AS_STD_DICT)
 
 
 # See issue https://github.com/amazon-ion/ion-python/issues/232
