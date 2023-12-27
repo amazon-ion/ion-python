@@ -115,10 +115,6 @@ def _create_test_fun(benchmark_spec: BenchmarkSpec):
 
         def test_fn():
             format_option = benchmark_spec.get_format()
-            # TODO below logic should go to JSON_load_dump and CBOR_load_dump
-            # previously:
-            # with open(data_file, "rb") as f:
-            #     return loader_dumper.load(f)
             if _format.format_is_ion(format_option):
                 with open(data_file, "rb") as f:
                     it = loader_dumper.load(f, parse_eagerly=False)
@@ -129,8 +125,6 @@ def _create_test_fun(benchmark_spec: BenchmarkSpec):
                             break
             elif _format.format_is_json(format_option):
                 with open(data_file, 'r') as f:
-                    # for jsonL in f.readlines():
-                    #     loader_dumper.loads(jsonL)
                     while True:
                         jsonl = f.readline()
                         if jsonl == '':
@@ -143,12 +137,19 @@ def _create_test_fun(benchmark_spec: BenchmarkSpec):
                             loader_dumper.load(f)
                         except EOFError:
                             break
+            elif _format.format_is_protobuf(format_option):
+                with open(data_file, "rb") as f:
+                    return loader_dumper.load(f)
 
     elif match_arg == ['file', 'write', 'load_dump']:
-        # should return a list that holding all top_level values.
+        # This method should return a list that holds all top_level values.
         data_obj = benchmark_spec.get_data_object()
         data_format = benchmark_spec.get_format()
-        if _format.format_is_binary(data_format) or _format.format_is_ion(data_format):
+        if _format.format_is_protobuf(data_format):
+            def test_fn():
+                with tempfile.TemporaryFile(mode="wb") as f:
+                    return loader_dumper.dump(data_obj, f)
+        elif _format.format_is_binary(data_format) or _format.format_is_ion(data_format):
             def test_fn():
                 with tempfile.TemporaryFile(mode="ab") as f:
                     for top_level_obj in data_obj:
@@ -158,7 +159,6 @@ def _create_test_fun(benchmark_spec: BenchmarkSpec):
                 with tempfile.TemporaryFile(mode="at") as f:
                     for top_level_obj in data_obj:
                         loader_dumper.dump(top_level_obj, f)
-                        # f.write(loader_dumper.dumps(top_level_obj))
     else:
         raise NotImplementedError(f"Argument combination not supported: {match_arg}")
 

@@ -7,7 +7,7 @@ from pathlib import Path
 import amazon.ionbenchmark.ion_load_dump as _ion_load_dump
 
 from amazon.ion.simple_types import IonPySymbol
-from amazon.ionbenchmark.Format import format_is_ion, format_is_json, format_is_cbor
+from amazon.ionbenchmark.Format import format_is_ion, format_is_json, format_is_cbor, format_is_protobuf
 
 # Global defaults for CLI test specs
 _tool_defaults = {
@@ -204,6 +204,9 @@ class BenchmarkSpec(dict):
                         except EOFError:
                             break
                     self._data_object = cbor_objects
+            elif format_is_protobuf(format_option):
+                with open(self.get_input_file(), "rb") as fp:
+                    self._data_object = loader.load(fp)
         return self._data_object
 
     def get_loader_dumper(self):
