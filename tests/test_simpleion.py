@@ -33,7 +33,7 @@ from amazon.ion.simple_types import IonPyDict, IonPyText, IonPyList, IonPyNull, 
     IonPyDecimal, IonPyTimestamp, IonPyBytes, IonPySymbol
 from amazon.ion.equivalence import ion_equals, obj_has_ion_type_and_annotation
 from amazon.ion.simpleion import dump, dumps, load, loads, _ion_type, _FROM_ION_TYPE, _FROM_TYPE_TUPLE_AS_SEXP, \
-    _FROM_TYPE
+    _FROM_TYPE, IonPyValueModel
 from amazon.ion.writer_binary_raw import _serialize_symbol, _write_length
 from tests.writer_util import VARUINT_END_BYTE, ION_ENCODED_INT_ZERO, SIMPLE_SCALARS_MAP_BINARY, SIMPLE_SCALARS_MAP_TEXT
 from tests import parametrize
@@ -732,13 +732,31 @@ def test_bare_values(params):
 
     ion_text, expected_type, expectation = params
 
-    value = simpleion.load_extension(StringIO(ion_text), emit_bare_values=True)
+    value = simpleion.load_extension(StringIO(ion_text), value_model=IonPyValueModel.MAY_BE_BARE)
 
-    assert type(value) == expected_type
+    assert type(value) is expected_type
     if callable(expectation):
         expectation(value)
     else:
         assert ion_equals(value, expectation)
+
+
+def test_value_models_flags():
+    # This function only tests c extension
+    if not c_ext:
+        return
+
+    ion_text = "31"
+    value = simpleion.load_extension(StringIO(ion_text), value_model=IonPyValueModel.ION_PY)
+    assert type(value) is IonPyInt
+    value = simpleion.load_extension(StringIO(ion_text), value_model=IonPyValueModel.MAY_BE_BARE)
+    assert type(value) is int
+
+    try:
+        simpleion.load_extension(StringIO(ion_text), value_model=IonPyValueModel.SYMBOL_AS_TEXT)
+        assert False
+    except:
+        pass
 
 
 # See issue https://github.com/amazon-ion/ion-python/issues/232

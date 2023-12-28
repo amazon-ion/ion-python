@@ -17,6 +17,8 @@
 The below table describes how types from the Ion data model map to the IonPy types
 in simple_types.py as well as what other Python types are supported on dump.
 
+TODO: add "bare" mapping to table.
+
         +-------------------+-------------------+-----------------------------------+
         | Ion Data Type     | IonPy Type        | Other Dump Mappings               |
         |-------------------+-------------------|-----------------------------------|
@@ -56,6 +58,7 @@ import io
 import warnings
 from datetime import datetime
 from decimal import Decimal
+from enum import IntFlag
 from io import BytesIO, TextIOBase
 from types import GeneratorType
 from typing import Union
@@ -155,7 +158,69 @@ def dumps(obj, imports=None, binary=True, sequence_as_stream=False,
     return ret_val
 
 
-def load(fp, catalog=None, single_value=True, parse_eagerly=True, text_buffer_size_limit=None):
+class IonPyValueModel(IntFlag):
+    """Flags to control the types of values that are emitted from load(s).
+
+    The flags may be mixed so that users can intentionally demote certain Ion
+    constructs to standard Python types. In general this will increase read
+    performance and improve interoperability with other Python code at the
+    expense of data fidelity.
+
+    For example:
+        model = IonPyValueModel.MAY_BE_BARE | IonPyValueModel.SYMBOL_AS_TEXT
+
+    would mean that any Symbols without annotations would be emitted as str,
+    any Symbols with annotations would be emitted as IonPyText(IonType.SYMBOL).
+
+    todo: add/extend this as desired. some possible additions:
+        CLOB_AS_BYTES
+        SEXP_AS______ (list, tuple, either?)
+        TIMESTAMP_AS_DATETIME
+        IGNORE_ANNOTATIONS
+        IGNORE_NULL_TYPING
+        ALWAYS_BARE (union of all flags)
+    """
+
+    ION_PY = 0
+    """All values will be instances of the IonPy classes."""
+
+    MAY_BE_BARE = 1
+    """Values will be of the IonPy classes when needed to ensure data fidelity,
+    otherwise they will be standard Python types or "core" Ion types, such as
+    SymbolToken or Timestamp.
+    
+    If a value has an annotation or the IonType would be ambiguous without the
+    IonPy wrapper, it will not be emitted as a bare value. The other flags can
+    be used to broaden which Ion values may be emitted as bare values.
+    
+    NOTE: Structs do not currently have a "bare" type.
+    """
+
+    SYMBOL_AS_TEXT = 2
+    """Symbol values will be IonPyText(IonType.SYMBOL) or str if bare.
+    
+    Symbol Ids and import locations are always lost if present. When bare values
+    are emitted, the type information (Symbol vs String) is also lost.
+    If the text is unknown, which may happen when the Symbol Id is within the
+    range of an imported table, but the text undefined, an exception is raised.
+    """
+
+    STRUCT_AS_STD_DICT = 4
+    """"Struct values will be __todo__ or standard Python dicts if bare.
+
+    Like json, this will only preserve the final mapping for a given field.
+    For example, given a struct:
+    { foo: 17, foo: 31 }
+
+    The value for field 'foo' will be 31.
+
+    As noted in the pydoc for the class, there is no "bare" value for Structs:
+    the IonPyDict is both the IonPy wrapper and the multi-map.
+    """
+
+
+def load(fp, catalog=None, single_value=True, parse_eagerly=True,
+         text_buffer_size_limit=None, value_model=IonPyValueModel.ION_PY):
     """Deserialize Ion values from ``fp``, a file-handle to an Ion stream, as Python object(s) using the
     conversion table described in the pydoc. Common examples are below, please refer to the
     [Ion Cookbook](https://amazon-ion.github.io/ion-docs/guides/cookbook.html) for detailed information.
@@ -177,31 +242,34 @@ def load(fp, catalog=None, single_value=True, parse_eagerly=True, text_buffer_si
     Args:
         fp: a file handle or other object that implements the buffer protocol.
         catalog (Optional[SymbolTableCatalog]): The catalog to use for resolving symbol table imports.
+            NOTE: when present the pure python load is used, which will impact performance.
         single_value (Optional[True|False]): When True, the data in the ``fp`` is interpreted as a single Ion value,
             and will be returned without an enclosing container. If True and there are multiple top-level values in
             the Ion stream, IonException will be raised. NOTE: this means that when data is dumped using
             ``sequence_as_stream=True``, it must be loaded using ``single_value=False``. Default: True.
-        parse_eagerly: (Optional[True|False]) Used in conjunction with ``single_value=False`` to return the result as
+        parse_eagerly (Optional[True|False]): Used in conjunction with ``single_value=False`` to return the result as
             list or an iterator. Lazy parsing is significantly more efficient for many-valued streams.
         text_buffer_size_limit (int): The maximum byte size allowed for text values when the C extension is enabled
             (default: 4096 bytes). This option only has an effect when the C extension is enabled (and it is enabled by
             default). When the C extension is disabled, there is no limit on the size of text values.
-
+        value_model (IonPyValueModel): Controls the types of values that are emitted from load(s).
+            Default: IonPyValueModel.ION_PY. See the IonPyValueModel class for more information.
+            NOTE: this option only has an effect when the C extension is enabled (which is the default).
     Returns (Any):
         if single_value is True:
             A Python object representing a single Ion value.
         else:
             A sequence of Python objects representing a stream of Ion values, may be a list or an iterator.
     """
-
     if c_ext and __IS_C_EXTENSION_SUPPORTED and catalog is None:
         return load_extension(fp, parse_eagerly=parse_eagerly, single_value=single_value,
-                              text_buffer_size_limit=text_buffer_size_limit)
+                              text_buffer_size_limit=text_buffer_size_limit, value_model=value_model)
     else:
         return load_python(fp, catalog=catalog, single_value=single_value, parse_eagerly=parse_eagerly)
 
 
-def loads(ion_str: Union[bytes, str], catalog=None, single_value=True, parse_eagerly=True, text_buffer_size_limit=None):
+def loads(ion_str: Union[bytes, str], catalog=None, single_value=True, parse_eagerly=True,
+          text_buffer_size_limit=None, value_model=IonPyValueModel.ION_PY):
     """Deserialize Ion value(s) from the bytes or str object. Behavior is as described by load."""
 
     if isinstance(ion_str, bytes):
@@ -212,7 +280,7 @@ def loads(ion_str: Union[bytes, str], catalog=None, single_value=True, parse_eag
         raise TypeError('Unsupported text: %r' % ion_str)
 
     return load(ion_buffer, catalog=catalog, single_value=single_value,
-                parse_eagerly=parse_eagerly, text_buffer_size_limit=text_buffer_size_limit)
+                parse_eagerly=parse_eagerly, text_buffer_size_limit=text_buffer_size_limit, value_model=value_model)
 
 
 # ... implementation from here down ...
@@ -413,16 +481,10 @@ def dump_extension(obj, fp, binary=True, sequence_as_stream=False, tuple_as_sexp
     fp.write(res)
 
 
-def load_extension(fp, single_value=True, parse_eagerly=True, text_buffer_size_limit=None, emit_bare_values=False):
-    """C-extension implementation. Users should prefer to call ``dump``.
-
-    TODO: move the below arg desc up into the user method when exposed there.
-        emit_bare_values (bool): When possible to do losslessly, the parser will emit values as their native python
-            type, instead of their IonPy type. Any value that is an IonSexp, IonSymbol, IonClob, typed-null or has
-            annotations is not emitted as a native python value. Timestamp values are emitted as Ion Timestamps, not
-            python datetimes.
-    """
-    iterator = ionc.ionc_read(fp, emit_bare_values=emit_bare_values, text_buffer_size_limit=text_buffer_size_limit)
+def load_extension(fp, single_value=True, parse_eagerly=True,
+                   text_buffer_size_limit=None, value_model=IonPyValueModel.ION_PY):
+    """C-extension implementation. Users should prefer to call ``load``."""
+    iterator = ionc.ionc_read(fp, value_model=value_model.value, text_buffer_size_limit=text_buffer_size_limit)
     if single_value:
         try:
             value = next(iterator)
