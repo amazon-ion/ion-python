@@ -767,6 +767,10 @@ def test_value_model_flags(params):
 
 
 def test_undefined_symbol_text_as_text():
+    # This function only tests c extension
+    if not c_ext:
+        return
+
     ion_text = """
     $ion_symbol_table::{ symbols:[ null ] }
     $10
