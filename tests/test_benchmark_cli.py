@@ -4,8 +4,9 @@ from os.path import abspath, join, dirname
 
 from amazon.ion import simpleion
 from amazon.ion.equivalence import ion_equals
-from amazon.ionbenchmark import Format
+from amazon.ionbenchmark import Format, benchmark_spec
 from amazon.ionbenchmark.Format import format_is_ion, format_is_cbor, format_is_json, rewrite_file_to_format
+from amazon.ionbenchmark.benchmark_spec import BenchmarkSpec
 from amazon.ionbenchmark.ion_benchmark_cli import TOOL_VERSION
 from tests import parametrize
 
@@ -16,7 +17,7 @@ def generate_test_path(p):
 
 def run_cli(c):
     import subprocess
-    cmd = ["python", "./amazon/ionbenchmark/ion_benchmark_cli.py"] + c
+    cmd = ["python", abspath(join(dirname(os.path.abspath(__file__)), '../amazon/ionbenchmark/ion_benchmark_cli.py'))] + c
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, text=True)
     error_code = proc.wait()
     (out, err) = proc.communicate()
@@ -218,3 +219,16 @@ def test_format_conversion_ion_text_to_ion_binary():
     rewrite_file_to_format(generate_test_path('integers.10n'), Format.Format.ION_TEXT.value)
     assert os.path.exists('temp_integers.ion')
     os.remove('temp_integers.ion')
+
+
+@parametrize(
+    ('write', 'json', generate_test_path('./sample_spec/multiple_top_level_object.json')),
+    ('write', 'cbor2', generate_test_path('./sample_spec/multiple_top_level_object.cbor')),
+    ('read', 'json', generate_test_path('./sample_spec/multiple_top_level_object.json')),
+    ('read', 'cbor2', generate_test_path('./sample_spec/multiple_top_level_object.cbor')),
+)
+def test_multiple_top_level_values(args):
+    (command, format_option, file) = args
+    (error_code, _, _) = run_cli([f'{command}', file, '--format', f'{format_option}', '--io-type', 'file'])
+    assert not error_code
+
