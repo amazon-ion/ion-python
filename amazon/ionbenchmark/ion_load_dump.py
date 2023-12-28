@@ -31,6 +31,6 @@ class IonLoadDump:
         ion.c_ext = self._c_ext
         return ion.dumps(obj, binary=self._binary)
 
-    def dump(self, obj, fp):
+    def dump(self, obj, fp, sequence_as_stream=True):
         ion.c_ext = self._c_ext
-        return ion.dump(obj, fp, binary=self._binary)
+        return ion.dump(obj, fp, binary=self._binary, sequence_as_stream=sequence_as_stream)

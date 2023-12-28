@@ -205,8 +205,9 @@ class BenchmarkSpec(dict):
                             break
                     self._data_object = cbor_objects
             elif format_is_protobuf(format_option):
-                with open(self.get_input_file(), "rb") as fp:
-                    self._data_object = loader.load(fp)
+                # Refer to https://github.com/amazon-ion/ion-python/issues/326
+                raise NotImplementedError("Benchmarking Protocol Buffer multiple top level object use case may not "
+                                          "support yet.")
         return self._data_object
 
     def get_loader_dumper(self):

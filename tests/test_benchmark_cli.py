@@ -42,7 +42,6 @@ def test_run_benchmark_spec(args):
     assert not error_code
 
 
-
 def test_option_write(file=generate_test_path('integers.ion')):
     (error_code, _, _) = run_cli(['write', file])
     assert not error_code
@@ -224,8 +223,10 @@ def test_format_conversion_ion_text_to_ion_binary():
 @parametrize(
     ('write', 'json', generate_test_path('./sample_spec/multiple_top_level_object.json')),
     ('write', 'cbor2', generate_test_path('./sample_spec/multiple_top_level_object.cbor')),
+    ('write', 'ion_binary', generate_test_path('./sample_spec/multiple_top_level_object.ion')),
     ('read', 'json', generate_test_path('./sample_spec/multiple_top_level_object.json')),
     ('read', 'cbor2', generate_test_path('./sample_spec/multiple_top_level_object.cbor')),
+    ('read', 'ion_binary', generate_test_path('./sample_spec/multiple_top_level_object.ion')),
 )
 def test_multiple_top_level_values(args):
     (command, format_option, file) = args
