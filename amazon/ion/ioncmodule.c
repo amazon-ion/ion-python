@@ -59,6 +59,7 @@ static PyObject* _ionpysymbol_fromvalue;
 static PyObject* _ionpybytes_fromvalue;
 static PyObject* _ionpylist_fromvalue;
 static PyObject* _ionpydict_factory;
+static PyObject* _ionpylist_factory;
 
 static PyObject* _ion_core_module;
 static PyObject* _py_ion_type;
@@ -1302,7 +1303,18 @@ iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BOOL in_s
         }
         case tid_LIST_INT:
         {
-            py_value = PyList_New(0);
+            // instead of creating a std Python list and "wrapping" it
+            // which would copy the elements, create the IonPyList now
+            if (wrap_py_value) {
+                py_value = PyObject_CallFunctionObjArgs(
+                        _ionpylist_factory,
+                        py_ion_type_table[ion_type >> 8],
+                        py_annotations,
+                        NULL);
+                wrap_py_value = FALSE;
+            } else {
+                py_value = PyList_New(0);
+            }
             IONCHECK(ionc_read_into_container(hreader, py_value, /*is_struct=*/FALSE, value_model));
             ion_nature_constructor = _ionpylist_fromvalue;
             break;
@@ -1589,6 +1601,7 @@ PyObject* ionc_init_module(void) {
     _ionpytext_fromvalue        = PyObject_GetAttrString(_ionpytext_cls, "from_value");
     _ionpysymbol_fromvalue      = PyObject_GetAttrString(_ionpysymbol_cls, "from_value");
     _ionpylist_fromvalue        = PyObject_GetAttrString(_ionpylist_cls, "from_value");
+    _ionpylist_factory           = PyObject_GetAttrString(_ionpylist_cls, "_factory");
     _ionpydict_factory           = PyObject_GetAttrString(_ionpydict_cls, "_factory");
 
     _ion_core_module            = PyImport_ImportModule("amazon.ion.core");
