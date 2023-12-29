@@ -48,6 +48,8 @@ static PyObject* _ionpysymbol_cls;
 static PyObject* _ionpybytes_cls;
 static PyObject* _ionpylist_cls;
 static PyObject* _ionpydict_cls;
+static PyObject* _ionpystddict_cls;
+
 static PyObject* _ionpynull_fromvalue;
 static PyObject* _ionpybool_fromvalue;
 static PyObject* _ionpyint_fromvalue;
@@ -1079,6 +1081,7 @@ iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BOOL in_s
 
     BOOL        wrap_py_value = !(value_model & 1);
     BOOL        symbol_as_text = value_model & 2;
+    BOOL        use_std_dict   = value_model & 4;
 
     BOOL        is_null;
     ION_STRING  field_name;
@@ -1277,22 +1280,24 @@ iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BOOL in_s
         }
         case tid_STRUCT_INT:
         {
-            PyObject* data = PyDict_New();
-            IONCHECK(ionc_read_into_container(hreader, data, /*is_struct=*/TRUE, value_model));
-
-            py_value = PyObject_CallFunctionObjArgs(
-                    _ionpydict_factory,
-                    data,
-                    py_annotations,
-                    NULL
-            );
-            Py_XDECREF(data);
-            // could be null if the function signature changed in the python code
-            if (py_value == NULL) {
-                FAILWITH(IERR_READ_ERROR);
+            if (!use_std_dict) {
+                py_value = PyDict_New();
+                ion_nature_constructor = _ionpydict_factory;
+                // there is no non-IonPy multimap so we always wrap
+                wrap_py_value = TRUE;
+            } else if (wrap_py_value) {
+                // we construct an empty IonPyStdDict to avoid copying the values when wrapping
+                // or needing to delegate in the class, then further wrapping is needed.
+                py_value = PyObject_CallFunctionObjArgs(
+                        _ionpystddict_cls,
+                        py_annotations,
+                        NULL);
+                wrap_py_value = FALSE;
+            } else {
+                py_value = PyDict_New();
             }
-            // we've already wrapped the py value
-            wrap_py_value = FALSE;
+
+            IONCHECK(ionc_read_into_container(hreader, py_value, /*is_struct=*/TRUE, value_model));
             break;
         }
         case tid_SEXP_INT:
@@ -1497,10 +1502,6 @@ PyObject* ionc_read(PyObject* self, PyObject *args, PyObject *kwds) {
                                      &value_model, &text_buffer_size_limit)) {
         FAILWITH(IERR_INVALID_ARG);
     }
-    if (value_model > 3) {
-        _FAILWITHMSG(IERR_INVALID_ARG, "Only ION_PY, MAY_BE_BARE and SYMBOL_AS_TEXT value models are currently supported!")
-    }
-
     iterator = PyObject_New(ionc_read_Iterator, &ionc_read_IteratorType);
     if (!iterator) {
         FAILWITH(IERR_INTERNAL_ERROR);
@@ -1590,6 +1591,7 @@ PyObject* ionc_init_module(void) {
     _ionpysymbol_cls            = PyObject_GetAttrString(_simpletypes_module, "IonPySymbol");
     _ionpylist_cls              = PyObject_GetAttrString(_simpletypes_module, "IonPyList");
     _ionpydict_cls              = PyObject_GetAttrString(_simpletypes_module, "IonPyDict");
+    _ionpystddict_cls           = PyObject_GetAttrString(_simpletypes_module, "IonPyStdDict");
 
     _ionpynull_fromvalue        = PyObject_GetAttrString(_ionpynull_cls, "from_value");
     _ionpybool_fromvalue        = PyObject_GetAttrString(_ionpybool_cls, "from_value");
