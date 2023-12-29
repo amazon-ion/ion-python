@@ -633,8 +633,7 @@ class IonPyList(list):
         '''
         **Internal Use Only**
 
-        Expects callers to pass a store object for the data that
-        matches the internal representation.
+        Build an empty IonPyList of the specified ion_type.
         '''
         ipl = IonPyList()
         ipl.ion_type = ion_type
