@@ -643,6 +643,27 @@ class IonPyList(list):
         return ipl
 
 
+class IonPyStdDict(dict):
+    """
+    IonPy value for standard Python dicts.
+
+    Each key mapping only keeps a single value, later values overwrite prior ones.
+
+    Ideally, the IonPy type for a Struct would wrap either a std dict or a "core"
+    amazon.ion type, like the Multimap. Unfortunately, that composition adds
+    overhead, so we have two IonPy types.
+    While this would be better named "IonPyDict", and the other "IonPyMultiDict",
+    that predates this and changing it would be a breaking change. So here we are.
+    """
+    __name__ = 'IonPyStdDict'
+    __qualname__ = 'IonPyStdDict'
+    ion_type = IonType.STRUCT
+
+    def __init__(self, annotations=()):
+        super().__init__(self)
+        self.ion_annotations = annotations
+
+
 class IonPyDict(MutableMapping):
     """
     Dictionary that can hold multiple values for the same key
@@ -758,7 +779,7 @@ class IonPyDict(MutableMapping):
         return value
 
     @staticmethod
-    def _factory(store, annotations=()):
+    def _factory(_, store, annotations=()):
         '''
         **Internal Use Only**
 
