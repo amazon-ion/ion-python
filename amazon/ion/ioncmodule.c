@@ -1286,8 +1286,8 @@ iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BOOL in_s
                 // there is no non-IonPy multimap so we always wrap
                 wrap_py_value = TRUE;
             } else if (wrap_py_value) {
-                // we construct an empty IonPyStdDict to avoid copying the values when wrapping
-                // or needing to delegate in the class, then further wrapping is needed.
+                // we construct an empty IonPyStdDict and don't wrap later to avoid
+                // copying the values when wrapping or needing to delegate in the impl
                 py_value = PyObject_CallFunctionObjArgs(
                         _ionpystddict_cls,
                         py_annotations,
