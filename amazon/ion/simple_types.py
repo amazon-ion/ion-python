@@ -628,6 +628,21 @@ class IonPyList(list):
                         annotations=self.ion_annotations, depth=depth)
 
 
+    @staticmethod
+    def _factory(ion_type, annotations=()):
+        '''
+        **Internal Use Only**
+
+        Expects callers to pass a store object for the data that
+        matches the internal representation.
+        '''
+        ipl = IonPyList()
+        ipl.ion_type = ion_type
+        ipl.ion_annotations = annotations
+
+        return ipl
+
+
 class IonPyDict(MutableMapping):
     """
     Dictionary that can hold multiple values for the same key
