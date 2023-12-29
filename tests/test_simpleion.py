@@ -30,7 +30,7 @@ from amazon.ion.symbols import SymbolToken, SYSTEM_SYMBOL_TABLE
 from amazon.ion.writer_binary import _IVM
 from amazon.ion.core import IonType, IonEvent, IonEventType, OffsetTZInfo, Multimap, TimestampPrecision, Timestamp
 from amazon.ion.simple_types import IonPyDict, IonPyText, IonPyList, IonPyNull, IonPyBool, IonPyInt, IonPyFloat, \
-    IonPyDecimal, IonPyTimestamp, IonPyBytes, IonPySymbol
+    IonPyDecimal, IonPyTimestamp, IonPyBytes, IonPySymbol, IonPyStdDict
 from amazon.ion.equivalence import ion_equals, obj_has_ion_type_and_annotation
 from amazon.ion.simpleion import dump, dumps, load, loads, _ion_type, _FROM_ION_TYPE, _FROM_TYPE_TUPLE_AS_SEXP, \
     _FROM_TYPE, IonPyValueModel
@@ -748,6 +748,16 @@ def test_bare_values(params):
     ("foo", IonPyValueModel.MAY_BE_BARE | IonPyValueModel.SYMBOL_AS_TEXT, str),
     ("foo::bar", IonPyValueModel.MAY_BE_BARE, IonPySymbol),
     ("foo::bar", IonPyValueModel.MAY_BE_BARE | IonPyValueModel.SYMBOL_AS_TEXT, IonPyText, IonType.SYMBOL),
+
+    ("{}", IonPyValueModel.ION_PY, IonPyDict),
+    ("{}", IonPyValueModel.MAY_BE_BARE, IonPyDict),
+    ("{}", IonPyValueModel.MAY_BE_BARE | IonPyValueModel.STRUCT_AS_STD_DICT, dict),
+    ("{}", IonPyValueModel.STRUCT_AS_STD_DICT, IonPyStdDict),
+    ("baz::{}", IonPyValueModel.MAY_BE_BARE | IonPyValueModel.STRUCT_AS_STD_DICT, IonPyStdDict),
+
+    # bitwise flag handling belt and suspenders checks
+    ("foo", IonPyValueModel.STRUCT_AS_STD_DICT, IonPySymbol),
+    ("{}", IonPyValueModel.SYMBOL_AS_TEXT, IonPyDict),
 )
 def test_value_model_flags(params):
     # This function only tests c extension
@@ -777,15 +787,6 @@ def test_undefined_symbol_text_as_text():
     """
     with raises(IonException, match="Cannot emit symbol with undefined text"):
         simpleion.load_extension(StringIO(ion_text), value_model=IonPyValueModel.SYMBOL_AS_TEXT)
-
-
-def test_invalid_value_model_flag():
-    # This function only tests c extension
-    if not c_ext:
-        return
-
-    with raises(IonException, match="value models are currently supported"):
-        simpleion.load_extension(StringIO("foo"), value_model=IonPyValueModel.STRUCT_AS_STD_DICT)
 
 
 # See issue https://github.com/amazon-ion/ion-python/issues/232
