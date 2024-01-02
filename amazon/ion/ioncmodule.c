@@ -1024,16 +1024,16 @@ fail:
  *
  *  Args:
  *      hreader:  An ion reader
- *      container:  A container that elements are read from
- *      is_struct:  If the container is an ion struct
+ *      container: A container that elements are read from
+ *      parent_type: Type of container to add to.
  *      value_model: Flags to control how Ion values map to Python types
  *
  */
-static iERR ionc_read_into_container(hREADER hreader, PyObject* container, BOOL is_struct, uint8_t value_model) {
+static iERR ionc_read_into_container(hREADER hreader, PyObject* container, enum ContainerType parent_type, uint8_t value_model) {
     iENTER;
     IONCHECK(ion_reader_step_in(hreader));
     IONCHECK(Py_EnterRecursiveCall(" while reading an Ion container"));
-    err = ionc_read_all(hreader, container, is_struct, value_model);
+    err = ionc_read_all(hreader, container, parent_type, value_model);
     Py_LeaveRecursiveCall();
     IONCHECK(err);
     IONCHECK(ion_reader_step_out(hreader));
@@ -1046,22 +1046,33 @@ static iERR ionc_read_into_container(hREADER hreader, PyObject* container, BOOL 
  *  Args:
  *      pyContainer:  A container that the element is added to
  *      element:  The element to be added to the container
- *      in_struct:  if the current state is in a struct
+ *      container_type: Type of container to add to.
  *      field_name:  The field name of the element if it is inside a struct
  */
-static void ionc_add_to_container(PyObject* pyContainer, PyObject* element, BOOL in_struct, PyObject* field_name) {
-    if (in_struct) {
-        // this builds the "hash-map of lists" structure that the IonPyDict object
-        // expects for its __store
-        PyObject* empty = PyList_New(0);
-        // SetDefault performs get|set with a single hash of the key
-        PyObject* found = PyDict_SetDefault(pyContainer, field_name, empty);
-        PyList_Append(found, element);
+static void ionc_add_to_container(PyObject* pyContainer, PyObject* element, enum ContainerType container_type, PyObject* field_name) {
+    switch (container_type) {
+        case MULTIMAP:
+        {
+            // this builds the "hash-map of lists" structure that the IonPyDict object
+            // expects for its __store
+            PyObject* empty = PyList_New(0);
+            // SetDefault performs get|set with a single hash of the key
+            PyObject* found = PyDict_SetDefault(pyContainer, field_name, empty);
+            PyList_Append(found, element);
 
-        Py_DECREF(empty);
-    }
-    else {
-        PyList_Append(pyContainer, (PyObject*)element);
+            Py_DECREF(empty);
+            break;
+        }
+        case STD_DICT:
+        {
+            PyDict_SetItem(pyContainer, field_name, element);
+            break;
+        }
+        case LIST:
+        {
+            PyList_Append(pyContainer, (PyObject*)element);
+            break;
+        }
     }
     Py_XDECREF(element);
 }
@@ -1072,11 +1083,10 @@ static void ionc_add_to_container(PyObject* pyContainer, PyObject* element, BOOL
  *  Args:
  *      hreader:  An ion reader
  *      ION_TYPE:  The ion type of the reading value as an int
- *      in_struct:  If the current state is in a struct
+ *      parent_type: Type of the parent container.
  *      value_model: Flags to control how Ion values map to Python types
- *
  */
-iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BOOL in_struct, uint8_t value_model) {
+iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, enum ContainerType parent_type, uint8_t value_model) {
     iENTER;
 
     BOOL        wrap_py_value = !(value_model & 1);
@@ -1091,7 +1101,7 @@ iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BOOL in_s
     PyObject*   ion_nature_constructor = NULL;
     PyObject*   py_field_name = NULL;
 
-    if (in_struct) {
+    if (parent_type > LIST) {
         IONCHECK(ion_reader_get_field_name(hreader, &field_name));
         py_field_name = ion_build_py_string(&field_name);
     }
@@ -1280,24 +1290,30 @@ iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BOOL in_s
         }
         case tid_STRUCT_INT:
         {
-            if (!use_std_dict) {
+            enum ContainerType container_type;
+
+            if (use_std_dict) {
+                if (wrap_py_value) {
+                    // we construct an empty IonPyStdDict and don't wrap later to avoid
+                    // copying the values when wrapping or needing to delegate in the impl
+                    py_value = PyObject_CallFunctionObjArgs(
+                            _ionpystddict_cls,
+                            py_annotations,
+                            NULL);
+                    wrap_py_value = FALSE;
+                } else {
+                    py_value = PyDict_New();
+                }
+                container_type = STD_DICT;
+            } else {
                 py_value = PyDict_New();
                 ion_nature_constructor = _ionpydict_factory;
                 // there is no non-IonPy multimap so we always wrap
                 wrap_py_value = TRUE;
-            } else if (wrap_py_value) {
-                // we construct an empty IonPyStdDict and don't wrap later to avoid
-                // copying the values when wrapping or needing to delegate in the impl
-                py_value = PyObject_CallFunctionObjArgs(
-                        _ionpystddict_cls,
-                        py_annotations,
-                        NULL);
-                wrap_py_value = FALSE;
-            } else {
-                py_value = PyDict_New();
+                container_type = MULTIMAP;
             }
 
-            IONCHECK(ionc_read_into_container(hreader, py_value, /*is_struct=*/TRUE, value_model));
+            IONCHECK(ionc_read_into_container(hreader, py_value, container_type, value_model));
             break;
         }
         case tid_SEXP_INT:
@@ -1320,7 +1336,7 @@ iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BOOL in_s
             } else {
                 py_value = PyList_New(0);
             }
-            IONCHECK(ionc_read_into_container(hreader, py_value, /*is_struct=*/FALSE, value_model));
+            IONCHECK(ionc_read_into_container(hreader, py_value, LIST, value_model));
             ion_nature_constructor = _ionpylist_fromvalue;
             break;
         }
@@ -1341,7 +1357,7 @@ iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, BOOL in_s
         Py_XDECREF(py_value);
     }
 
-    ionc_add_to_container(container, final_py_value, in_struct, py_field_name);
+    ionc_add_to_container(container, final_py_value, parent_type, py_field_name);
 
 fail:
     Py_XDECREF(py_annotations);
@@ -1361,11 +1377,11 @@ fail:
  *  Args:
  *      hreader:  An ion reader
  *      container:  A container that elements are read from
- *      in_struct:  If the current state is in a struct
+ *      parent_type: the type of the container to add to.
  *      value_model: Flags to control how Ion values map to Python types
  *
  */
-iERR ionc_read_all(hREADER hreader, PyObject* container, BOOL in_struct, uint8_t value_model) {
+iERR ionc_read_all(hREADER hreader, PyObject* container, enum ContainerType parent_type, uint8_t value_model) {
     iENTER;
     ION_TYPE t;
     for (;;) {
@@ -1374,7 +1390,7 @@ iERR ionc_read_all(hREADER hreader, PyObject* container, BOOL in_struct, uint8_t
             assert(t == tid_EOF && "next() at end");
             break;
         }
-        IONCHECK(ionc_read_value(hreader, t, container, in_struct, value_model));
+        IONCHECK(ionc_read_value(hreader, t, container, parent_type, value_model));
     }
     iRETURN;
 }
