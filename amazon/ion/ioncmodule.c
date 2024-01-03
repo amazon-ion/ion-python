@@ -1024,7 +1024,7 @@ fail:
  *
  *  Args:
  *      hreader:  An ion reader
- *      container: A container that elements are read from
+ *      container: A container that elements are read into
  *      parent_type: Type of container to add to.
  *      value_model: Flags to control how Ion values map to Python types
  *
