@@ -776,6 +776,23 @@ def test_value_model_flags(params):
         assert value.ion_type == expected_ion_type
 
 
+def test_stddict():
+    """Verifies that STRUCT_AS_STD_DICT is consistent with json in keeping
+    only the last of a duplicated field.
+    """
+
+    # This function only tests c extension
+    if not c_ext:
+        return
+
+    ion_text = '{ foo: "bar", foo: "baz" }'
+
+    ionpyvalue = simpleion.load_extension(StringIO(ion_text), value_model=IonPyValueModel.STRUCT_AS_STD_DICT)
+    barevalue = simpleion.load_extension(StringIO(ion_text), value_model=IonPyValueModel.STRUCT_AS_STD_DICT | IonPyValueModel.MAY_BE_BARE)
+
+    assert ionpyvalue["foo"] == barevalue["foo"] == "baz"
+
+
 def test_undefined_symbol_text_as_text():
     # This function only tests c extension
     if not c_ext:
