@@ -12,6 +12,7 @@ class IonLoadDump:
     Results of profiling indicate that this adds a trivial amount of overhead, even for small data. If Ion Python
     performance improves by >1000% from June 2023, then this may need to be re-evaluated.
     """
+
     def __init__(self, binary, c_ext=True):
         self._binary = binary
         self._single_value = False
@@ -23,9 +24,14 @@ class IonLoadDump:
         ion.c_ext = self._c_ext
         return ion.loads(s, single_value=self._single_value)
 
+    @classmethod
     def load(self, fp, parse_eagerly=True):
-        ion.c_ext = self._c_ext
-        return ion.load(fp, single_value=self._single_value, parse_eagerly=parse_eagerly)
+        it = ion.load(fp, parse_eagerly=parse_eagerly, single_value=False)
+        while True:
+            try:
+                yield next(it)
+            except StopIteration:
+                return
 
     def dumps(self, obj):
         ion.c_ext = self._c_ext

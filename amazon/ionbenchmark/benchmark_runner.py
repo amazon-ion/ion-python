@@ -132,13 +132,9 @@ def _create_test_fun(benchmark_spec: BenchmarkSpec, return_obj=False, custom_fil
                     return rtn
             else:
                 def test_fn():
-                    with open(data_file, "rb") as f:
-                        it = loader_dumper.load(f, parse_eagerly=False)
-                        while True:
-                            try:
-                                next(it)
-                            except StopIteration:
-                                break
+                    with open(data_file, 'br') as f:
+                        for v in loader_dumper.load(f, parse_eagerly=False):
+                            pass
         elif _format.format_is_json(format_option):
             if return_obj:
                 def test_fn():
@@ -153,11 +149,8 @@ def _create_test_fun(benchmark_spec: BenchmarkSpec, return_obj=False, custom_fil
             else:
                 def test_fn():
                     with open(data_file, 'r') as f:
-                        while True:
-                            jsonl = f.readline()
-                            if jsonl == '':
-                                break
-                            loader_dumper.loads(jsonl)
+                        for v in loader_dumper.load(f):
+                            pass
         elif _format.format_is_cbor(format_option):
             if return_obj:
                 def test_fn():
@@ -172,11 +165,8 @@ def _create_test_fun(benchmark_spec: BenchmarkSpec, return_obj=False, custom_fil
             else:
                 def test_fn():
                     with open(data_file, 'br') as f:
-                        while True:
-                            try:
-                                loader_dumper.load(f)
-                            except EOFError:
-                                break
+                        for v in loader_dumper.load(f):
+                            pass
         elif _format.format_is_protobuf(format_option):
             # Refer to https://github.com/amazon-ion/ion-python/issues/326
             raise NotImplementedError("Benchmarking Protocol Buffer multiple top level object use case may not "

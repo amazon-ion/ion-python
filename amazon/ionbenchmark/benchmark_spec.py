@@ -8,6 +8,8 @@ import amazon.ionbenchmark.ion_load_dump as _ion_load_dump
 
 from amazon.ion.simple_types import IonPySymbol
 from amazon.ionbenchmark.Format import format_is_ion, format_is_json, format_is_cbor, format_is_protobuf
+from amazon.ionbenchmark.cbor_load_dump import CborLoadDump
+from amazon.ionbenchmark.json_load_dump import JsonLoadDump
 
 # Global defaults for CLI test specs
 _tool_defaults = {
@@ -225,8 +227,7 @@ class BenchmarkSpec(dict):
         elif data_format == 'ion_text':
             return _ion_load_dump.IonLoadDump(binary=False, c_ext=self['py_c_extension'])
         elif data_format == 'json':
-            import json
-            return json
+            return JsonLoadDump
         elif data_format == 'ujson':
             import ujson
             return ujson
@@ -240,8 +241,7 @@ class BenchmarkSpec(dict):
             import cbor
             return cbor
         elif data_format == 'cbor2':
-            import cbor2
-            return cbor2
+            return CborLoadDump
         elif data_format == 'self_describing_protobuf':
             from self_describing_proto import SelfDescribingProtoSerde
             # TODO: Consider making the cache option configurable from the spec file
