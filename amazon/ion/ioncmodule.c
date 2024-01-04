@@ -703,7 +703,7 @@ iERR ionc_write_value(hWRITER writer, PyObject* obj, PyObject* tuple_as_sexp) {
 
         IONCHECK(ion_writer_write_timestamp(writer, &timestamp_value));
     }
-    else if (PyDict_Check(obj) || PyObject_IsInstance(obj, _ionpydict_cls)) {
+    else if (PyDict_Check(obj) || PyObject_TypeCheck(obj, (PyTypeObject *)_ionpydict_cls)) {
         if (ion_type == tid_none_INT) {
             ion_type = tid_STRUCT_INT;
         }
