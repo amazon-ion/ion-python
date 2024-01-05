@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import gc
-import json
 import os
 import platform
 import tempfile
@@ -140,11 +139,8 @@ def _create_test_fun(benchmark_spec: BenchmarkSpec, return_obj=False, custom_fil
                 def test_fn():
                     rtn = []
                     with open(data_file, 'r') as f:
-                        while True:
-                            jsonl = f.readline()
-                            if jsonl == '':
-                                break
-                            rtn.append(loader_dumper.loads(jsonl))
+                        for v in loader_dumper.load(f):
+                            rtn.append(v)
                     return rtn
             else:
                 def test_fn():
@@ -156,11 +152,8 @@ def _create_test_fun(benchmark_spec: BenchmarkSpec, return_obj=False, custom_fil
                 def test_fn():
                     rtn = []
                     with open(data_file, 'br') as f:
-                        while True:
-                            try:
-                                rtn.append(loader_dumper.load(f))
-                            except EOFError:
-                                break
+                        for v in loader_dumper.load(f):
+                            rtn.append(v)
                     return rtn
             else:
                 def test_fn():
@@ -183,14 +176,12 @@ def _create_test_fun(benchmark_spec: BenchmarkSpec, return_obj=False, custom_fil
         elif _format.format_is_cbor(data_format):
             if custom_file:
                 def test_fn():
-                    with open(custom_file, 'bw') as f:
-                        for top_level_obj in data_obj:
-                            loader_dumper.dump(top_level_obj, f)
+                    with open(custom_file, 'ab') as f:
+                        loader_dumper.dump(data_obj, f)
             else:
                 def test_fn():
                     with tempfile.TemporaryFile(mode="ab") as f:
-                        for top_level_obj in data_obj:
-                            loader_dumper.dump(top_level_obj, f)
+                        loader_dumper.dump(data_obj, f)
         elif _format.format_is_ion(data_format):
             if custom_file:
                 def test_fn():
@@ -204,13 +195,11 @@ def _create_test_fun(benchmark_spec: BenchmarkSpec, return_obj=False, custom_fil
             if custom_file:
                 def test_fn():
                     with open(custom_file, 'at') as f:
-                        for top_level_obj in data_obj:
-                            loader_dumper.dump(top_level_obj, f)
+                        loader_dumper.dump(data_obj, f)
             else:
                 def test_fn():
                     with tempfile.TemporaryFile(mode="at") as f:
-                        for top_level_obj in data_obj:
-                            loader_dumper.dump(top_level_obj, f)
+                        loader_dumper.dump(data_obj, f)
     else:
         raise NotImplementedError(f"Argument combination not supported: {match_arg}")
 

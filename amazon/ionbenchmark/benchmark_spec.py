@@ -195,16 +195,14 @@ class BenchmarkSpec(dict):
                         jsonl = f.readline()
                         if jsonl == '':
                             break
-                        json_objects.append(loader.loads(jsonl))
-                        self._data_object = json_objects
+                        v = loader.loads(jsonl)
+                        json_objects.append(v)
+                    self._data_object = json_objects
             elif format_is_cbor(format_option):
                 with open(read_file, 'br') as f:
                     cbor_objects = []
-                    while True:
-                        try:
-                            cbor_objects.append(loader.load(f))
-                        except EOFError:
-                            break
+                    for v in loader.load(f):
+                        cbor_objects.append(v)
                     self._data_object = cbor_objects
             elif format_is_protobuf(format_option):
                 # Refer to https://github.com/amazon-ion/ion-python/issues/326
