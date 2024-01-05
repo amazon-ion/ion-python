@@ -372,6 +372,34 @@ fail:
     Py_DECREF(sequence);
     cRETURN;
 }
+/*
+ * Process and write the key-value pair.
+ *  *  Args:
+ *      writer:  An ion writer
+ *      key: The key of IonStruct item
+ *      val: The value of IonStruct item
+ *      tuple_as_sexp: Decides if a tuple is treated as sexp
+ */
+
+static iERR write_key_value(hWRITER writer, PyObject* key, PyObject* val, PyObject* tuple_as_sexp) {
+    iERR err;
+    if (PyUnicode_Check(key)) {
+        ION_STRING field_name;
+        ion_string_from_py(key, &field_name);
+        IONCHECK(ion_writer_write_field_name(writer, &field_name));
+    } else if (key == Py_None) {
+        IONCHECK(_ion_writer_write_field_sid_helper(writer, 0));
+    }
+    IONCHECK(Py_EnterRecursiveCall(" while writing an Ion struct"));
+    err = ionc_write_value(writer, val, tuple_as_sexp);
+    Py_LeaveRecursiveCall();
+    IONCHECK(err);
+
+    return IERR_OK;
+
+    fail:
+    return err;
+}
 
 /*
  *  Writes a struct
@@ -384,48 +412,37 @@ fail:
  */
 static iERR ionc_write_struct(hWRITER writer, PyObject* map, PyObject* tuple_as_sexp) {
     iENTER;
-    PyObject * list = PyMapping_Items(map);
-    PyObject * seq = PySequence_Fast(list, "expected a sequence within the map.");
-    PyObject * key = NULL, *val = NULL, *child_obj = NULL;
-    Py_ssize_t len = PySequence_Size(seq);
-    Py_ssize_t i;
-
-    for (i = 0; i < len; i++) {
-        child_obj = PySequence_Fast_GET_ITEM(seq, i);
-        key = PyTuple_GetItem(child_obj, 0);
-        val = PyTuple_GetItem(child_obj, 1);
-        Py_INCREF(child_obj);
-        Py_INCREF(key);
-        Py_INCREF(val);
-
-        if (PyUnicode_Check(key)) {
-            ION_STRING field_name;
-            ion_string_from_py(key, &field_name);
-            IONCHECK(ion_writer_write_field_name(writer, &field_name));
+    PyObject *store = NULL, *key = NULL, *val_list = NULL, *val = NULL;
+    Py_ssize_t pos = 0, i, list_len;
+    if (PyDict_Check(map)) {
+        while (PyDict_Next(map, &pos, &key, &val)) {
+            IONCHECK(write_key_value(writer, key, val, tuple_as_sexp));
         }
-        else if (key == Py_None) {
-            // if field_name is None, write symbol $0 instead.
-            IONCHECK(_ion_writer_write_field_sid_helper(writer, 0));
+    } else {
+        store = PyObject_CallMethod(map, "get_store", NULL);
+        if (store == NULL || !PyDict_Check(store)) {
+            IONCHECK(IERR_INVALID_ARG);
+            goto fail;
         }
-
-        IONCHECK(Py_EnterRecursiveCall(" while writing an Ion struct"));
-        err = ionc_write_value(writer, val, tuple_as_sexp);
-        Py_LeaveRecursiveCall();
-        IONCHECK(err);
-
-        Py_DECREF(child_obj);
-        Py_DECREF(key);
-        Py_DECREF(val);
-        child_obj = NULL;
-        key = NULL;
-        val = NULL;
+        pos = 0;
+        while (PyDict_Next(store, &pos, &key, &val_list)) {
+            if (!PyList_Check(val_list)) {
+                IONCHECK(IERR_INVALID_ARG);
+                goto fail;
+            }
+            list_len = PyList_Size(val_list);
+            for (i = 0; i < list_len; i++) {
+                val = PyList_GetItem(val_list, i); // Borrowed reference
+                IONCHECK(write_key_value(writer, key, val, tuple_as_sexp));
+            }
+        }
+        Py_DECREF(store);
     }
-    Py_XDECREF(list);
-    Py_XDECREF(seq);
-fail:
-    Py_XDECREF(child_obj);
-    Py_XDECREF(key);
-    Py_XDECREF(val);
+
+    fail:
+    if (PyErr_Occurred()) {
+        IONCHECK(IERR_INVALID_ARG);
+    }
     cRETURN;
 }
 

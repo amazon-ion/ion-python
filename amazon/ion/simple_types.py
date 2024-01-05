@@ -744,6 +744,12 @@ class IonPyDict(MutableMapping):
         """
         return [i for i in self.iteritems()]
 
+    def get_store(self):
+        """
+        Return the store of the IonPyDict.
+        """
+        return self.__store
+
     def __copy__(self):
         args, kwargs = self._to_constructor_args(self)
         value = self.__class__(*args, **kwargs)
