@@ -101,6 +101,7 @@ def test_create_write_test_fun(args):
 # make sure all top level JSON objects are generated
 def test_write_generate_multiple_top_level_json_values():
     data_obj = _multiple_top_level_json_obj_spec.get_data_object()
+    data_obj = list(data_obj)
     obj_count = len(data_obj)
     load_count = 0
     with open(join(_generate_test_path("sample_spec"), 'multiple_top_level_object.json'), 'r') as f:
@@ -119,6 +120,7 @@ def test_write_generate_multiple_top_level_json_values():
 # make sure all top level CBOR objects are generated
 def test_write_generate_multiple_top_level_cbor_values():
     data_obj = _multiple_top_level_cbor_obj_spec.get_data_object()
+    data_obj = list(data_obj)
     obj_count = len(data_obj)
     load_count = 0
     with open(join(_generate_test_path("sample_spec"), 'multiple_top_level_object.cbor'), 'br') as f:

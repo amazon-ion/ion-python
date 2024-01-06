@@ -7,7 +7,8 @@ from pathlib import Path
 import amazon.ionbenchmark.ion_load_dump as _ion_load_dump
 
 from amazon.ion.simple_types import IonPySymbol
-from amazon.ionbenchmark.Format import format_is_ion, format_is_json, format_is_cbor, format_is_protobuf
+from amazon.ionbenchmark.Format import format_is_ion, format_is_json, format_is_cbor, format_is_protobuf, \
+    format_is_bytes
 from amazon.ionbenchmark.cbor_load_dump import CborLoadDump
 from amazon.ionbenchmark.json_load_dump import JsonLoadDump
 
@@ -178,36 +179,19 @@ class BenchmarkSpec(dict):
 
     def get_data_object(self):
         """
-        Get a list that holds all data objects to be used for testing. Used for benchmarks that write data.
+        Get a generator that holds all data objects to be used for testing.
         """
         if not self._data_object:
             loader = self.get_loader_dumper()
             format_option = self.get_format()
             read_file = self.get_input_file()
-            if format_is_ion(format_option):
-                with open(read_file, "rb") as fp:
-                    it = loader.load(fp, parse_eagerly=False)
-                    self._data_object = list(it)
-            elif format_is_json(format_option):
-                with open(read_file, 'r') as f:
-                    json_objects = []
-                    while True:
-                        jsonl = f.readline()
-                        if jsonl == '':
-                            break
-                        v = loader.loads(jsonl)
-                        json_objects.append(v)
-                    self._data_object = json_objects
-            elif format_is_cbor(format_option):
-                with open(read_file, 'br') as f:
-                    cbor_objects = []
-                    for v in loader.load(f):
-                        cbor_objects.append(v)
-                    self._data_object = cbor_objects
-            elif format_is_protobuf(format_option):
+            if format_is_protobuf(format_option):
                 # Refer to https://github.com/amazon-ion/ion-python/issues/326
                 raise NotImplementedError("Benchmarking Protocol Buffer multiple top level object use case may not "
                                           "support yet.")
+            else:
+                fp = open(read_file, 'br' if format_is_bytes(format_option) else 'r')
+                self._data_object = loader.load(fp)
         return self._data_object
 
     def get_loader_dumper(self):

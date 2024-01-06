@@ -109,6 +109,7 @@ def _create_test_fun(benchmark_spec: BenchmarkSpec, return_obj=False, custom_fil
             return loader_dumper.loads(buffer)
 
     elif match_arg == ['buffer', 'write', 'load_dump']:
+        # This method returns a generator
         data_obj = benchmark_spec.get_data_object()
 
         def test_fn():
@@ -117,89 +118,54 @@ def _create_test_fun(benchmark_spec: BenchmarkSpec, return_obj=False, custom_fil
     elif match_arg == ['file', 'read', 'load_dump']:
         data_file = benchmark_spec.get_input_file()
         format_option = benchmark_spec.get_format()
-        if _format.format_is_ion(format_option):
-            if return_obj:
-                def test_fn():
-                    rtn = []
-                    with open(data_file, "rb") as f:
-                        it = loader_dumper.load(f, parse_eagerly=False)
-                        while True:
-                            try:
-                                rtn.append(next(it))
-                            except StopIteration:
-                                break
-                    return rtn
-            else:
-                def test_fn():
-                    with open(data_file, 'br') as f:
-                        for v in loader_dumper.load(f, parse_eagerly=False):
-                            pass
-        elif _format.format_is_json(format_option):
-            if return_obj:
-                def test_fn():
-                    rtn = []
-                    with open(data_file, 'r') as f:
-                        for v in loader_dumper.load(f):
-                            rtn.append(v)
-                    return rtn
-            else:
-                def test_fn():
-                    with open(data_file, 'r') as f:
-                        for v in loader_dumper.load(f):
-                            pass
-        elif _format.format_is_cbor(format_option):
-            if return_obj:
-                def test_fn():
-                    rtn = []
-                    with open(data_file, 'br') as f:
-                        for v in loader_dumper.load(f):
-                            rtn.append(v)
-                    return rtn
-            else:
-                def test_fn():
-                    with open(data_file, 'br') as f:
-                        for v in loader_dumper.load(f):
-                            pass
-        elif _format.format_is_protobuf(format_option):
+        if _format.format_is_protobuf(format_option):
             # Refer to https://github.com/amazon-ion/ion-python/issues/326
             raise NotImplementedError("Benchmarking Protocol Buffer multiple top level object use case may not "
                                       "support yet.")
+        elif not return_obj:
+            def test_fn():
+                with open(data_file, 'br' if _format.format_is_bytes(format_option) else 'tr') as f:
+                    for v in loader_dumper.load(f):
+                        pass
+        else:
+            def test_fn():
+                returned_obj = []
+                with open(data_file, 'br' if _format.format_is_bytes(format_option) else 'tr') as f:
+                    for value in loader_dumper.load(f):
+                        returned_obj.append(value)
+                return returned_obj
 
     elif match_arg == ['file', 'write', 'load_dump']:
-        # This method should return a list that holds all top_level values.
+        # This method should return a generator that holds all top_level values.
         data_obj = benchmark_spec.get_data_object()
+        data_obj = list(data_obj)
+
         data_format = benchmark_spec.get_format()
         if _format.format_is_protobuf(data_format):
             # Refer to https://github.com/amazon-ion/ion-python/issues/326
             raise NotImplementedError("Benchmarking Protocol Buffer multiple top level object use case may not "
                                       "support yet.")
-        elif _format.format_is_cbor(data_format):
+        elif _format.format_is_cbor(data_format) \
+                or _format.format_is_json(data_format) \
+                or _format.format_is_ion(data_format):
             if custom_file:
-                def test_fn():
-                    with open(custom_file, 'ab') as f:
-                        loader_dumper.dump(data_obj, f)
+                if _format.format_is_bytes(data_format):
+                    def test_fn():
+                        with open(custom_file, 'ab') as f:
+                            loader_dumper.dump(data_obj, f)
+                else:
+                    def test_fn():
+                        with open(custom_file, 'at') as f:
+                            loader_dumper.dump(data_obj, f)
             else:
-                def test_fn():
-                    with tempfile.TemporaryFile(mode="ab") as f:
-                        loader_dumper.dump(data_obj, f)
-        elif _format.format_is_ion(data_format):
-            if custom_file:
-                def test_fn():
-                    with open(custom_file, 'ab') as f:
-                        loader_dumper.dump(data_obj, f, sequence_as_stream=True)
-            else:
-                def test_fn():
-                    with tempfile.TemporaryFile(mode="ab") as f:
-                        loader_dumper.dump(data_obj, f, sequence_as_stream=True)
-        else:
-            if custom_file:
-                def test_fn():
-                    with open(custom_file, 'at') as f:
-                        loader_dumper.dump(data_obj, f)
-            else:
-                def test_fn():
-                    with tempfile.TemporaryFile(mode="at") as f:
-                        loader_dumper.dump(data_obj, f)
+                if _format.format_is_bytes(data_format):
+                    def test_fn():
+                        with tempfile.TemporaryFile(mode="ab") as f:
+                            loader_dumper.dump(data_obj, f)
+                else:
+                    def test_fn():
+                        with tempfile.TemporaryFile(mode="at") as f:
+                            loader_dumper.dump(data_obj, f)
     else:
         raise NotImplementedError(f"Argument combination not supported: {match_arg}")
 

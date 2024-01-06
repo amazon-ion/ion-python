@@ -34,6 +34,12 @@ def format_is_binary(format_option):
            or (format_option == Format.PROTOBUF.value) or (format_option == Format.SD_PROTOBUF.value)
 
 
+def format_is_bytes(format_option):
+    return format_is_cbor(format_option) or (format_option == Format.ION_BINARY.value) \
+        or (format_option == Format.PROTOBUF.value) or (format_option == Format.SD_PROTOBUF.value) \
+        or (format_option == Format.ION_TEXT.value)
+
+
 def rewrite_file_to_format(file, format_option):
     temp_file_name_base = 'temp_' + os.path.splitext(os.path.basename(file))[0]
     if format_option == Format.ION_BINARY.value:
