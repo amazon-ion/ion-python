@@ -381,7 +381,7 @@ fail:
  *      tuple_as_sexp: Decides if a tuple is treated as sexp
  */
 
-static iERR write_key_value(hWRITER writer, PyObject* key, PyObject* val, PyObject* tuple_as_sexp) {
+static iERR write_struct_field(hWRITER writer, PyObject* key, PyObject* val, PyObject* tuple_as_sexp) {
     iERR err;
     if (PyUnicode_Check(key)) {
         ION_STRING field_name;
@@ -395,10 +395,7 @@ static iERR write_key_value(hWRITER writer, PyObject* key, PyObject* val, PyObje
     Py_LeaveRecursiveCall();
     IONCHECK(err);
 
-    return IERR_OK;
-
-    fail:
-    return err;
+    iRETURN;
 }
 
 /*
@@ -416,10 +413,10 @@ static iERR ionc_write_struct(hWRITER writer, PyObject* map, PyObject* tuple_as_
     Py_ssize_t pos = 0, i, list_len;
     if (PyDict_Check(map)) {
         while (PyDict_Next(map, &pos, &key, &val)) {
-            IONCHECK(write_key_value(writer, key, val, tuple_as_sexp));
+            IONCHECK(write_struct_field(writer, key, val, tuple_as_sexp));
         }
     } else {
-        store = PyObject_CallMethod(map, "get_store", NULL);
+        store = PyObject_CallMethod(map, "_get_store", NULL);
         if (store == NULL || !PyDict_Check(store)) {
             IONCHECK(IERR_INVALID_ARG);
             goto fail;
@@ -433,7 +430,7 @@ static iERR ionc_write_struct(hWRITER writer, PyObject* map, PyObject* tuple_as_
             list_len = PyList_Size(val_list);
             for (i = 0; i < list_len; i++) {
                 val = PyList_GetItem(val_list, i); // Borrowed reference
-                IONCHECK(write_key_value(writer, key, val, tuple_as_sexp));
+                IONCHECK(write_struct_field(writer, key, val, tuple_as_sexp));
             }
         }
         Py_DECREF(store);

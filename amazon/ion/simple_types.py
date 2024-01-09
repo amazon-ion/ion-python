@@ -744,7 +744,7 @@ class IonPyDict(MutableMapping):
         """
         return [i for i in self.iteritems()]
 
-    def get_store(self):
+    def _get_store(self):
         """
         Return the store of the IonPyDict.
         """
