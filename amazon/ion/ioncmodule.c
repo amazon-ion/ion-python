@@ -91,6 +91,7 @@ static PyObject* hour_str;
 static PyObject* minute_str;
 static PyObject* second_str;
 static PyObject* microsecond_str;
+static PyObject* store_str;
 
 typedef struct {
     PyObject *py_file; // a TextIOWrapper-like object
@@ -416,16 +417,14 @@ static iERR ionc_write_struct(hWRITER writer, PyObject* map, PyObject* tuple_as_
             IONCHECK(write_struct_field(writer, key, val, tuple_as_sexp));
         }
     } else {
-        store = PyObject_CallMethod(map, "_get_store", NULL);
+        store = PyObject_GetAttr(map, store_str);
         if (store == NULL || !PyDict_Check(store)) {
-            IONCHECK(IERR_INVALID_ARG);
-            goto fail;
+            _FAILWITHMSG(IERR_INVALID_ARG, "Failed to retrieve 'store': Object is either NULL or not a Python dictionary.");
         }
         pos = 0;
         while (PyDict_Next(store, &pos, &key, &val_list)) {
             if (!PyList_Check(val_list)) {
-                IONCHECK(IERR_INVALID_ARG);
-                goto fail;
+                _FAILWITHMSG(IERR_INVALID_ARG, "Invalid value type for the key: Expected a list, but found a different type.");
             }
             list_len = PyList_Size(val_list);
             for (i = 0; i < list_len; i++) {
@@ -436,10 +435,7 @@ static iERR ionc_write_struct(hWRITER writer, PyObject* map, PyObject* tuple_as_
         Py_DECREF(store);
     }
 
-    fail:
-    if (PyErr_Occurred()) {
-        IONCHECK(IERR_INVALID_ARG);
-    }
+fail:
     cRETURN;
 }
 
@@ -1704,6 +1700,7 @@ PyObject* ionc_init_module(void) {
     minute_str = PyUnicode_FromString("minute");
     second_str = PyUnicode_FromString("second");
     microsecond_str = PyUnicode_FromString("microsecond");
+    store_str = PyUnicode_FromString("_IonPyDict__store");
 
     return m;
 }
