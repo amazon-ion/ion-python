@@ -111,6 +111,7 @@ def _create_test_fun(benchmark_spec: BenchmarkSpec, return_obj=False, custom_fil
     elif match_arg == ['buffer', 'write', 'load_dump']:
         # This method returns a generator
         data_obj = benchmark_spec.get_data_object()
+        data_obj = list(data_obj)
 
         def test_fn():
             return loader_dumper.dumps(data_obj)

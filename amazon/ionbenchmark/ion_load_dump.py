@@ -24,8 +24,8 @@ class IonLoadDump:
         ion.c_ext = self._c_ext
         return ion.loads(s, single_value=self._single_value)
 
-    @classmethod
     def load(self, fp):
+        ion.c_ext = self._c_ext
         it = ion.load(fp, parse_eagerly=False, single_value=False)
         while True:
             try:
