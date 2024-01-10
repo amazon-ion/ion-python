@@ -91,6 +91,7 @@ static PyObject* hour_str;
 static PyObject* minute_str;
 static PyObject* second_str;
 static PyObject* microsecond_str;
+static PyObject* store_str;
 
 typedef struct {
     PyObject *py_file; // a TextIOWrapper-like object
@@ -372,6 +373,31 @@ fail:
     Py_DECREF(sequence);
     cRETURN;
 }
+/*
+ * Process and write the key-value pair.
+ *  *  Args:
+ *      writer:  An ion writer
+ *      key: The key of IonStruct item
+ *      val: The value of IonStruct item
+ *      tuple_as_sexp: Decides if a tuple is treated as sexp
+ */
+
+static iERR write_struct_field(hWRITER writer, PyObject* key, PyObject* val, PyObject* tuple_as_sexp) {
+    iERR err;
+    if (PyUnicode_Check(key)) {
+        ION_STRING field_name;
+        ion_string_from_py(key, &field_name);
+        IONCHECK(ion_writer_write_field_name(writer, &field_name));
+    } else if (key == Py_None) {
+        IONCHECK(_ion_writer_write_field_sid_helper(writer, 0));
+    }
+    IONCHECK(Py_EnterRecursiveCall(" while writing an Ion struct"));
+    err = ionc_write_value(writer, val, tuple_as_sexp);
+    Py_LeaveRecursiveCall();
+    IONCHECK(err);
+
+    iRETURN;
+}
 
 /*
  *  Writes a struct
@@ -384,48 +410,32 @@ fail:
  */
 static iERR ionc_write_struct(hWRITER writer, PyObject* map, PyObject* tuple_as_sexp) {
     iENTER;
-    PyObject * list = PyMapping_Items(map);
-    PyObject * seq = PySequence_Fast(list, "expected a sequence within the map.");
-    PyObject * key = NULL, *val = NULL, *child_obj = NULL;
-    Py_ssize_t len = PySequence_Size(seq);
-    Py_ssize_t i;
-
-    for (i = 0; i < len; i++) {
-        child_obj = PySequence_Fast_GET_ITEM(seq, i);
-        key = PyTuple_GetItem(child_obj, 0);
-        val = PyTuple_GetItem(child_obj, 1);
-        Py_INCREF(child_obj);
-        Py_INCREF(key);
-        Py_INCREF(val);
-
-        if (PyUnicode_Check(key)) {
-            ION_STRING field_name;
-            ion_string_from_py(key, &field_name);
-            IONCHECK(ion_writer_write_field_name(writer, &field_name));
+    PyObject *store = NULL, *key = NULL, *val_list = NULL, *val = NULL;
+    Py_ssize_t pos = 0, i, list_len;
+    if (PyDict_Check(map)) {
+        while (PyDict_Next(map, &pos, &key, &val)) {
+            IONCHECK(write_struct_field(writer, key, val, tuple_as_sexp));
         }
-        else if (key == Py_None) {
-            // if field_name is None, write symbol $0 instead.
-            IONCHECK(_ion_writer_write_field_sid_helper(writer, 0));
+    } else {
+        store = PyObject_GetAttr(map, store_str);
+        if (store == NULL || !PyDict_Check(store)) {
+            _FAILWITHMSG(IERR_INVALID_ARG, "Failed to retrieve 'store': Object is either NULL or not a Python dictionary.");
         }
-
-        IONCHECK(Py_EnterRecursiveCall(" while writing an Ion struct"));
-        err = ionc_write_value(writer, val, tuple_as_sexp);
-        Py_LeaveRecursiveCall();
-        IONCHECK(err);
-
-        Py_DECREF(child_obj);
-        Py_DECREF(key);
-        Py_DECREF(val);
-        child_obj = NULL;
-        key = NULL;
-        val = NULL;
+        pos = 0;
+        while (PyDict_Next(store, &pos, &key, &val_list)) {
+            if (!PyList_Check(val_list)) {
+                _FAILWITHMSG(IERR_INVALID_ARG, "Invalid value type for the key: Expected a list, but found a different type.");
+            }
+            list_len = PyList_Size(val_list);
+            for (i = 0; i < list_len; i++) {
+                val = PyList_GetItem(val_list, i); // Borrowed reference
+                IONCHECK(write_struct_field(writer, key, val, tuple_as_sexp));
+            }
+        }
+        Py_DECREF(store);
     }
-    Py_XDECREF(list);
-    Py_XDECREF(seq);
+
 fail:
-    Py_XDECREF(child_obj);
-    Py_XDECREF(key);
-    Py_XDECREF(val);
     cRETURN;
 }
 
@@ -1690,6 +1700,7 @@ PyObject* ionc_init_module(void) {
     minute_str = PyUnicode_FromString("minute");
     second_str = PyUnicode_FromString("second");
     microsecond_str = PyUnicode_FromString("microsecond");
+    store_str = PyUnicode_FromString("_IonPyDict__store");
 
     return m;
 }
