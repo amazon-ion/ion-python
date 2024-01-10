@@ -13,28 +13,26 @@ def _file_is_ion_text(file):
 
 
 def format_is_ion(format_option):
-    return (format_option == Format.ION_BINARY.value) or (format_option == Format.ION_TEXT.value)
+    return format_option in (Format.ION_BINARY, Format.ION_TEXT)
 
 
 def format_is_json(format_option):
-    return (format_option == Format.JSON.value) or (format_option == Format.SIMPLEJSON.value) \
-        or (format_option == Format.UJSON.value) or (format_option == Format.RAPIDJSON.value)
+    return format_option in (Format.JSON, Format.SIMPLEJSON, Format.UJSON, Format.RAPIDJSON)
 
 
 def format_is_cbor(format_option):
-    return (format_option == Format.CBOR.value) or (format_option == Format.CBOR2.value)
+    return format_option in (Format.CBOR, Format.CBOR2)
 
 
 def format_is_binary(format_option):
-    return format_is_cbor(format_option) or (format_option == Format.ION_BINARY.value) \
-           or (format_option == Format.PROTOBUF.value) or (format_option == Format.SD_PROTOBUF.value)
+    return format_option in (Format.ION_BINARY, Format.PROTOBUF, Format.SD_PROTOBUF, Format.CBOR, Format.CBOR2)
 
 
 def rewrite_file_to_format(file, format_option):
     temp_file_name_base = 'temp_' + os.path.splitext(os.path.basename(file))[0]
-    if format_option == Format.ION_BINARY.value:
+    if format_option is Format.ION_BINARY:
         temp_file_name_suffix = '.10n'
-    elif format_option == Format.ION_TEXT.value:
+    elif format_option is Format.ION_TEXT:
         temp_file_name_suffix = '.ion'
     else:
         temp_file_name_suffix = ''
@@ -43,18 +41,19 @@ def rewrite_file_to_format(file, format_option):
     if os.path.exists(temp_file_name):
         os.remove(temp_file_name)
 
+    # todo fix format_is_ checks to identity compared to enum constant
     if format_is_ion(format_option):
         # Write data if a conversion is required
-        if (format_option == Format.ION_BINARY.value and _file_is_ion_text(file)) \
-                or (format_option == Format.ION_TEXT.value and _file_is_ion_binary(file)):
+        if (format_option is Format.ION_BINARY and _file_is_ion_text(file)) \
+                or (format_option is Format.ION_TEXT and _file_is_ion_binary(file)):
             # Load data
             with open(file, 'br') as fp:
                 obj = simpleion.load(fp, single_value=False)
             with open(temp_file_name, 'bw') as fp:
-                if format_option == Format.ION_BINARY.value:
-                    simpleion.dump(obj, fp, binary=True)
+                if format_option is Format.ION_BINARY:
+                    simpleion.dump(obj, fp, binary=True, sequence_as_stream=True)
                 else:
-                    simpleion.dump(obj, fp, binary=False)
+                    simpleion.dump(obj, fp, binary=False, sequence_as_stream=True)
         else:
             shutil.copy(file, temp_file_name)
     else:
@@ -75,3 +74,10 @@ class Format(Enum):
     CBOR2 = 'cbor2'
     PROTOBUF = 'protobuf'
     SD_PROTOBUF = 'self_describing_protobuf'
+
+    @staticmethod
+    def by_value(value):
+        for e in Format:
+            if e.value == value:
+                return e
+        raise ValueError(f"No enum constant with value {value}")

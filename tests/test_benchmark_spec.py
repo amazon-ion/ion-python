@@ -3,6 +3,7 @@ from pathlib import Path
 
 from amazon.ion.simpleion import IonPyValueModel
 from amazon.ion.symbols import SymbolToken
+from amazon.ionbenchmark.Format import Format
 from amazon.ionbenchmark.benchmark_spec import BenchmarkSpec
 
 
@@ -21,7 +22,7 @@ def test_get_input_file_size():
 
 
 def test_get_format():
-    assert _minimal_spec.get_format() == 'ion_text'
+    assert _minimal_spec.get_format() is Format.ION_TEXT
 
 
 def test_get_command():
