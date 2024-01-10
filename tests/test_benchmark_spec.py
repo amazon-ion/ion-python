@@ -9,6 +9,8 @@ from amazon.ion import simpleion
 from amazon.ion.equivalence import ion_equals
 from amazon.ionbenchmark.Format import format_is_binary
 from amazon.ionbenchmark.benchmark_runner import _create_test_fun
+from amazon.ion.simpleion import IonPyValueModel
+from amazon.ion.symbols import SymbolToken
 from amazon.ionbenchmark.benchmark_spec import BenchmarkSpec
 from tests import parametrize
 
@@ -174,3 +176,13 @@ def test_defaults_and_overrides_applied_in_correct_order():
     assert spec['b'] == 20
     # From user override
     assert spec['c'] == 3
+
+
+def test_model_flags():
+    spec = BenchmarkSpec({**_minimal_params})
+    ion_loader = spec.get_loader_dumper()
+    assert ion_loader.value_model is IonPyValueModel.ION_PY
+
+    spec = BenchmarkSpec({**_minimal_params, 'model_flags': ["MAY_BE_BARE", SymbolToken("SYMBOL_AS_TEXT", None, None)]})
+    ion_loader = spec.get_loader_dumper()
+    assert ion_loader.value_model is IonPyValueModel.MAY_BE_BARE | IonPyValueModel.SYMBOL_AS_TEXT

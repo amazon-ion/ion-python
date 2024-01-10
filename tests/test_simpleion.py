@@ -30,10 +30,10 @@ from amazon.ion.symbols import SymbolToken, SYSTEM_SYMBOL_TABLE
 from amazon.ion.writer_binary import _IVM
 from amazon.ion.core import IonType, IonEvent, IonEventType, OffsetTZInfo, Multimap, TimestampPrecision, Timestamp
 from amazon.ion.simple_types import IonPyDict, IonPyText, IonPyList, IonPyNull, IonPyBool, IonPyInt, IonPyFloat, \
-    IonPyDecimal, IonPyTimestamp, IonPyBytes, IonPySymbol
+    IonPyDecimal, IonPyTimestamp, IonPyBytes, IonPySymbol, IonPyStdDict
 from amazon.ion.equivalence import ion_equals, obj_has_ion_type_and_annotation
 from amazon.ion.simpleion import dump, dumps, load, loads, _ion_type, _FROM_ION_TYPE, _FROM_TYPE_TUPLE_AS_SEXP, \
-    _FROM_TYPE
+    _FROM_TYPE, IonPyValueModel
 from amazon.ion.writer_binary_raw import _serialize_symbol, _write_length
 from tests.writer_util import VARUINT_END_BYTE, ION_ENCODED_INT_ZERO, SIMPLE_SCALARS_MAP_BINARY, SIMPLE_SCALARS_MAP_TEXT
 from tests import parametrize
@@ -718,7 +718,7 @@ def test_loads_unicode_utf8_conversion():
     ("1.2", Decimal, Decimal("1.2")),
     ("2020-08-01T01:05:00-00:00", Timestamp, Timestamp(2020, 8, 1, 1, 5, 0, precision=TimestampPrecision.SECOND)),
     ('"bar"', str, "bar"),
-    ("bar", IonPySymbol, IonPySymbol("bar", None, None)),
+    ("bar", SymbolToken, SymbolToken("bar", None, None)),
     ('{{ "foo" }}', IonPyBytes, lambda x: x.ion_type == IonType.CLOB),
     ("[]", list, []),
     # regression test for sexp suppressing bare_values for children
@@ -732,13 +732,78 @@ def test_bare_values(params):
 
     ion_text, expected_type, expectation = params
 
-    value = simpleion.load_extension(StringIO(ion_text), emit_bare_values=True)
+    value = simpleion.load_extension(StringIO(ion_text), value_model=IonPyValueModel.MAY_BE_BARE)
 
-    assert type(value) == expected_type
+    assert type(value) is expected_type
     if callable(expectation):
         expectation(value)
     else:
         assert ion_equals(value, expectation)
+
+
+@parametrize(
+    ("foo", IonPyValueModel.ION_PY, IonPySymbol),
+    ("foo", IonPyValueModel.MAY_BE_BARE, SymbolToken),
+    ("foo", IonPyValueModel.SYMBOL_AS_TEXT, IonPyText, IonType.SYMBOL),
+    ("foo", IonPyValueModel.MAY_BE_BARE | IonPyValueModel.SYMBOL_AS_TEXT, str),
+    ("foo::bar", IonPyValueModel.MAY_BE_BARE, IonPySymbol),
+    ("foo::bar", IonPyValueModel.MAY_BE_BARE | IonPyValueModel.SYMBOL_AS_TEXT, IonPyText, IonType.SYMBOL),
+
+    ("{}", IonPyValueModel.ION_PY, IonPyDict),
+    ("{}", IonPyValueModel.MAY_BE_BARE, IonPyDict),
+    ("{}", IonPyValueModel.MAY_BE_BARE | IonPyValueModel.STRUCT_AS_STD_DICT, dict),
+    ("{}", IonPyValueModel.STRUCT_AS_STD_DICT, IonPyStdDict),
+    ("baz::{}", IonPyValueModel.MAY_BE_BARE | IonPyValueModel.STRUCT_AS_STD_DICT, IonPyStdDict),
+
+    # bitwise flag handling belt and suspenders checks
+    ("foo", IonPyValueModel.STRUCT_AS_STD_DICT, IonPySymbol),
+    ("{}", IonPyValueModel.SYMBOL_AS_TEXT, IonPyDict),
+)
+def test_value_model_flags(params):
+    # This function only tests c extension
+    if not c_ext:
+        return
+
+    if len(params) == 3:
+        ion_text, value_model, expected_type = params
+        expected_ion_type = None
+    else:
+        ion_text, value_model, expected_type, expected_ion_type = params
+
+    value = simpleion.load_extension(StringIO(ion_text), value_model=value_model)
+    assert type(value) is expected_type
+    if expected_ion_type:
+        assert value.ion_type == expected_ion_type
+
+
+def test_stddict():
+    """Verifies that STRUCT_AS_STD_DICT is consistent with json in keeping
+    only the last of a duplicated field.
+    """
+
+    # This function only tests c extension
+    if not c_ext:
+        return
+
+    ion_text = '{ foo: "bar", foo: "baz" }'
+
+    ionpyvalue = simpleion.load_extension(StringIO(ion_text), value_model=IonPyValueModel.STRUCT_AS_STD_DICT)
+    barevalue = simpleion.load_extension(StringIO(ion_text), value_model=IonPyValueModel.STRUCT_AS_STD_DICT | IonPyValueModel.MAY_BE_BARE)
+
+    assert ionpyvalue["foo"] == barevalue["foo"] == "baz"
+
+
+def test_undefined_symbol_text_as_text():
+    # This function only tests c extension
+    if not c_ext:
+        return
+
+    ion_text = """
+    $ion_symbol_table::{ symbols:[ null ] }
+    $10
+    """
+    with raises(IonException, match="Cannot emit symbol with undefined text"):
+        simpleion.load_extension(StringIO(ion_text), value_model=IonPyValueModel.SYMBOL_AS_TEXT)
 
 
 # See issue https://github.com/amazon-ion/ion-python/issues/232

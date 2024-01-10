@@ -1,16 +1,18 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 import os
+from functools import reduce
 from os import path
 from pathlib import Path
 
 import amazon.ionbenchmark.ion_load_dump as _ion_load_dump
+from amazon.ion.simpleion import IonPyValueModel
 
-from amazon.ion.simple_types import IonPySymbol
 from amazon.ionbenchmark.Format import format_is_ion, format_is_json, format_is_cbor, format_is_protobuf, \
     format_is_bytes
 import amazon.ionbenchmark.cbor_load_dump as _cbor_load_dump
 import amazon.ionbenchmark.json_load_dump as _json_load_dump
+from amazon.ion.symbols import SymbolToken
 
 # Global defaults for CLI test specs
 _tool_defaults = {
@@ -101,7 +103,7 @@ class BenchmarkSpec(dict):
 
         # Convert symbols to strings
         for k in merged.keys():
-            if isinstance(merged[k], IonPySymbol):
+            if isinstance(merged[k], SymbolToken):
                 merged[k] = merged[k].text
 
         # If not an absolute path, make relative to the working directory.
@@ -202,12 +204,17 @@ class BenchmarkSpec(dict):
             self._loader_dumper = self._get_loader_dumper()
         return self._loader_dumper
 
+    def _get_model_flags(self):
+        """Get the optional Ion specific model_flags and map them to an IonPyValueModel"""
+        flags = [IonPyValueModel[f.text if isinstance(f, SymbolToken) else f] for f in self.get('model_flags', [])]
+        return reduce(lambda model, f: model | f, flags, IonPyValueModel.ION_PY)
+
     def _get_loader_dumper(self):
         data_format = self.get_format()
         if data_format == 'ion_binary':
-            return _ion_load_dump.IonLoadDump(binary=True, c_ext=self['py_c_extension'])
+            return _ion_load_dump.IonLoadDump(binary=True, c_ext=self['py_c_extension'], value_model=self._get_model_flags())
         elif data_format == 'ion_text':
-            return _ion_load_dump.IonLoadDump(binary=False, c_ext=self['py_c_extension'])
+            return _ion_load_dump.IonLoadDump(binary=False, c_ext=self['py_c_extension'], value_model=self._get_model_flags())
         elif data_format == 'json':
             return _json_load_dump.JsonLoadDump()
         elif data_format == 'ujson':
