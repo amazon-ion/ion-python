@@ -9,6 +9,7 @@ import amazon.ionbenchmark.ion_load_dump as _ion_load_dump
 from amazon.ion.simpleion import IonPyValueModel
 
 from amazon.ion.symbols import SymbolToken
+from amazon.ionbenchmark.Format import Format
 
 # Global defaults for CLI test specs
 _tool_defaults = {
@@ -115,7 +116,7 @@ class BenchmarkSpec(dict):
                 raise ValueError(f"Missing required parameter '{k}'")
 
         if 'name' not in self:
-            self['name'] = f'({self.get_format()},{self.derive_operation_name()},{path.basename(self.get_input_file())})'
+            self['name'] = f'({self.get_format().value},{self.derive_operation_name()},{path.basename(self.get_input_file())})'
 
     def __missing__(self, key):
         # Instead of raising a KeyError like a usual dict, just return None.
@@ -139,7 +140,7 @@ class BenchmarkSpec(dict):
         return self["name"]
 
     def get_format(self):
-        return self["format"]
+        return Format.by_value(self["format"])
 
     def get_input_file(self):
         return self["input_file"]
@@ -200,33 +201,33 @@ class BenchmarkSpec(dict):
 
     def _get_loader_dumper(self):
         data_format = self.get_format()
-        if data_format == 'ion_binary':
+        if data_format is Format.ION_BINARY:
             return _ion_load_dump.IonLoadDump(binary=True, c_ext=self['py_c_extension'], value_model=self._get_model_flags())
-        elif data_format == 'ion_text':
+        elif data_format is Format.ION_TEXT:
             return _ion_load_dump.IonLoadDump(binary=False, c_ext=self['py_c_extension'], value_model=self._get_model_flags())
-        elif data_format == 'json':
+        elif data_format is Format.JSON:
             import json
             return json
-        elif data_format == 'ujson':
+        elif data_format is Format.UJSON:
             import ujson
             return ujson
-        elif data_format == 'simplejson':
+        elif data_format is Format.SIMPLEJSON:
             import simplejson
             return simplejson
-        elif data_format == 'rapidjson':
+        elif data_format is Format.RAPIDJSON:
             import rapidjson
             return rapidjson
-        elif data_format == 'cbor':
+        elif data_format is Format.CBOR:
             import cbor
             return cbor
-        elif data_format == 'cbor2':
+        elif data_format is Format.CBOR2:
             import cbor2
             return cbor2
-        elif data_format == 'self_describing_protobuf':
+        elif data_format is Format.SD_PROTOBUF:
             from self_describing_proto import SelfDescribingProtoSerde
             # TODO: Consider making the cache option configurable from the spec file
             return SelfDescribingProtoSerde(cache_type_info=True)
-        elif data_format == 'protobuf':
+        elif data_format is Format.PROTOBUF:
             import proto
             type_name = self['protobuf_type']
             if not type_name:

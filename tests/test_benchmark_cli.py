@@ -118,7 +118,7 @@ def test_write_multi_duplicated_format(file=generate_test_path('integers.ion')):
 
 
 @parametrize(
-    *tuple((f.value for f in Format.Format if Format.format_is_json(f.value)))
+    *tuple((f.value for f in Format.Format if Format.format_is_json(f)))
 )
 def test_write_json_format(f):
     (error_code, _, _) = run_cli(['write', generate_test_path('json/object.json'), '--format', f'{f}'])
@@ -126,7 +126,7 @@ def test_write_json_format(f):
 
 
 @parametrize(
-    *tuple((f.value for f in Format.Format if Format.format_is_json(f.value)))
+    *tuple((f.value for f in Format.Format if Format.format_is_json(f)))
 )
 def test_read_json_format(f):
     (error_code, _, _) = run_cli(['read', generate_test_path('json/object.json'), '--format', f'{f}'])
@@ -134,7 +134,7 @@ def test_read_json_format(f):
 
 
 @parametrize(
-    *tuple((f.value for f in Format.Format if Format.format_is_cbor(f.value)))
+    *tuple((f.value for f in Format.Format if Format.format_is_cbor(f)))
 )
 def test_write_cbor_format(f):
     (error_code, _, _) = run_cli(['write', generate_test_path('cbor/sample'), '--format', f'{f}'])
@@ -167,7 +167,7 @@ def test_read_io_type(f):
     *tuple((Format.Format.ION_TEXT, Format.Format.ION_BINARY))
 )
 def test_format_is_ion(f):
-    assert format_is_ion(f.value) is True
+    assert format_is_ion(f) is True
 
 
 @parametrize(
@@ -178,7 +178,7 @@ def test_format_is_ion(f):
             ))
 )
 def test_format_is_json(f):
-    assert format_is_json(f.value) is True
+    assert format_is_json(f) is True
 
 
 @parametrize(
@@ -186,7 +186,7 @@ def test_format_is_json(f):
     Format.Format.CBOR2
 )
 def test_format_is_cbor(f):
-    assert format_is_cbor(f.value) is True
+    assert format_is_cbor(f) is True
 
 
 def assert_ion_string_equals(act, exp):
@@ -208,13 +208,28 @@ def test_compare_with_large_regression():
     assert error_code
 
 
-def test_format_conversion_ion_binary_to_ion_text():
-    rewrite_file_to_format(generate_test_path('integers.ion'), Format.Format.ION_BINARY.value)
-    assert os.path.exists('temp_integers.10n')
-    os.remove('temp_integers.10n')
+@parametrize(
+    Format.Format.ION_TEXT,
+    Format.Format.ION_BINARY)
+def test_ion_format_conversion(target_format):
 
+    if target_format is Format.Format.ION_BINARY:
+        source_name = 'integers.ion'
+        target_name = 'temp_integers.10n'
+    else:
+        source_name = 'integers.10n'
+        target_name = 'temp_integers.ion'
 
-def test_format_conversion_ion_text_to_ion_binary():
-    rewrite_file_to_format(generate_test_path('integers.10n'), Format.Format.ION_TEXT.value)
-    assert os.path.exists('temp_integers.ion')
-    os.remove('temp_integers.ion')
+    with open(generate_test_path(source_name), 'rb') as source_file:
+        source_values = simpleion.load(source_file, single_value=False)
+
+    rewrite_file_to_format(generate_test_path(source_name), target_format)
+
+    assert os.path.exists(target_name)
+    with open(target_name, 'rb') as target_file:
+        target_values = simpleion.load(target_file, single_value=False, parse_eagerly=True)
+        assert len(target_values) == len(source_values)
+        for (s, c) in zip(source_values, target_values):
+            assert s == c
+
+    os.remove(target_name)
