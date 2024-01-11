@@ -41,7 +41,6 @@ def rewrite_file_to_format(file, format_option):
     if os.path.exists(temp_file_name):
         os.remove(temp_file_name)
 
-    # todo fix format_is_ checks to identity compared to enum constant
     if format_is_ion(format_option):
         # Write data if a conversion is required
         if (format_option is Format.ION_BINARY and _file_is_ion_text(file)) \

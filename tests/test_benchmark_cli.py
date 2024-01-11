@@ -227,9 +227,7 @@ def test_ion_format_conversion(target_format):
 
     assert os.path.exists(target_name)
     with open(target_name, 'rb') as target_file:
-        # parse lazily then wrap iter in list to differentiate a single top-level value ion list from an
-        # ion stream that gets wrapped in a list by simpleion.load()
-        target_values = [v for v in simpleion.load(target_file, single_value=False, parse_eagerly=False)]
+        target_values = simpleion.load(target_file, single_value=False, parse_eagerly=True)
         assert len(target_values) == len(source_values)
         for (s, c) in zip(source_values, target_values):
             assert s == c
