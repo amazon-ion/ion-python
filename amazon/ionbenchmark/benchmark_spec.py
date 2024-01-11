@@ -192,8 +192,12 @@ class BenchmarkSpec(dict):
                 raise NotImplementedError("Benchmarking Protocol Buffer multiple top level object use case may not "
                                           "support yet.")
             else:
-                fp = open(read_file, 'br' if format_is_bytes(format_option) else 'r')
-                self._data_object = loader.load(fp)
+                rtn = []
+                with open(read_file, 'br' if format_is_bytes(format_option) else 'r') as fp:
+                    obj = loader.load(fp)
+                    for v in obj:
+                        rtn.append(v)
+                self._data_object = rtn
         return self._data_object
 
     def get_loader_dumper(self):
