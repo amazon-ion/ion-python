@@ -35,7 +35,7 @@ class IonLoadDump:
 
     def dumps(self, obj):
         ion.c_ext = self._c_ext
-        ion.dumps(obj, binary=self._binary)
+        return ion.dumps(obj, binary=self._binary)
 
     def dump(self, obj, fp):
         ion.c_ext = self._c_ext

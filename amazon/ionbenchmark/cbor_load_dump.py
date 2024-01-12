@@ -1,7 +1,7 @@
 import cbor2
 
 
-class CborLoadDump:
+class Cbor2LoadDump:
     def __init__(self):
         pass
 

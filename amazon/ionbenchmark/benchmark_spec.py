@@ -8,8 +8,7 @@ from pathlib import Path
 import amazon.ionbenchmark.ion_load_dump as _ion_load_dump
 from amazon.ion.simpleion import IonPyValueModel
 
-from amazon.ionbenchmark.Format import format_is_ion, format_is_json, format_is_cbor, format_is_protobuf, \
-    format_is_bytes
+from amazon.ionbenchmark.Format import format_is_protobuf, format_is_bytes
 import amazon.ionbenchmark.cbor_load_dump as _cbor_load_dump
 import amazon.ionbenchmark.json_load_dump as _json_load_dump
 from amazon.ion.symbols import SymbolToken
@@ -192,11 +191,8 @@ class BenchmarkSpec(dict):
                 raise NotImplementedError("Benchmarking Protocol Buffer multiple top level object use case may not "
                                           "support yet.")
             else:
-                rtn = []
                 with open(read_file, 'br' if format_is_bytes(format_option) else 'r') as fp:
-                    obj = loader.load(fp)
-                    for v in obj:
-                        rtn.append(v)
+                    rtn = [v for v in loader.load(fp)]
                 self._data_object = rtn
         return self._data_object
 
@@ -234,7 +230,7 @@ class BenchmarkSpec(dict):
             import cbor
             return cbor
         elif data_format == 'cbor2':
-            return _cbor_load_dump.CborLoadDump()
+            return _cbor_load_dump.Cbor2LoadDump()
         elif data_format == 'self_describing_protobuf':
             from self_describing_proto import SelfDescribingProtoSerde
             # TODO: Consider making the cache option configurable from the spec file

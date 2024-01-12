@@ -91,13 +91,13 @@ def run_benchmark(benchmark_spec: BenchmarkSpec):
 
 
 def _create_test_fun(benchmark_spec: BenchmarkSpec, return_obj=False, custom_file=False):
-    """
-    Create a benchmark function for the given `benchmark_spec`.
+    """Create a benchmark function for the given `benchmark_spec`.
 
-    :param return_obj: If the test_fun returns the load object for debugging. It only works for `io-type=file` and
-    `command=read`.
-    :param custom_file: If the test_fun dump to a specific destination file for debugging. It only
-    works for `io-type=file` and `command=write`.
+    Args:
+        return_obj (bool): If the test_fun returns the load object for debugging. It only works for `io-type=file` and
+            `command=read`.
+        custom_file (bool): If the test_fun dump to a specific destination file for debugging. It only
+            works for `io-type=file` and `command=write`.
     """
     loader_dumper = benchmark_spec.get_loader_dumper()
     match_arg = [benchmark_spec.get_io_type(), benchmark_spec.get_command(), benchmark_spec.get_api()]
@@ -109,7 +109,6 @@ def _create_test_fun(benchmark_spec: BenchmarkSpec, return_obj=False, custom_fil
             return loader_dumper.loads(buffer)
 
     elif match_arg == ['buffer', 'write', 'load_dump']:
-        # This method returns a list
         data_obj = benchmark_spec.get_data_object()
         data_obj = list(data_obj)
 
@@ -149,24 +148,17 @@ def _create_test_fun(benchmark_spec: BenchmarkSpec, return_obj=False, custom_fil
         elif _format.format_is_cbor(data_format) \
                 or _format.format_is_json(data_format) \
                 or _format.format_is_ion(data_format):
+            flags = 'ab' if _format.format_is_bytes(data_format) else 'at'
             if custom_file:
-                if _format.format_is_bytes(data_format):
-                    def test_fn():
-                        with open(custom_file, 'ab') as f:
-                            loader_dumper.dump(data_obj, f)
-                else:
-                    def test_fn():
-                        with open(custom_file, 'at') as f:
-                            loader_dumper.dump(data_obj, f)
+                def fopen():
+                    return open(custom_file, flags)
             else:
-                if _format.format_is_bytes(data_format):
-                    def test_fn():
-                        with tempfile.TemporaryFile(mode="ab") as f:
-                            loader_dumper.dump(data_obj, f)
-                else:
-                    def test_fn():
-                        with tempfile.TemporaryFile(mode="at") as f:
-                            loader_dumper.dump(data_obj, f)
+                def fopen():
+                    return tempfile.TemporaryFile(mode=flags)
+
+            def test_fn():
+                with fopen() as f:
+                    loader_dumper.dump(data_obj, f)
     else:
         raise NotImplementedError(f"Argument combination not supported: {match_arg}")
 
