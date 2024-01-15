@@ -25,9 +25,19 @@ def format_is_cbor(format_option):
     return (format_option == Format.CBOR.value) or (format_option == Format.CBOR2.value)
 
 
+def format_is_protobuf(format_option):
+    return (format_option == Format.SD_PROTOBUF.value) or (format_option == Format.PROTOBUF.value)
+
+
 def format_is_binary(format_option):
     return format_is_cbor(format_option) or (format_option == Format.ION_BINARY.value) \
            or (format_option == Format.PROTOBUF.value) or (format_option == Format.SD_PROTOBUF.value)
+
+
+def format_is_bytes(format_option):
+    return format_is_cbor(format_option) or (format_option == Format.ION_BINARY.value) \
+        or (format_option == Format.PROTOBUF.value) or (format_option == Format.SD_PROTOBUF.value) \
+        or (format_option == Format.ION_TEXT.value)
 
 
 def rewrite_file_to_format(file, format_option):

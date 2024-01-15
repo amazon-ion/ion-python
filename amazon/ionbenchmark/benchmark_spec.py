@@ -8,6 +8,9 @@ from pathlib import Path
 import amazon.ionbenchmark.ion_load_dump as _ion_load_dump
 from amazon.ion.simpleion import IonPyValueModel
 
+from amazon.ionbenchmark.Format import format_is_protobuf, format_is_bytes
+import amazon.ionbenchmark.cbor_load_dump as _cbor_load_dump
+import amazon.ionbenchmark.json_load_dump as _json_load_dump
 from amazon.ion.symbols import SymbolToken
 
 # Global defaults for CLI test specs
@@ -177,12 +180,20 @@ class BenchmarkSpec(dict):
 
     def get_data_object(self):
         """
-        Get the data object to be used for testing. Used for benchmarks that write data.
+        Get a generator that holds all data objects to be used for testing.
         """
         if not self._data_object:
             loader = self.get_loader_dumper()
-            with open(self.get_input_file(), "rb") as fp:
-                self._data_object = loader.load(fp)
+            format_option = self.get_format()
+            read_file = self.get_input_file()
+            if format_is_protobuf(format_option):
+                # Refer to https://github.com/amazon-ion/ion-python/issues/326
+                raise NotImplementedError("Benchmarking Protocol Buffer multiple top level object use case may not "
+                                          "support yet.")
+            else:
+                with open(read_file, 'br' if format_is_bytes(format_option) else 'r') as fp:
+                    rtn = [v for v in loader.load(fp)]
+                self._data_object = rtn
         return self._data_object
 
     def get_loader_dumper(self):
@@ -205,8 +216,7 @@ class BenchmarkSpec(dict):
         elif data_format == 'ion_text':
             return _ion_load_dump.IonLoadDump(binary=False, c_ext=self['py_c_extension'], value_model=self._get_model_flags())
         elif data_format == 'json':
-            import json
-            return json
+            return _json_load_dump.JsonLoadDump()
         elif data_format == 'ujson':
             import ujson
             return ujson
@@ -220,8 +230,7 @@ class BenchmarkSpec(dict):
             import cbor
             return cbor
         elif data_format == 'cbor2':
-            import cbor2
-            return cbor2
+            return _cbor_load_dump.Cbor2LoadDump()
         elif data_format == 'self_describing_protobuf':
             from self_describing_proto import SelfDescribingProtoSerde
             # TODO: Consider making the cache option configurable from the spec file

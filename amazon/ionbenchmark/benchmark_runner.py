@@ -84,19 +84,23 @@ def run_benchmark(benchmark_spec: BenchmarkSpec):
     raw_timings = timer.repeat(benchmark_spec.get_iterations(), batch_size)
 
     # Normalize the samples (i.e. remove the effect of the batch size) before returning the results
-    nanos_per_op = [t/batch_size for t in raw_timings]
+    nanos_per_op = [t / batch_size for t in raw_timings]
     ops_per_sec = [1000000000.0 / t for t in nanos_per_op]
 
     return BenchmarkResult(nanos_per_op, ops_per_sec, peak_memory_usage)
 
 
-def _create_test_fun(benchmark_spec: BenchmarkSpec):
-    """
-    Create a benchmark function for the given `benchmark_spec`.
+def _create_test_fun(benchmark_spec: BenchmarkSpec, return_obj=False, custom_file=False):
+    """Create a benchmark function for the given `benchmark_spec`.
+
+    Args:
+        return_obj (bool): If the test_fun returns the load object for debugging. It only works for `io-type=file` and
+            `command=read`.
+        custom_file (bool): If the test_fun dump to a specific destination file for debugging. It only
+            works for `io-type=file` and `command=write`.
     """
     loader_dumper = benchmark_spec.get_loader_dumper()
     match_arg = [benchmark_spec.get_io_type(), benchmark_spec.get_command(), benchmark_spec.get_api()]
-
     if match_arg == ['buffer', 'read', 'load_dump']:
         with open(benchmark_spec.get_input_file(), 'rb') as f:
             buffer = f.read()
@@ -106,29 +110,55 @@ def _create_test_fun(benchmark_spec: BenchmarkSpec):
 
     elif match_arg == ['buffer', 'write', 'load_dump']:
         data_obj = benchmark_spec.get_data_object()
+        data_obj = list(data_obj)
 
         def test_fn():
             return loader_dumper.dumps(data_obj)
 
     elif match_arg == ['file', 'read', 'load_dump']:
         data_file = benchmark_spec.get_input_file()
-
-        def test_fn():
-            with open(data_file, "rb") as f:
-                return loader_dumper.load(f)
-
-    elif match_arg == ['file', 'write', 'load_dump']:
-        data_obj = benchmark_spec.get_data_object()
-        data_format = benchmark_spec.get_format()
-        if _format.format_is_binary(data_format) or _format.format_is_ion(data_format):
+        format_option = benchmark_spec.get_format()
+        if _format.format_is_protobuf(format_option):
+            # Refer to https://github.com/amazon-ion/ion-python/issues/326
+            raise NotImplementedError("Benchmarking Protocol Buffer multiple top level object use case may not "
+                                      "support yet.")
+        elif not return_obj:
             def test_fn():
-                with tempfile.TemporaryFile(mode="wb") as f:
-                    return loader_dumper.dump(data_obj, f)
+                with open(data_file, 'br' if _format.format_is_bytes(format_option) else 'tr') as f:
+                    for v in loader_dumper.load(f):
+                        pass
         else:
             def test_fn():
-                with tempfile.TemporaryFile(mode="wt") as f:
-                    return loader_dumper.dump(data_obj, f)
+                returned_obj = []
+                with open(data_file, 'br' if _format.format_is_bytes(format_option) else 'tr') as f:
+                    for value in loader_dumper.load(f):
+                        returned_obj.append(value)
+                return returned_obj
 
+    elif match_arg == ['file', 'write', 'load_dump']:
+        # This method returns a list that holds all top_level values.
+        data_obj = benchmark_spec.get_data_object()
+        data_obj = list(data_obj)
+
+        data_format = benchmark_spec.get_format()
+        if _format.format_is_protobuf(data_format):
+            # Refer to https://github.com/amazon-ion/ion-python/issues/326
+            raise NotImplementedError("Benchmarking Protocol Buffer multiple top level object use case may not "
+                                      "support yet.")
+        elif _format.format_is_cbor(data_format) \
+                or _format.format_is_json(data_format) \
+                or _format.format_is_ion(data_format):
+            flags = 'ab' if _format.format_is_bytes(data_format) else 'at'
+            if custom_file:
+                def fopen():
+                    return open(custom_file, flags)
+            else:
+                def fopen():
+                    return tempfile.TemporaryFile(mode=flags)
+
+            def test_fn():
+                with fopen() as f:
+                    loader_dumper.dump(data_obj, f)
     else:
         raise NotImplementedError(f"Argument combination not supported: {match_arg}")
 

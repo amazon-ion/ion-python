@@ -26,7 +26,12 @@ class IonLoadDump:
 
     def load(self, fp):
         ion.c_ext = self._c_ext
-        return ion.load(fp, single_value=self._single_value, value_model=self.value_model)
+        it = ion.load(fp, parse_eagerly=False, single_value=False, value_model=self.value_model)
+        while True:
+            try:
+                yield next(it)
+            except StopIteration:
+                return
 
     def dumps(self, obj):
         ion.c_ext = self._c_ext
@@ -34,4 +39,4 @@ class IonLoadDump:
 
     def dump(self, obj, fp):
         ion.c_ext = self._c_ext
-        return ion.dump(obj, fp, binary=self._binary)
+        ion.dump(obj, fp, binary=self._binary, sequence_as_stream=True)
