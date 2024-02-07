@@ -31,7 +31,6 @@ static char _err_msg[ERR_MSG_MAX_LEN];
 #define IONC_READ_ARGS_FORMAT "ObO"
 
 static PyObject* IONC_STREAM_BYTES_READ_SIZE;
-static PyObject* _math_module;
 
 static PyObject* _decimal_module;
 static PyObject* _decimal_constructor;
@@ -73,7 +72,6 @@ static PyObject* _ion_symbols_module;
 static PyObject* _py_symboltoken_constructor;
 static PyObject* _exception_module;
 static PyObject* _ion_exception_cls;
-static PyObject* _add_item;
 static decContext dec_context;
 static PyObject* ion_type_str;
 static PyObject* ion_annotations_str;
@@ -84,13 +82,6 @@ static PyObject* fractional_seconds_str;
 static PyObject* exponent_str;
 static PyObject* digits_str;
 static PyObject* fractional_precision_str;
-static PyObject* year_str;
-static PyObject* month_str;
-static PyObject* day_str;
-static PyObject* hour_str;
-static PyObject* minute_str;
-static PyObject* second_str;
-static PyObject* microsecond_str;
 static PyObject* store_str;
 
 typedef struct {
@@ -1598,9 +1589,8 @@ PyObject* ionc_init_module(void) {
     m = PyModule_Create(&moduledef);
 
     IONC_STREAM_BYTES_READ_SIZE = PyLong_FromLong(IONC_STREAM_READ_BUFFER_SIZE/4);
-    // TODO is there a destructor for modules? These should be decreffed there
-     _math_module               = PyImport_ImportModule("math");
 
+    // TODO is there a destructor for modules? these should be decreffed there
     _decimal_module             = PyImport_ImportModule("decimal");
     _decimal_constructor        = PyObject_GetAttrString(_decimal_module, "Decimal");
     _simpletypes_module         = PyImport_ImportModule("amazon.ion.simple_types");
@@ -1692,13 +1682,6 @@ PyObject* ionc_init_module(void) {
     exponent_str = PyUnicode_FromString("exponent");
     digits_str = PyUnicode_FromString("digits");
     fractional_precision_str = PyUnicode_FromString("fractional_precision");
-    year_str = PyUnicode_FromString("year");
-    month_str = PyUnicode_FromString("month");
-    day_str = PyUnicode_FromString("day");
-    hour_str = PyUnicode_FromString("hour");
-    minute_str = PyUnicode_FromString("minute");
-    second_str = PyUnicode_FromString("second");
-    microsecond_str = PyUnicode_FromString("microsecond");
     store_str = PyUnicode_FromString("_IonPyDict__store");
 
     return m;
