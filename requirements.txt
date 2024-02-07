@@ -17,7 +17,6 @@ setuptools==65.5.1
 docopt==0.6.2
 tabulate==0.9.0
 simplejson~=3.18.3
-pip~=23.0
 six~=1.16.0
 cbor~=1.0.0
 cbor2~=5.4.6
