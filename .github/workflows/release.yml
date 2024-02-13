@@ -93,6 +93,7 @@ jobs:
       fail-fast: true
       matrix:
         include:
+          # See https://cibuildwheel.readthedocs.io/en/stable/options/#build-skip for more details.
           - os: macos-latest
             arch: x86_64
             cibw_arch: "x86_64"
@@ -100,9 +101,9 @@ jobs:
             arch: arm64
             cibw_arch: "arm64"
           - os: windows-latest
-            cibw_arch: "auto"
+            cibw_arch: "AMD64"
           - os: ubuntu-latest
-            cibw_arch: "auto aarch64"
+            cibw_arch: "i686 x86_64 aarch64"
 
     steps:
       - uses: actions/checkout@v3
@@ -124,7 +125,7 @@ jobs:
       - name: Build wheels
         run: python3 -m cibuildwheel --output-dir wheelhouse
         env:
-          CIBW_SKIP: "pp* *-win32 cp36-* cp37-* cp38-*"
+          CIBW_BUILD: "cp39-* cp310-* cp311-*"
           CIBW_ARCHS: ${{ matrix.cibw_arch }}
 
       - name: Upload wheels to Github
