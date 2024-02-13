@@ -920,6 +920,7 @@ static iERR ionc_read_timestamp(hREADER hreader, PyObject** timestamp_out) {
         IONCHECK(ion_timestamp_get_local_offset(&timestamp_value, &off_minutes));
         PyObject *offset = PyDelta_FromDSU(0, off_minutes * 60, 0);
         tzinfo = PyTimeZone_FromOffset(offset);
+        Py_DECREF(offset);
     }
 
     switch (precision) {
