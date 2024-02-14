@@ -125,7 +125,7 @@ jobs:
       - name: Build wheels
         run: python3 -m cibuildwheel --output-dir wheelhouse
         env:
-          CIBW_BUILD: "cp39-* cp310-* cp311-*"
+          CIBW_BUILD: "cp39-* cp310-* cp311-*" # Only build wheels for c-python 3.9 to 3.11
           CIBW_ARCHS: ${{ matrix.cibw_arch }}
 
       - name: Upload wheels to Github
