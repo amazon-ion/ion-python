@@ -710,6 +710,33 @@ def test_loads_unicode_utf8_conversion():
 
 
 @parametrize(
+    ("2024-03-20T", Timestamp(2024, 3,20, precision=TimestampPrecision.DAY)),
+    ("2024-03-20T14:22:22.123-00:00",
+     Timestamp(2024, 3, 20, 14, 22, 22, 123000,
+               precision=TimestampPrecision.SECOND, fractional_precision=3, fractional_seconds=None)),
+    ("2024-03-20T14:22:22.123456-00:00",
+     Timestamp(2024, 3, 20, 14, 22, 22, 123456,
+               precision=TimestampPrecision.SECOND, fractional_precision=6, fractional_seconds=None)),
+    ("2024-03-20T14:22:22.123456789-00:00",
+     Timestamp(2024, 3,20, 14, 22, 22, None,
+               precision=TimestampPrecision.SECOND, fractional_precision=None, fractional_seconds=Decimal(".123456789"))),
+    # the ionc module creates non-named offset tzinfos without using the OffsetTZInfo class.
+    # this proves they are equivalent.
+    ("2024-03-20T14:22:22+14:30",
+     Timestamp(2024, 3, 20, 14, 22, 22, 0, OffsetTZInfo(timedelta(hours=14, minutes=30)),
+               precision=TimestampPrecision.SECOND, fractional_precision=0, fractional_seconds=None)),
+)
+def test_ionc_timestamp_read(params):
+    if not c_ext:
+        return
+
+    text, expected = params
+
+    value = simpleion.load_extension(StringIO(text), value_model=IonPyValueModel.MAY_BE_BARE)
+    assert ion_equals(value, expected)
+
+
+@parametrize(
     ("31", int, 31),
     ("true", bool, True),
     ("null", type(None), None),

@@ -34,7 +34,9 @@ static PyObject* IONC_STREAM_BYTES_READ_SIZE;
 
 static PyObject* _decimal_module;
 static PyObject* _decimal_constructor;
-static PyObject* _py_timestamp_constructor;
+static PyObject* _decimal_zero;
+static PyObject* _py_timestamp_cls;
+static PyObject* _py_timestamp__new__;
 static PyObject* _simpletypes_module;
 static PyObject* _ionpynull_cls;
 static PyObject* _ionpybool_cls;
@@ -900,122 +902,89 @@ static PyObject* ionc_get_timestamp_precision(int precision) {
 static iERR ionc_read_timestamp(hREADER hreader, PyObject** timestamp_out) {
     iENTER;
     ION_TIMESTAMP timestamp_value;
-    PyObject* timestamp_args = NULL;
+    PyObject* py_fractional_seconds = _decimal_zero;
+    PyObject* tzinfo = Py_None;
+
     IONCHECK(ion_reader_read_timestamp(hreader, &timestamp_value));
-    int precision;
+    int year, month = 1, day = 1, hours = 0, minutes = 0, seconds = 0, precision, fractional_precision = 0;
     IONCHECK(ion_timestamp_get_precision(&timestamp_value, &precision));
     if (precision < ION_TS_YEAR) {
         _FAILWITHMSG(IERR_INVALID_TIMESTAMP, "Found a timestamp with less than year precision.");
     }
-    timestamp_args = PyDict_New();
     PyObject* py_precision = ionc_get_timestamp_precision(precision);
-    PyDict_SetItemString(timestamp_args, "precision", py_precision);
+
     BOOL has_local_offset;
     IONCHECK(ion_timestamp_has_local_offset(&timestamp_value, &has_local_offset));
     if (has_local_offset) {
-        int off_minutes, off_hours;
+        int off_minutes;
         IONCHECK(ion_timestamp_get_local_offset(&timestamp_value, &off_minutes));
-        off_hours = off_minutes / 60;
-        off_minutes = off_minutes % 60;
-        PyObject* py_off_hours = PyLong_FromLong(off_hours);
-        PyObject* py_off_minutes = PyLong_FromLong(off_minutes);
-        // Bounds checking is performed in python.
-        PyDict_SetItemString(timestamp_args, "off_hours", py_off_hours);
-        PyDict_SetItemString(timestamp_args, "off_minutes", py_off_minutes);
-        Py_DECREF(py_off_hours);
-        Py_DECREF(py_off_minutes);
+        PyObject *offset = PyDelta_FromDSU(0, off_minutes * 60, 0);
+        tzinfo = PyTimeZone_FromOffset(offset);
+        Py_DECREF(offset);
     }
 
     switch (precision) {
         case ION_TS_FRAC:
         {
-
             decQuad fraction = timestamp_value.fraction;
             decQuad tmp;
 
-            int32_t fractional_precision = decQuadGetExponent(&fraction);
+            fractional_precision = decQuadGetExponent(&fraction);
             if (fractional_precision > 0) {
                 _FAILWITHMSG(IERR_INVALID_TIMESTAMP, "Timestamp fractional precision cannot be a positive number.");
             }
             fractional_precision = fractional_precision * -1;
 
-            if (fractional_precision > MICROSECOND_DIGITS) {
-                decQuadScaleB(&fraction, &fraction, decQuadFromInt32(&tmp, fractional_precision), &dec_context);
-                int dec = decQuadToInt32Exact(&fraction, &dec_context, DEC_ROUND_DOWN);
-                if (fractional_precision > MAX_TIMESTAMP_PRECISION) fractional_precision = MAX_TIMESTAMP_PRECISION;
-                if (decContextTestStatus(&dec_context, DEC_Inexact)) {
-                    // This means the fractional component is not [0, 1) or has more than microsecond precision.
-                    decContextClearStatus(&dec_context, DEC_Inexact);
-                }
-
-                char dec_num[DECQUAD_String];
-                decQuad d;
-                decQuadFromInt32(&d, dec);
-                decQuadScaleB(&d, &d, decQuadFromInt32(&tmp, -fractional_precision), &dec_context);
-                decQuadToString(&d, dec_num);
-
-                PyObject* py_dec_str = PyUnicode_FromString(dec_num);
-                PyObject* py_fractional_seconds = PyObject_CallFunctionObjArgs(_decimal_constructor, py_dec_str, NULL);
-                PyDict_SetItemString(timestamp_args, "fractional_seconds", py_fractional_seconds);
-                Py_DECREF(py_fractional_seconds);
-                Py_DECREF(py_dec_str);
-            } else {
-                decQuadScaleB(&fraction, &fraction, decQuadFromInt32(&tmp, MICROSECOND_DIGITS), &dec_context);
-                int32_t microsecond = decQuadToInt32Exact(&fraction, &dec_context, DEC_ROUND_DOWN);
-
-                if (decContextTestStatus(&dec_context, DEC_Inexact)) {
-                    // This means the fractional component is not [0, 1) or has more than microsecond precision.
-                    decContextClearStatus(&dec_context, DEC_Inexact);
-                }
-
-                PyObject* py_microsecond = PyLong_FromLong(microsecond);
-                PyObject* py_fractional_precision = PyLong_FromLong(fractional_precision);
-                PyDict_SetItemString(timestamp_args, "microsecond", py_microsecond);
-                PyDict_SetItemString(timestamp_args, "fractional_precision", py_fractional_precision);
-                Py_DECREF(py_microsecond);
-                Py_DECREF(py_fractional_precision);
+            decQuadScaleB(&fraction, &fraction, decQuadFromInt32(&tmp, fractional_precision), &dec_context);
+            int dec = decQuadToInt32Exact(&fraction, &dec_context, DEC_ROUND_DOWN);
+            if (fractional_precision > MAX_TIMESTAMP_PRECISION) fractional_precision = MAX_TIMESTAMP_PRECISION;
+            if (decContextTestStatus(&dec_context, DEC_Inexact)) {
+                // This means the fractional component is not [0, 1) or has more than microsecond precision.
+                decContextClearStatus(&dec_context, DEC_Inexact);
             }
+
+            char dec_num[DECQUAD_String];
+            decQuad d;
+            decQuadFromInt32(&d, dec);
+            decQuadScaleB(&d, &d, decQuadFromInt32(&tmp, -fractional_precision), &dec_context);
+            decQuadToString(&d, dec_num);
+
+            if (fractional_precision > MICROSECOND_DIGITS) fractional_precision = MICROSECOND_DIGITS;
+            py_fractional_seconds = PyObject_CallFunction(_decimal_constructor, "s", dec_num, NULL);
         }
         case ION_TS_SEC:
         {
-            PyObject* temp_seconds = PyLong_FromLong(timestamp_value.seconds);
-            PyDict_SetItemString(timestamp_args, "second", temp_seconds);
-            Py_DECREF(temp_seconds);
+            seconds = timestamp_value.seconds;
         }
         case ION_TS_MIN:
         {
-            PyObject* temp_minutes = PyLong_FromLong(timestamp_value.minutes);
-            PyObject* temp_hours = PyLong_FromLong(timestamp_value.hours);
-
-            PyDict_SetItemString(timestamp_args, "minute", temp_minutes);
-            PyDict_SetItemString(timestamp_args, "hour",  temp_hours);
-
-            Py_DECREF(temp_minutes);
-            Py_DECREF(temp_hours);
+            minutes = timestamp_value.minutes;
+            hours = timestamp_value.hours;
         }
         case ION_TS_DAY:
         {
-            PyObject* temp_day = PyLong_FromLong(timestamp_value.day);
-            PyDict_SetItemString(timestamp_args, "day", temp_day);
-            Py_DECREF(temp_day);
+            day = timestamp_value.day;
         }
         case ION_TS_MONTH:
-        {   PyObject* temp_month = PyLong_FromLong(timestamp_value.month);
-            PyDict_SetItemString(timestamp_args, "month", temp_month);
-            Py_DECREF(temp_month);
+        {
+            month = timestamp_value.month;
         }
         case ION_TS_YEAR:
         {
-            PyObject* temp_year = PyLong_FromLong(timestamp_value.year);
-            PyDict_SetItemString(timestamp_args, "year", temp_year);
-            Py_DECREF(temp_year);
+            year = timestamp_value.year;
             break;
         }
+        default:
+            _FAILWITHMSG(IERR_INVALID_TIMESTAMP, "Illegal Timestamp Precision!")
     }
-    *timestamp_out = PyObject_Call(_py_timestamp_constructor, PyTuple_New(0), timestamp_args);
+    *timestamp_out = PyObject_CallFunction(_py_timestamp__new__, "OiiiiiiOOOiO",
+        _py_timestamp_cls, year, month, day, hours, minutes, seconds, Py_None, // we assume that microseconds will be assigned in __new__
+        tzinfo, py_precision, fractional_precision, py_fractional_seconds, NULL);
 
 fail:
-    Py_XDECREF(timestamp_args);
+    if (py_fractional_seconds != _decimal_zero) Py_DECREF(py_fractional_seconds);
+    if (tzinfo != Py_None) Py_DECREF(tzinfo);
+
     cRETURN;
 }
 
@@ -1593,6 +1562,7 @@ PyObject* ionc_init_module(void) {
     // TODO is there a destructor for modules? these should be decreffed there
     _decimal_module             = PyImport_ImportModule("decimal");
     _decimal_constructor        = PyObject_GetAttrString(_decimal_module, "Decimal");
+    _decimal_zero               = PyObject_CallFunction(_decimal_constructor, "i", 0, NULL);
     _simpletypes_module         = PyImport_ImportModule("amazon.ion.simple_types");
 
     _ionpynull_cls              = PyObject_GetAttrString(_simpletypes_module, "IonPyNull");
@@ -1618,12 +1588,13 @@ PyObject* ionc_init_module(void) {
     _ionpytext_fromvalue        = PyObject_GetAttrString(_ionpytext_cls, "from_value");
     _ionpysymbol_fromvalue      = PyObject_GetAttrString(_ionpysymbol_cls, "from_value");
     _ionpylist_fromvalue        = PyObject_GetAttrString(_ionpylist_cls, "from_value");
-    _ionpylist_factory           = PyObject_GetAttrString(_ionpylist_cls, "_factory");
-    _ionpydict_factory           = PyObject_GetAttrString(_ionpydict_cls, "_factory");
+    _ionpylist_factory          = PyObject_GetAttrString(_ionpylist_cls, "_factory");
+    _ionpydict_factory          = PyObject_GetAttrString(_ionpydict_cls, "_factory");
 
     _ion_core_module            = PyImport_ImportModule("amazon.ion.core");
     _py_timestamp_precision     = PyObject_GetAttrString(_ion_core_module, "TimestampPrecision");
-    _py_timestamp_constructor   = PyObject_GetAttrString(_ion_core_module, "timestamp");
+    _py_timestamp_cls           = PyObject_GetAttrString(_ion_core_module, "Timestamp");
+    _py_timestamp__new__        = PyObject_GetAttrString(_py_timestamp_cls, "__new__");
     _py_ion_type                = PyObject_GetAttrString(_ion_core_module, "IonType");
 
     _ion_symbols_module         = PyImport_ImportModule("amazon.ion.symbols");
