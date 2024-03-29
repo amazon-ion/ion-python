@@ -56,6 +56,7 @@ disabled as below:
 """
 import io
 import warnings
+from collections import deque
 from datetime import datetime
 from decimal import Decimal
 from enum import IntFlag
@@ -380,6 +381,26 @@ def _dump(obj, writer, from_type, field=None, in_struct=False, depth=0):
     writer.send(event)
 
 
+def _handle_load_iter_and_flags(iter, single_value, eager):
+    """ Implementation method to handle the single_value and eagerness flags
+        given a value iterator.
+    """
+    if single_value:
+        try:
+            value = next(iter)
+        except StopIteration:
+            return None
+        try:
+            next(iter)
+            raise IonException('Stream contained more than 1 values; expected a single value.')
+        except StopIteration:
+            pass
+        return value
+    if eager:
+        return list(iter)
+    return iter
+
+
 def load_python(fp, catalog=None, single_value=True, parse_eagerly=True):
     """'pure' Python implementation. Users should prefer to call ``load``."""
     if isinstance(fp, _TEXT_TYPES):
@@ -393,24 +414,7 @@ def load_python(fp, catalog=None, single_value=True, parse_eagerly=True):
         else:
             raw_reader = text_reader()
     reader = blocking_reader(managed_reader(raw_reader, catalog), fp)
-    if parse_eagerly:
-        out = []  # top-level
-        _load(out, reader)
-        if single_value:
-            if len(out) != 1:
-                raise IonException('Stream contained %d values; expected a single value.' % (len(out),))
-            return out[0]
-        return out
-    else:
-        out = _load_iteratively(reader)
-        if single_value:
-            result = next(out)
-            try:
-                next(out)
-                raise IonException('Stream contained more than 1 values; expected a single value.')
-            except StopIteration:
-                return result
-        return out
+    return _handle_load_iter_and_flags(_load_iteratively(reader), single_value, parse_eagerly)
 
 
 _FROM_ION_TYPE = [
@@ -430,44 +434,41 @@ _FROM_ION_TYPE = [
 ]
 
 
-def _load_iteratively(reader, end_type=IonEventType.STREAM_END):
-    event = reader.send(NEXT_EVENT)
-    while event.event_type is not end_type:
+def _load_iteratively(reader):
+    containers: deque = deque()
+
+    while True:
+        event = reader.send(NEXT_EVENT)
+        event_type = event.event_type
         ion_type = event.ion_type
-        if event.event_type is IonEventType.CONTAINER_START:
-            container = _FROM_ION_TYPE[ion_type].from_event(event)
-            _load(container, reader, IonEventType.CONTAINER_END, ion_type is IonType.STRUCT)
-            yield container
-        elif event.event_type is IonEventType.SCALAR:
+
+        if event_type is IonEventType.STREAM_END:
+            break
+
+        if event_type is IonEventType.CONTAINER_START:
+            value = _FROM_ION_TYPE[ion_type].from_event(event)
+            containers.append((ion_type, value, event.field_name))
+            continue
+
+        if event_type is IonEventType.CONTAINER_END:
+            (_, value, field_name) = containers.pop()
+        elif event_type is IonEventType.SCALAR:
+            field_name = event.field_name
             if event.value is None or ion_type is IonType.NULL or ion_type.is_container:
-                scalar = IonPyNull.from_event(event)
+                value = IonPyNull.from_event(event)
             else:
-                scalar = _FROM_ION_TYPE[ion_type].from_event(event)
-            yield scalar
-        event = reader.send(NEXT_EVENT)
-
-
-def _load(out, reader, end_type=IonEventType.STREAM_END, in_struct=False):
-    def add(obj):
-        if in_struct:
-            out.add_item(event.field_name.text, obj)
+                value = _FROM_ION_TYPE[ion_type].from_event(event)
         else:
-            out.append(obj)
+            raise IonException('Unexpected event type %r' % (event_type, ))
 
-    event = reader.send(NEXT_EVENT)
-    while event.event_type is not end_type:
-        ion_type = event.ion_type
-        if event.event_type is IonEventType.CONTAINER_START:
-            container = _FROM_ION_TYPE[ion_type].from_event(event)
-            _load(container, reader, IonEventType.CONTAINER_END, ion_type is IonType.STRUCT)
-            add(container)
-        elif event.event_type is IonEventType.SCALAR:
-            if event.value is None or ion_type is IonType.NULL or event.ion_type.is_container:
-                scalar = IonPyNull.from_event(event)
+        if containers:
+            (parent_type, parent, _) = containers[-1]
+            if parent_type is IonType.STRUCT:
+                parent.add_item(field_name.text, value)
             else:
-                scalar = _FROM_ION_TYPE[ion_type].from_event(event)
-            add(scalar)
-        event = reader.send(NEXT_EVENT)
+                parent.append(value)
+        else:
+            yield value
 
 
 def dump_extension(obj, fp, binary=True, sequence_as_stream=False, tuple_as_sexp=False, omit_version_marker=False):
@@ -485,17 +486,4 @@ def load_extension(fp, single_value=True, parse_eagerly=True,
                    text_buffer_size_limit=None, value_model=IonPyValueModel.ION_PY):
     """C-extension implementation. Users should prefer to call ``load``."""
     iterator = ionc.ionc_read(fp, value_model=value_model.value, text_buffer_size_limit=text_buffer_size_limit)
-    if single_value:
-        try:
-            value = next(iterator)
-        except StopIteration:
-            return None
-        try:
-            next(iterator)
-            raise IonException('Stream contained more than 1 values; expected a single value.')
-        except StopIteration:
-            pass
-        return value
-    if parse_eagerly:
-        return list(iterator)
-    return iterator
+    return _handle_load_iter_and_flags(iterator, single_value, parse_eagerly)
