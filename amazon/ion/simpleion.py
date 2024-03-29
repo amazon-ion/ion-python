@@ -435,7 +435,7 @@ _FROM_ION_TYPE = [
 
 
 def _load_iteratively(reader):
-    containers: deque = deque()
+    containers = []
 
     while True:
         event = reader.send(NEXT_EVENT)
