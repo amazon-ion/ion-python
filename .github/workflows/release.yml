@@ -12,9 +12,9 @@ jobs:
       matrix:
         python-version: ['3.8', '3.9', '3.10', '3.11', 'pypy-3.8']
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Set up python
-        uses: actions/setup-python@v3
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -34,18 +34,18 @@ jobs:
       matrix:
         python-version: [ '3.10' ]
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Build sdist
         run: python3 setup.py sdist
 
       - name: Upload source to Github
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: source
           path: ./dist/amazon.ion-*.tar.gz
 
-      - uses: aws-actions/configure-aws-credentials@v1
+      - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-skip-session-tagging: true
           aws-region: us-west-2
@@ -106,7 +106,7 @@ jobs:
             cibw_arch: "i686 x86_64 aarch64"
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Set up pip and setuptools
         run: |
@@ -115,7 +115,7 @@ jobs:
 
       - name: Set up QEMU
         if: runner.os == 'Linux'
-        uses: docker/setup-qemu-action@v1
+        uses: docker/setup-qemu-action@v3
         with:
           platforms: all
 
@@ -129,7 +129,7 @@ jobs:
           CIBW_ARCHS: ${{ matrix.cibw_arch }}
 
       - name: Upload wheels to Github
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: wheels
           path: ./wheelhouse/*.whl
@@ -139,11 +139,11 @@ jobs:
     runs-on: [ubuntu-latest]
     needs: [build-wheels]
     steps:
-      - uses: actions/download-artifact@v2
+      - uses: actions/download-artifact@v4
         with:
           name: wheels
 
-      - uses: aws-actions/configure-aws-credentials@v1
+      - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-skip-session-tagging: true
           aws-region: us-west-2

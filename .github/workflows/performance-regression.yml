@@ -23,7 +23,7 @@ jobs:
     steps:
       # Generates data used for benchmarking
       - name: Checkout ion-data-generator
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           repository: amazon-ion/ion-data-generator
           ref: main
@@ -40,7 +40,7 @@ jobs:
             java -jar $jar_file generate -S ${{env.data_size}} --input-ion-schema $schema_dir/${test}.isl testData/${test}.10n
           done
       - name: Upload test Ion Data to artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ${{env.test_data_id}}
           path: testData
@@ -51,8 +51,8 @@ jobs:
     name: Setup PIP Cache
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.10'
           cache: 'pip'
@@ -72,14 +72,14 @@ jobs:
       fail-fast: false
     steps:
       - name: Checkout the base of the PR
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           ref: ${{ github.base_ref }}
           submodules: recursive
           path: baseline
 
       - name: Checkout the head of the PR
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           repository: ${{ github.event.pull_request.head.repo.full_name }}
           ref: ${{ github.head_ref }}
@@ -87,7 +87,7 @@ jobs:
           path: new
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
           cache: 'pip'
@@ -95,7 +95,7 @@ jobs:
 
       - name: Download Test Data
         id: 'download'
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: ${{env.test_data_id}}
 
