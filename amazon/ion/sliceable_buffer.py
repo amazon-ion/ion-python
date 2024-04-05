@@ -123,6 +123,47 @@ class SliceableBuffer:
 
         return memoryview(combined), SliceableBuffer(chunks[i:], remaining, size - n)
 
+    def read_while(self, pred):
+        """
+        Read bytes while pred(byte) is True, return (bytes, new buffer).
+
+        Raise IncompleteReadError if the buffer is empty or pred never returns False.
+        """
+        size = self.size
+        chunks = self._chunks
+        offset = self._offset
+
+        raise NotImplementedError("foo ya")
+
+    def peek(self, n):
+        """
+        Peek an n bytes, return bytes.
+
+        Raise IncompleteReadError if the buffer is n > size.
+        """
+        size = self.size
+        chunks = self._chunks
+        offset = self._offset
+
+        if size < n:
+            raise IncompleteReadError(f'Buffer has size {size}, but {n} bytes were requested!')
+
+        # short-circuit when we can serve full peek from first chunk
+        # optimizes for common case and simplifies accumulation loop
+        (chunk, length) = chunks[0]
+        if n < length:
+            return chunk[offset:offset + n]
+        elif n == length:
+            return chunk[offset:]
+
+        combined = bytearray(n)
+        cursor = 0
+        for (chunk, length) in chunks:
+            combined[cursor:cursor + length] = chunk
+            cursor += length
+
+        return memoryview(combined)
+
     def skip(self, n):
         """
         Skip max(n, size) bytes, return (skipped, new buffer).
