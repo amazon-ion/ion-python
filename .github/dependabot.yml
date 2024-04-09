@@ -8,6 +8,8 @@ updates:
     open-pull-requests-limit: 1
     groups:
       pip-dependencies:
+        applies-to: version-updates
+        update-types: [minor, patch]
         patterns:
           - '*'
   - package-ecosystem: github-actions
@@ -17,5 +19,7 @@ updates:
     open-pull-requests-limit: 1
     groups:
       github-action-dependencies:
+        applies-to: version-updates
+        update-types: [minor, patch]
         patterns:
           - '*'
