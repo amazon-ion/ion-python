@@ -1506,7 +1506,6 @@ PyObject* ionc_read(PyObject* self, PyObject *args, PyObject *kwds) {
     if (text_buffer_size_limit != Py_None) {
         int symbol_threshold = PyLong_AsLong(text_buffer_size_limit);
         iterator->_reader_options.symbol_threshold = symbol_threshold;
-        Py_XDECREF(text_buffer_size_limit);
     }
 
     IONCHECK(ion_reader_open_stream(
