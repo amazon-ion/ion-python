@@ -86,7 +86,7 @@ static PyObject* digits_str;
 static PyObject* fractional_precision_str;
 static PyObject* store_str;
 
-// Note: We cast ion_type (an int) to a long so that we can cast to a pointer without warning.
+// Note: We cast x (assumed to be an int) to a long so that we can cast to a pointer without warning.
 #define INT_TO_ION_TYPE(x) ( (ION_TYPE)(long)(x) )
 
 typedef struct {
