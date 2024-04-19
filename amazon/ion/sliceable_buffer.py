@@ -8,7 +8,9 @@ class SliceableBuffer:
 
     Reads return the data and a new buffer starting at the end of the read.
     As the reader advances past chunks (either through reads or skips), whole
-    chunks are dropped from the buffer.
+    chunks are dropped from the returned buffer.
+
+    Once no buffers have references to chunks, those chunks will be GC'ed.
 
     Built with the assumption that chunks will be reasonably large and that
     relatively few (single digit) chunks will be buffered at once.
@@ -127,13 +129,56 @@ class SliceableBuffer:
         """
         Read bytes while pred(byte) is True, return (bytes, new buffer).
 
-        Raise IncompleteReadError if the buffer is empty or pred never returns False.
+        Raise IncompleteReadError if pred never returns False.
         """
         size = self.size
         chunks = self._chunks
         offset = self._offset
 
-        raise NotImplementedError("foo ya")
+        # short-circuit when we can serve full read from first chunk
+        # optimizes for common case and simplifies accumulation loop
+        (chunk, length) = chunks[0]
+        for cursor in range(offset, length):
+            if not pred(chunk[cursor]):
+                # drop chunk if fully consumed
+                if cursor + 1 == length:
+                    return chunk[offset:], SliceableBuffer(chunks[1:], 0, size - (length - offset))
+                else:
+                    return chunk[offset:cursor], SliceableBuffer(chunks, cursor + 1, size - (1 + cursor - offset))
+
+        count = length - offset
+        slices = [_ChunkPair(chunk[offset:], count)]
+
+        # i is used to init the new buffer after the loop
+        i = 1
+        for (i, pair) in enumerate(chunks[1:], start=1):
+            (chunk, length) = pair
+            for cursor in range(0, length):
+                if not pred(chunk[cursor]):
+                    count += cursor + 1
+                    # drop chunk if fully consumed
+                    if cursor + 1 == length:
+                        i += 1
+                        cursor = 0
+                        slices.append(pair)
+                    else:
+                        slices.append(_ChunkPair(chunk[:cursor], cursor + 1))
+                    break
+            else:
+                count += length
+                slices.append(pair)
+                continue
+            break
+        else:
+            raise IncompleteReadError("pred never returned False")
+
+        combined = bytearray(count)
+        offset = 0
+        for (chunk, length) in slices:
+            combined[offset:offset + length] = chunk
+            offset += length
+
+        return memoryview(combined), SliceableBuffer(chunks[i:], cursor + 1, size - count)
 
     def peek(self, n):
         """
@@ -156,13 +201,7 @@ class SliceableBuffer:
         elif n == length:
             return chunk[offset:]
 
-        combined = bytearray(n)
-        cursor = 0
-        for (chunk, length) in chunks:
-            combined[cursor:cursor + length] = chunk
-            cursor += length
-
-        return memoryview(combined)
+        raise NotImplementedError("no combiney yet!")
 
     def skip(self, n):
         """

@@ -261,6 +261,16 @@ _C_STRUCT = _ContainerContext((_CLOSE_BRACE,), (_COMMA,), IonType.STRUCT, True)
 _C_LIST = _ContainerContext((_CLOSE_BRACKET,), (_COMMA,), IonType.LIST, True)
 _C_SEXP = _ContainerContext((_CLOSE_PAREN,), (), IonType.SEXP, False)
 
+def invalid_char(c: int):
+    raise ValueError(f"Invalid char {c}")
+
+def open_brace_handler(buffer: SliceableBuffer) -> Tuple[IonEvent, SliceableBuffer]:
+    # todo: handle blob/clob
+
+
+tlv_table = [invalid_char] * 256
+tlv_table[_OPEN_BRACE] = open_brace_handler
+tlv_table[_OPEN_BRACKET] = open_bracket_handler
 
 
 class _ContextFrame(NamedTuple):
@@ -275,7 +285,7 @@ def _whitespace(byte):
 def _tlv_parser(buffer: SliceableBuffer) -> Tuple[IonEvent, SliceableBuffer]:
     (_, buffer) = buffer.read_while(_whitespace)
     if buffer.is_eof():
-        return IonEvent.STREAM_END, buffer
+        return ION_STREAM_END_EVENT, buffer
     if
 
 
@@ -322,13 +332,12 @@ _parser_table = [
     _struct_parser,  # STRUCT = 12
 ]
 
-
 @coroutine
 def stream_handler():
     """
     Handler for an Ion Text value-stream.
     """
-    buffer = SliceableBuffer.empty()
+    buffer: SliceableBuffer = SliceableBuffer.empty()
     context_stack = deque([_ContextFrame(_tlv_parser, None, 0)])
     ion_event = None
     skip_or_next = ReadEventType.NEXT
@@ -359,8 +368,9 @@ def stream_handler():
         ion_type = ion_event.ion_type
 
         if event_type is IonEventType.STREAM_END:
-            break
+            expect_data = True
         elif event_type is IonEventType.INCOMPLETE:
+            # todo: flushable/commit or something something
             raise NotImplementedError("Incomplete is not supported")
         elif event_type is IonEventType.CONTAINER_START:
             parser = _parser_table[ion_type]
@@ -369,3 +379,5 @@ def stream_handler():
             assert ion_type is ctx_type
             assert depth > 0
             context_stack.pop()
+
+
