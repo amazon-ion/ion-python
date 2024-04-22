@@ -23,7 +23,7 @@ class SliceableBuffer:
         """
         return SliceableBuffer([])
 
-    def __init__(self, chunks, offset=0, size=0):
+    def __init__(self, chunks, offset=0, size=0, eof=False):
         """
         *Class internal usage only.*
 
@@ -35,6 +35,7 @@ class SliceableBuffer:
         # on each read or skip.
         self._offset = offset
         self.size = size
+        self._eof = eof
 
     def extend(self, chunk):
         """
@@ -239,6 +240,12 @@ class SliceableBuffer:
         Length of data in bytes remaining in buffer.
         """
         return self.size
+
+    def is_eof(self):
+        return self._eof
+
+    def eof(self):
+        return SliceableBuffer(self._chunks, self._offset, self.size, True)
 
 
 class IncompleteReadError(IndexError):

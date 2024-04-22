@@ -25,17 +25,27 @@ from amazon.ion.util import coroutine
 def _whitespace(byte):
     return byte in bytearray(b" \n\t\r\f")
 
+
 def _tlv_parser(buffer: SliceableBuffer) -> Tuple[IonEvent, SliceableBuffer]:
     pass
 
+
 def _list_parser(buffer: SliceableBuffer) -> Tuple[IonEvent, SliceableBuffer]:
     pass
+
+
 def _struct_parser(buffer: SliceableBuffer) -> Tuple[IonEvent, SliceableBuffer]:
     pass
 
 def _sexp_parser(buffer: SliceableBuffer) -> Tuple[IonEvent, SliceableBuffer]:
-    pass
+    raise NotImplementedError("todo")
 
+
+_container_parsers = [
+    _list_parser,
+    _sexp_parser,
+    _struct_parser,
+]
 
 class _ContextFrame(NamedTuple):
     parser: Callable[[SliceableBuffer], Tuple[IonEvent, SliceableBuffer]]
@@ -84,10 +94,9 @@ def stream_handler():
             # todo: flushable/commit or something something
             raise NotImplementedError("Incomplete is not supported")
         elif event_type is IonEventType.CONTAINER_START:
-            parser = _parser_table[ion_type]
+            parser = _container_parsers[ion_type - IonType.LIST]
             context_stack.append(_ContextFrame(parser, ion_type, depth + 1))
         elif event_type is IonEventType.CONTAINER_END:
             assert ion_type is ctx_type
             assert depth > 0
             context_stack.pop()
-
