@@ -129,12 +129,13 @@ class SliceableBuffer:
     def read_while(self, pred):
         """
         Read bytes while pred(byte) is True, return (bytes, new buffer).
-
-        Raise IncompleteReadError if pred never returns False.
         """
         size = self.size
         chunks = self._chunks
         offset = self._offset
+
+        if not size:
+            return b"", self
 
         # short-circuit when we can serve full read from first chunk
         # optimizes for common case and simplifies accumulation loop
@@ -142,15 +143,16 @@ class SliceableBuffer:
         for cursor in range(offset, length):
             if not pred(chunk[cursor]):
                 # drop chunk if fully consumed
-                if cursor + 1 == length:
+                if cursor == length:
                     return chunk[offset:], SliceableBuffer(chunks[1:], 0, size - (length - offset))
                 else:
-                    return chunk[offset:cursor], SliceableBuffer(chunks, cursor + 1, size - (1 + cursor - offset))
+                    return chunk[offset:cursor], SliceableBuffer(chunks, cursor, size - (cursor - offset))
 
         count = length - offset
         slices = [_ChunkPair(chunk[offset:], count)]
 
         # i is used to init the new buffer after the loop
+        # todo: this probably has some off-by-one issues
         i = 1
         for (i, pair) in enumerate(chunks[1:], start=1):
             (chunk, length) = pair
@@ -170,8 +172,6 @@ class SliceableBuffer:
                 slices.append(pair)
                 continue
             break
-        else:
-            raise IncompleteReadError("pred never returned False")
 
         combined = bytearray(count)
         offset = 0

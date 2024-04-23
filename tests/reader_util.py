@@ -55,11 +55,15 @@ def reader_scaffold(reader, event_pairs):
     input_events = (e for e, _ in event_pairs)
     output_events = add_depths(e for _, e in event_pairs)
     for read_event, expected in zip(input_events, output_events):
+        print(f"sending: {read_event}")
         if is_exception(expected):
             with raises(expected):
                 reader.send(read_event).value  # Forces evaluation of all value thunks.
         else:
+            print(f"expecting: {expected}")
             actual = reader.send(read_event)
+            print(f"received:  {actual}")
+
             assert expected == actual
 
 

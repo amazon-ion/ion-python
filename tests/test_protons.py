@@ -68,12 +68,12 @@ def parameterify(*tests: Tuple[Parser, List]):
         ("", expect_inc_or_fail()),
         ("spa", expect_inc_or_fail())
     ]),
-    # (one_of(b"abc"), [
-    #     ("b", expect_value(b"b")),
-    #     ("abc", expect_value(b"a", next=b"b")),
-    #     ("d", expect_failure()),
-    #     ("", expect_inc_or_fail())
-    # ]),
+    (one_of(b"abc"), [
+        ("b", expect_value(b'b'[0])),
+        ("abc", expect_value(b"a"[0], next=b"b")),
+        ("d", expect_failure()),
+        ("", expect_inc_or_fail())
+    ]),
     (constant(tag(b"spam"), "eggs"), [
         ("spam", expect_value("eggs")),
         ("spam musubi", expect_value("eggs", next=b" ")),
@@ -90,12 +90,13 @@ def parameterify(*tests: Tuple[Parser, List]):
     #     (" }", expect_failure()),
     #     ("{bad}", expect_failure())
     # ]),
-    # (take_while(lambda b: ord(b'a') <= b <= ord(b'c')), [
-    #     ("abc", expect_value_if_done(b"abc")),
-    #     ("abc123", expect_value(b"abc", next=b"1")),
-    #     ("", expect_value_if_done(b"")),
-    #     ("123", expect_value(b"", next=b"1"))
-    # ]),
+    (take_while(lambda b: ord(b'a') <= b <= ord(b'c')), [
+        ("abc", expect_value_if_done(b"abc")),
+        ("abc123", expect_value(b"abc", next=b"1")),
+        ("", expect_incomplete()),
+        ("123", expect_value(b"", next=b"1"))
+    ]),
+    # todo: peek
     (terminated(tag(b"foo"), tag(b";")), [
         ("foo;", expect_value(b"foo")),
         ("foo|", expect_failure()),

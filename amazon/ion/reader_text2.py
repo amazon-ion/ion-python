@@ -16,7 +16,8 @@ from collections import deque
 from typing import Optional, NamedTuple, Callable, Tuple
 
 from amazon.ion.core import IonType, IonEvent, \
-    IonEventType
+    IonEventType, ION_STREAM_INCOMPLETE_EVENT, ION_STREAM_END_EVENT
+from amazon.ion.protons import *
 from amazon.ion.reader import ReadEventType
 from amazon.ion.sliceable_buffer import SliceableBuffer
 from amazon.ion.util import coroutine
@@ -26,9 +27,45 @@ def _whitespace(byte):
     return byte in bytearray(b" \n\t\r\f")
 
 
-def _tlv_parser(buffer: SliceableBuffer) -> Tuple[IonEvent, SliceableBuffer]:
-    pass
+_stop = peek(one_of(b" \n\t\r\f{}[](),"))
 
+
+def tag_stop(tag_value):
+    return terminated(tag(tag_value), _stop)
+
+
+def is_empty(buffer: SliceableBuffer):
+    if buffer.size:
+        return ParseResult(ResultType.FAILURE, buffer, None)
+    else:
+        return ParseResult(ResultType.SUCCESS, buffer, None)
+
+
+_tlv_parsec = preceded(
+    take_while(_whitespace),
+    alt(
+        # constant(is_empty, ION_STREAM_END_EVENT),
+        constant(tag_stop(b"nan"), IonEvent(IonEventType.SCALAR, IonType.FLOAT, "Nan")),
+        constant(tag_stop(b"null"), IonEvent(IonEventType.SCALAR, IonType.NULL, None)),
+        constant(tag_stop(b"true"), IonEvent(IonEventType.SCALAR, IonType.BOOL, True)),
+        constant(tag_stop(b"false"), IonEvent(IonEventType.SCALAR, IonType.BOOL, False)),
+        constant(tag(b"{"), IonEvent(IonEventType.CONTAINER_START, IonType.STRUCT)),
+        constant(tag(b"["), IonEvent(IonEventType.CONTAINER_START, IonType.LIST))))
+
+_stream_end = preceded(take_while(_whitespace), is_empty)
+
+def _tlv_parser(buffer: SliceableBuffer) -> Tuple[IonEvent, SliceableBuffer]:
+    result = _tlv_parsec(buffer)
+    if result.type is ResultType.SUCCESS:
+        return result.value.derive_depth(0), result.buffer
+    if result.type is ResultType.INCOMPLETE:
+        stream_end = _stream_end(buffer)
+        if stream_end.type is ResultType.SUCCESS:
+            return ION_STREAM_END_EVENT, stream_end.buffer
+
+        return ION_STREAM_INCOMPLETE_EVENT, buffer
+
+    raise ValueError("parse failed on _____")
 
 def _list_parser(buffer: SliceableBuffer) -> Tuple[IonEvent, SliceableBuffer]:
     pass
@@ -47,6 +84,7 @@ _container_parsers = [
     _struct_parser,
 ]
 
+
 class _ContextFrame(NamedTuple):
     parser: Callable[[SliceableBuffer], Tuple[IonEvent, SliceableBuffer]]
     ion_type: Optional[IonType]
@@ -54,7 +92,7 @@ class _ContextFrame(NamedTuple):
 
 
 @coroutine
-def stream_handler():
+def text_stream_handler():
     """
     Handler for an Ion Text value-stream.
     """
@@ -63,6 +101,7 @@ def stream_handler():
     ion_event = None
     skip_or_next = ReadEventType.NEXT
     expect_data = False
+    incomplete = False
 
     while True:
         read_event = yield ion_event
@@ -71,8 +110,13 @@ def stream_handler():
         # part 1: handle user's read event
         if expect_data:
             if read_event.type is not ReadEventType.DATA:
-                raise TypeError("Data expected")
-            buffer = buffer.extend(read_event.data)
+                # flush it
+                if incomplete:
+                    buffer = buffer.extend(b"\t")
+                else:
+                    raise TypeError("Data expected")
+            else:
+                buffer = buffer.extend(read_event.data)
         else:
             if read_event.type is ReadEventType.DATA:
                 raise TypeError("Next or Skip expected")
@@ -85,14 +129,17 @@ def stream_handler():
         (parser, ctx_type, depth) = context_stack[-1]
 
         (ion_event, buffer) = parser(buffer)
-        event_type = ion_event.type
+
+        event_type = ion_event.event_type
         ion_type = ion_event.ion_type
+        expect_data = False
+        incomplete = False
 
         if event_type is IonEventType.STREAM_END:
             expect_data = True
         elif event_type is IonEventType.INCOMPLETE:
-            # todo: flushable/commit or something something
-            raise NotImplementedError("Incomplete is not supported")
+            expect_data = True
+            incomplete = True
         elif event_type is IonEventType.CONTAINER_START:
             parser = _container_parsers[ion_type - IonType.LIST]
             context_stack.append(_ContextFrame(parser, ion_type, depth + 1))

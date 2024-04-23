@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Callable, Any
 
-from amazon.ion.sliceable_buffer import SliceableBuffer
+from amazon.ion.sliceable_buffer import SliceableBuffer, IncompleteReadError
 
 """
 "protonic" is a parser combinator library for parsing ion and similar document 
@@ -72,7 +72,7 @@ def tag(tag: bytes) -> Parser:
         else:
             data = b""
 
-        if data == tag[:avail] and not buffer.is_eof():
+        if data == tag[:avail]:
             return ParseResult(ResultType.INCOMPLETE, buffer)
         else:
             return ParseResult(ResultType.FAILURE, buffer)
@@ -80,22 +80,23 @@ def tag(tag: bytes) -> Parser:
     return p
 
 
-# def one_of(items: bytes) -> Parser:
-#     """
-#     Match one of the bytes passed.
-#     """
-#     def p(ctx):
-#         if not ctx.avail():
-#             return _inc_or_fail(ctx)
-#
-#         b = ctx.read(1)
-#
-#         if b[0] in items:
-#             return _success(ctx.remaining(1), b)
-#         else:
-#             return _failure(ctx)
-#     return p
-#
+def one_of(items: bytes) -> Parser:
+    """
+    Match one of the bytes passed.
+    """
+    def p(buffer: SliceableBuffer):
+        if not buffer.size:
+            result_type = ResultType.FAILURE if buffer.is_eof() else ResultType.INCOMPLETE
+            return ParseResult(result_type, buffer)
+
+        (b, buffer) = buffer.read_byte()
+
+        if b in items:
+            return ParseResult(ResultType.SUCCESS, buffer, b)
+        else:
+            return ParseResult(ResultType.FAILURE, buffer)
+    return p
+
 
 def terminated(item: Parser, terminal: Parser) -> Parser:
     """
@@ -140,37 +141,25 @@ def terminated(item: Parser, terminal: Parser) -> Parser:
 #     return p
 
 
-# def take_while(pred) -> Parser:
-#     """
-#     pred is fed one byte at a time. Why is it written this way?
-#     I don't want to add the complexity in surface area to generalize
-#     it to take a parser _and_ doing so would mean i'd need to combine
-#     the results in a general way, _and_ ensure the parser made progress...
-#     so this is the simplest and more performant thing i can think to do
-#     while still having some generality.
-#
-#     if the data ends before pred returns False _and_ there may be more
-#     then it will be Incomplete.
-#
-#     pred can signal an error by raising ParserError.
-#     """
-#     def p(buffer: ParserContext):
-#         initial_ctx = ctx
-#         n = 0
-#
-#         while ctx.avail():
-#             result = pred(ctx.read(1)[0])
-#             if not result:
-#                 return _success(ctx, initial_ctx.read(n))
-#
-#             ctx = ctx.remaining(1)
-#             n += 1
-#
-#         if ctx.source.is_complete():
-#             return _success(ctx, initial_ctx.read(n))
-#         else:
-#             return _incomplete(initial_ctx)
-#     return p
+def take_while(pred) -> Parser:
+    """
+    pred is fed one byte at a time. Why is it written this way?
+    I don't want to add the complexity in surface area to generalize
+    it to take a parser _and_ doing so would mean i'd need to combine
+    the results in a general way, _and_ ensure the parser made progress...
+    so this is the simplest and more performant thing i can think to do
+    while still having some generality.
+
+    if the data ends before pred returns False _and_ there may be more
+    then it will be Incomplete.
+
+    pred can signal an error by raising ParserError.
+    """
+    def p(buffer: SliceableBuffer):
+        (data, buffer) = buffer.read_while(pred)
+        return ParseResult(ResultType.SUCCESS, buffer, data)
+
+    return p
 
 
 def constant(parser: Parser, constant: Any) -> Parser:
@@ -242,9 +231,14 @@ def preceded(prefix: Parser, item: Parser) -> Parser:
 
         prior = prefix(buffer)
         if prior.type is not ResultType.SUCCESS:
-            return prior
+            return ParseResult(prior.type, buffer)
 
-        return item(prior.buffer)
+        value = item(prior.buffer)
+        if value.type is not ResultType.SUCCESS:
+            return ParseResult(value.type, buffer)
+        else:
+            return value
+
     return p
 
 
