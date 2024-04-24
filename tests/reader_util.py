@@ -62,6 +62,7 @@ def reader_scaffold(reader, event_pairs):
         else:
             print(f"expecting: {expected}")
             actual = reader.send(read_event)
+            actual.value  # Forces evaluation of all value thunks.
             print(f"received:  {actual}")
 
             assert expected == actual

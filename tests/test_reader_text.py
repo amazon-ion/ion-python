@@ -1230,12 +1230,20 @@ _good_unicode_params = partial(_basic_params, _end, 'GOOD - UNICODE', u'')
 
 TEXT2_GOOD = (
     (b'null ', e_null()),
+    (b' null ', e_null()),
     (b'false ', e_bool(False)),
-    (b'falsey', e_symbol("falsey")),
-    (b'true ', e_bool(True)))
+    (b'"foo"', e_string("foo")),
+    (b'falsey ', e_symbol(SymbolToken("falsey", None))),
+    (b'spam{}', e_symbol(SymbolToken("spam", None)), e_start_struct(), e_end_struct()),
+    (b'true ', e_bool(True)),
+    (b'[]', e_start_list(), e_end_list()),
+    (b'{}', e_start_struct(), e_end_struct()),
+    (b'[null, false , ]', e_start_list(), e_null(), e_bool(False), e_end_list()),
+    (b"{ 'foo' : bar }", e_start_struct(), e_symbol(_st("bar"), field_name=_st(u'foo')), e_end_struct()),
+)
 
 @parametrize(*chain(
-#     _good_params(_GOOD),
+     _good_params(_GOOD),
 #     _bad_grammar_params(_BAD_GRAMMAR),
 #     _bad_value_params(_BAD_VALUE),
 #     _incomplete_params(_INCOMPLETE),

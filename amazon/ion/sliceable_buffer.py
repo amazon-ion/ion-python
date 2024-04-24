@@ -23,7 +23,7 @@ class SliceableBuffer:
         """
         return SliceableBuffer([])
 
-    def __init__(self, chunks, offset=0, size=0, eof=False):
+    def __init__(self, chunks, offset=0, size=0):
         """
         *Class internal usage only.*
 
@@ -35,7 +35,6 @@ class SliceableBuffer:
         # on each read or skip.
         self._offset = offset
         self.size = size
-        self._eof = eof
 
     def extend(self, chunk):
         """
@@ -137,49 +136,26 @@ class SliceableBuffer:
         if not size:
             return b"", self
 
-        # short-circuit when we can serve full read from first chunk
-        # optimizes for common case and simplifies accumulation loop
-        (chunk, length) = chunks[0]
-        for cursor in range(offset, length):
-            if not pred(chunk[cursor]):
-                # drop chunk if fully consumed
-                if cursor == length:
-                    return chunk[offset:], SliceableBuffer(chunks[1:], 0, size - (length - offset))
-                else:
-                    return chunk[offset:cursor], SliceableBuffer(chunks, cursor, size - (cursor - offset))
-
-        count = length - offset
-        slices = [_ChunkPair(chunk[offset:], count)]
-
-        # i is used to init the new buffer after the loop
-        # todo: this probably has some off-by-one issues
-        i = 1
-        for (i, pair) in enumerate(chunks[1:], start=1):
-            (chunk, length) = pair
-            for cursor in range(0, length):
+        n = 0
+        end = False
+        for (chunk, length) in chunks:
+            for cursor in range(offset, length):
                 if not pred(chunk[cursor]):
-                    count += cursor + 1
-                    # drop chunk if fully consumed
-                    if cursor + 1 == length:
-                        i += 1
-                        cursor = 0
-                        slices.append(pair)
-                    else:
-                        slices.append(_ChunkPair(chunk[:cursor], cursor + 1))
+                    end = True
+                    n += cursor - offset
                     break
             else:
-                count += length
-                slices.append(pair)
-                continue
-            break
+                n += length - offset
 
-        combined = bytearray(count)
-        offset = 0
-        for (chunk, length) in slices:
-            combined[offset:offset + length] = chunk
-            offset += length
+            if end:
+                break
 
-        return memoryview(combined), SliceableBuffer(chunks[i:], cursor + 1, size - count)
+            offset = 0
+
+        if n == 0:
+            return b"", self
+        else:
+            return self.read_slice(n)
 
     def peek(self, n):
         """
@@ -187,22 +163,7 @@ class SliceableBuffer:
 
         Raise IncompleteReadError if the buffer is n > size.
         """
-        size = self.size
-        chunks = self._chunks
-        offset = self._offset
-
-        if size < n:
-            raise IncompleteReadError(f'Buffer has size {size}, but {n} bytes were requested!')
-
-        # short-circuit when we can serve full peek from first chunk
-        # optimizes for common case and simplifies accumulation loop
-        (chunk, length) = chunks[0]
-        if n < length:
-            return chunk[offset:offset + n]
-        elif n == length:
-            return chunk[offset:]
-
-        raise NotImplementedError("no combiney yet!")
+        return self.read_slice(n)[0]
 
     def skip(self, n):
         """
@@ -241,12 +202,13 @@ class SliceableBuffer:
         """
         return self.size
 
-    def is_eof(self):
-        return self._eof
-
-    def eof(self):
-        return SliceableBuffer(self._chunks, self._offset, self.size, True)
-
+    def __repr__(self):
+        if self.size == 0:
+            return "SliceableBuffer(size=0, data=[])"
+        elif self.size < 5:
+            return f"SliceableBuffer(size={self.size}, data=[{bytes(self.peek(self.size))}])"
+        else:
+            return f"SliceableBuffer(size={self.size}, data=[{bytes(self.peek(5))}...])"
 
 class IncompleteReadError(IndexError):
     pass

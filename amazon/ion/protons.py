@@ -52,8 +52,6 @@ Parser = Callable[[SliceableBuffer], ParseResult]
 def tag(tag: bytes) -> Parser:
     """
     Match a sequence of bytes, a "tag".
-
-
     """
     length = len(tag)
 
@@ -86,8 +84,7 @@ def one_of(items: bytes) -> Parser:
     """
     def p(buffer: SliceableBuffer):
         if not buffer.size:
-            result_type = ResultType.FAILURE if buffer.is_eof() else ResultType.INCOMPLETE
-            return ParseResult(result_type, buffer)
+            return ParseResult(ResultType.INCOMPLETE, buffer)
 
         (b, buffer) = buffer.read_byte()
 
@@ -115,30 +112,43 @@ def terminated(item: Parser, terminal: Parser) -> Parser:
         return ParseResult(ResultType.SUCCESS, term.buffer, body.value)
     return p
 
+def debug(parser: Parser) -> Parser:
+    """
+    prints the result of the parser to stdout.
+    """
+    def p(buffer: SliceableBuffer):
+        print(f"input {buffer}")
+        result = parser(buffer)
+        print(f"result {result}")
+        if type(result.value) is memoryview:
+            print(f"buffer {bytes(result.value)}")
+        return result
+    return p
 
-# def delim(start: Parser, value: Parser, end: Parser) -> Parser:
-#     """
-#     result of value is returned
-#
-#     if start matches.
-#
-#     this doesn't do any checks about incomplete vs done itself: it delegates that to it's component parsers
-#     """
-#     def p(ctx):
-#         started = start(ctx)
-#         if started.type is not ResultType.SUCCESS:
-#             return ParseResult(started.type, ctx)
-#
-#         body = value(started.context)
-#         if body.type is not ResultType.SUCCESS:
-#             return ParseResult(body.type, ctx)
-#
-#         ended = end(body.context)
-#         if ended.type is not ResultType.SUCCESS:
-#             return ParseResult(ended.type, ctx)
-#
-#         return _success(ended.context, body.value)
-#     return p
+
+def delim(start: Parser, value: Parser, end: Parser) -> Parser:
+    """
+    result of value is returned
+
+    if start matches.
+
+    this doesn't do any checks about incomplete vs done itself: it delegates that to it's component parsers
+    """
+    def p(buffer: SliceableBuffer):
+        started = start(buffer)
+        if started.type is not ResultType.SUCCESS:
+            return ParseResult(started.type, buffer)
+
+        body = value(started.buffer)
+        if body.type is not ResultType.SUCCESS:
+            return ParseResult(body.type, buffer)
+
+        ended = end(body.buffer)
+        if ended.type is not ResultType.SUCCESS:
+            return ParseResult(ended.type, buffer)
+
+        return ParseResult(ResultType.SUCCESS, ended.buffer, body.value)
+    return p
 
 
 def take_while(pred) -> Parser:
@@ -202,25 +212,6 @@ def alt(*parsers: Parser) -> Parser:
     return p
 
 
-def is_eof() -> Parser:
-    """
-    Results in the Successful None value when source is exhausted and marked EOF.
-
-    Incomplete when source is exhausted but not EOF.
-
-    Failure when there is data.
-    """
-    def p(buffer: SliceableBuffer):
-        if not buffer.size:
-            if buffer.is_eof():
-                return ParseResult(ResultType.SUCCESS, buffer)
-            else:
-                return ParseResult(ResultType.INCOMPLETE, buffer)
-        else:
-            return ParseResult(ResultType.FAILURE, buffer)
-    return p
-
-
 def preceded(prefix: Parser, item: Parser) -> Parser:
     """
     checks that the prefix matches then returns item if it matches.
@@ -242,42 +233,22 @@ def preceded(prefix: Parser, item: Parser) -> Parser:
     return p
 
 
-# def succeed(value=None) -> Parser:
-#     """
-#     Always succeeds. Context will be returned as-is, value will be value
-#     """
-#     return lambda ctx: _success(ctx, value)
-#
-#
-# def fail() -> Parser:
-#     """
-#     Always fails. Context will be returned as-is.
-#
-#     todo: consider adding message
-#     """
-#     return lambda ctx: _failure(ctx)
-#
-#
-# def error(message: str) -> Parser:
-#     """
-#     Raises a ParseError with message
-#     """
-#     def p(ctx):
-#         raise ParseError(message)
-#     return p
+def pair(left: Parser, right: Parser) -> Parser:
+    """
+    returns a tuple of the left and right values
+    """
+    def p(buffer: SliceableBuffer):
+        l = left(buffer)
+        if l.type is not ResultType.SUCCESS:
+            return ParseResult(l.type, buffer)
 
+        r = right(l.buffer)
+        if r.type is not ResultType.SUCCESS:
+            return ParseResult(r.type, buffer)
 
-#def ignore(parser: Parser) -> Parser:
-#    """
-#    If the parser succeeds, throw away any value but keep the context.
-#    """
-#    def p(ctx):
-#        result = parser(ctx)
-#        if result.type is ResultType.SUCCESS:
-#            return _success(result.context, None)
-#        else:
-#            return result
-#    return p
+        return ParseResult(ResultType.SUCCESS, r.buffer, (l.value, r.value))
+
+    return p
 
 
 def peek(parser: Parser) -> Parser:
@@ -288,15 +259,3 @@ def peek(parser: Parser) -> Parser:
         result = parser(buffer)
         return ParseResult(result.type, buffer, result.value)
     return p
-
-
-def _incomplete(buffer: SliceableBuffer) -> ParseResult:
-    raise NotImplementedError("todo")
-
-
-def _failure(buffer: SliceableBuffer) -> ParseResult:
-    raise NotImplementedError("todo")
-
-
-def _success(buffer: SliceableBuffer, value: Any) -> ParseResult:
-    raise NotImplementedError("todo")
