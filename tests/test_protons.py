@@ -12,7 +12,7 @@ def expect_value(v, next=None):
     """
     def expect(result: ParseResult):
         assert result.type is ResultType.SUCCESS
-        assert v == result.value
+        assert result.value == v
         if next:
             n = len(next)
             (data, _) = result.buffer.read_slice(n)
@@ -48,7 +48,7 @@ def expect_incomplete():
 
 def expect_inc_or_fail():
     def expect(result: ParseResult):
-        if not result.buffer.size and result.buffer.is_eof():
+        if result.buffer.is_eof():
             assert result.type is ResultType.FAILURE
         else:
             assert result.type is ResultType.INCOMPLETE
@@ -79,24 +79,23 @@ def parameterify(*tests: Tuple[Parser, List]):
         ("spam musubi", expect_value("eggs", next=b" ")),
         ("beef", expect_failure())
     ]),
-    # (delim(tag(b"{"), tag(b" "), tag(b"}")), [
-    #     ("{ }", expect_value(b" ")),
-    #     ("{ };", expect_value(b" ", next=b";")),
-    #     ("{}", expect_failure()),
-    #     ("{", expect_inc_or_fail()),
-    #     ("{ ", expect_inc_or_fail()),
-    #     ("", expect_inc_or_fail()),
-    #     ("[]", expect_failure()),
-    #     (" }", expect_failure()),
-    #     ("{bad}", expect_failure())
-    # ]),
+    (delim(tag(b"{"), tag(b" "), tag(b"}")), [
+        ("{ }", expect_value(b" ")),
+        ("{ };", expect_value(b" ", next=b";")),
+        ("{}", expect_failure()),
+        ("{", expect_inc_or_fail()),
+        ("{ ", expect_inc_or_fail()),
+        ("", expect_inc_or_fail()),
+        ("[]", expect_failure()),
+        (" }", expect_failure()),
+        ("{bad}", expect_failure())
+    ]),
     (take_while(lambda b: ord(b'a') <= b <= ord(b'c')), [
-        ("abc", expect_value_if_done(b"abc")),
+        ("abc", expect_value(b"abc")),
         ("abc123", expect_value(b"abc", next=b"1")),
-        ("", expect_incomplete()),
+        ("", expect_value(b"")),
         ("123", expect_value(b"", next=b"1"))
     ]),
-    # todo: peek
     (terminated(tag(b"foo"), tag(b";")), [
         ("foo;", expect_value(b"foo")),
         ("foo|", expect_failure()),
@@ -119,7 +118,16 @@ def parameterify(*tests: Tuple[Parser, List]):
     (is_eof(), [
         ("", expect_value_if_done(None)),
         ("a", expect_failure())
+    ]),
+    (take_while_n(3, lambda b: b in b"bar"), [
+        ("", expect_incomplete()),
+        ("B", expect_failure()),
+        ("ba", expect_incomplete()),
+        ("bar", expect_value(b"bar")),
+        ("baD", expect_failure()),
+        ("barD", expect_value(b"bar", next=b"D"))
     ])
+    # todo: peek, pair
 ))
 def test_rule(rule, data, expect):
     """

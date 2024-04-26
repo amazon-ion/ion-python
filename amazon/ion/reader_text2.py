@@ -13,10 +13,10 @@
 # License.
 
 from collections import deque
-from typing import Optional, NamedTuple, Callable, Tuple
+from typing import Optional, NamedTuple, Tuple
 
 from amazon.ion.core import IonType, IonEvent, \
-    IonEventType, ION_STREAM_INCOMPLETE_EVENT, ION_STREAM_END_EVENT, IonThunkEvent
+    IonEventType, ION_STREAM_INCOMPLETE_EVENT, ION_STREAM_END_EVENT, IonThunkEvent, ION_VERSION_MARKER_EVENT
 from amazon.ion.exceptions import IonException
 from amazon.ion.protons import *
 from amazon.ion.reader import ReadEventType
@@ -25,10 +25,13 @@ from amazon.ion.symbols import SymbolToken
 from amazon.ion.util import coroutine
 
 def _whitespace(byte):
-    return byte in bytearray(b" \n\t\r\f")
+    return byte in bytearray(b" \t\n\r\v\f")
 
 
-_stop = peek(one_of(b" \n\t\r\f{}[](),\"'"))
+_stop = peek(
+    alt(
+        one_of(b"{}[](),\"\' \t\n\r\v\f"),
+        is_eof()))
 
 
 def tag_stop(tag_value):
@@ -40,6 +43,7 @@ def is_empty(buffer: SliceableBuffer):
         return ParseResult(ResultType.FAILURE, buffer, None)
     else:
         return ParseResult(ResultType.SUCCESS, buffer, None)
+
 
 # todo: not nan, null, true or false for field keys and annotations
 _identifier_symbol = terminated(
@@ -67,7 +71,12 @@ _integer = terminated(
             take_while(lambda b: b in bytearray(b"0123456789")))),
     _stop)
 
-_tlv_parsec = alt(
+
+_timestamp = alt(
+    
+)
+
+_value_parsec = debug(alt(
         # constant(is_empty, ION_STREAM_END_EVENT),
         constant(tag_stop(b"nan"), IonEvent(IonEventType.SCALAR, IonType.FLOAT, float("nan"))),
         constant(tag_stop(b"+inf"), IonEvent(IonEventType.SCALAR, IonType.FLOAT, float("+inf"))),
@@ -76,6 +85,8 @@ _tlv_parsec = alt(
         constant(tag_stop(b"null"), IonEvent(IonEventType.SCALAR, IonType.NULL, None)),
         constant(tag_stop(b"true"), IonEvent(IonEventType.SCALAR, IonType.BOOL, True)),
         constant(tag_stop(b"false"), IonEvent(IonEventType.SCALAR, IonType.BOOL, False)),
+
+        # ignore(delim(tag_stop(b"//"), take_while(lambda b: b != ord(b"\n")), ),
 
         map_value(_integer, lambda v: IonThunkEvent(IonEventType.SCALAR, IonType.INT, lambda: int(bytes(v)))),
 
@@ -97,25 +108,34 @@ _tlv_parsec = alt(
         constant(tag(b"}"), IonEvent(IonEventType.CONTAINER_END, IonType.STRUCT)),
         constant(tag(b"]"), IonEvent(IonEventType.CONTAINER_END, IonType.LIST)),
         constant(tag(b")"), IonEvent(IonEventType.CONTAINER_END, IonType.SEXP)),
-)
+))
+
+_tlv_parsec = alt(constant(tag_stop(b"$ion_1_0"), ION_VERSION_MARKER_EVENT), _value_parsec)
 
 _take_while_whitespace = take_while(_whitespace)
+
 
 def _trim_whitespace(buffer: SliceableBuffer):
     result = _take_while_whitespace(buffer)
     return result.buffer
 
 
+def whitespace_then(parser: Parser) -> Parser:
+    return preceded(_take_while_whitespace, parser)
+
+
 def _map_result(result: ParseResult, buffer: SliceableBuffer) -> Tuple[IonEvent, SliceableBuffer]:
     if result.type is ResultType.SUCCESS:
         return result.value, result.buffer
     if result.type is ResultType.INCOMPLETE:
-        if buffer.size:
-            return ION_STREAM_INCOMPLETE_EVENT, buffer
-        else:
+        if not buffer.size:
             return ION_STREAM_END_EVENT, buffer
+        return ION_STREAM_INCOMPLETE_EVENT, buffer
     if result.type is ResultType.FAILURE:
+        if not buffer.size and buffer.is_eof():
+            return ION_STREAM_END_EVENT, buffer
         raise IonException("Parse failed on _____")
+
 
 def _tlv_parser(buffer: SliceableBuffer) -> Tuple[IonEvent, SliceableBuffer]:
     buffer = _trim_whitespace(buffer)
@@ -127,10 +147,9 @@ def _tlv_parser(buffer: SliceableBuffer) -> Tuple[IonEvent, SliceableBuffer]:
 _list_parsec = alt(
     constant(tag(b"]"), IonEvent(IonEventType.CONTAINER_END, IonType.LIST)),
     terminated(
-        preceded(_take_while_whitespace, _tlv_parsec),
-        preceded(
-            _take_while_whitespace,
-            alt(tag(b','), peek(tag(b']'))))))
+        _value_parsec,
+        whitespace_then(alt(tag(b','), peek(tag(b']'))))))
+
 
 def _list_parser(buffer: SliceableBuffer) -> Tuple[IonEvent, SliceableBuffer]:
     buffer = _trim_whitespace(buffer)
@@ -149,12 +168,11 @@ _struct_parsec = alt(
     constant(tag(b"}"), IonEvent(IonEventType.CONTAINER_END, IonType.STRUCT)),
     map_value(
         terminated(
-            pair(
+            delim_pair(
                 _field_name,
-                preceded(
-                    preceded(_take_while_whitespace, tag(b':')),
-                    preceded(_take_while_whitespace, _tlv_parsec))),
-            preceded(_take_while_whitespace, alt(tag(b','), peek(tag(b'}'))))),
+                whitespace_then(tag(b':')),
+                whitespace_then(_value_parsec)),
+            whitespace_then(alt(tag(b','), peek(tag(b'}'))))),
         # todo: lazy field name
         lambda pair: pair[1].derive_field_name(SymbolToken(bytes(pair[0]).decode("utf-8"), None))))
 
@@ -171,7 +189,7 @@ _whitespace_or_operator = alt(one_of(b" "), one_of(_operators))
 _sexp_parsec = alt(
     constant(tag(b")"), IonEvent(IonEventType.CONTAINER_END, IonType.SEXP)),
     terminated(
-        preceded(_take_while_whitespace, _tlv_parsec),
+        whitespace_then(_value_parsec),
             alt(_whitespace_or_operator, peek(tag(b')')))))
 
 def _sexp_parser(buffer: SliceableBuffer) -> Tuple[IonEvent, SliceableBuffer]:
@@ -217,7 +235,7 @@ def text_stream_handler():
                 if incomplete:
                     # todo: a cleaner way to do this is to set a flush flag
                     #       and pass it to the parser as context...
-                    buffer = buffer.extend(b"\t")
+                    buffer = buffer.eof()
                 else:
                     raise TypeError("Data expected")
             else:
@@ -257,4 +275,3 @@ def text_stream_handler():
                 context_stack.pop()
 
             ion_event = ion_event.derive_depth(depth)
-

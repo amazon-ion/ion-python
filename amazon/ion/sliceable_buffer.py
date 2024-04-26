@@ -23,7 +23,7 @@ class SliceableBuffer:
         """
         return SliceableBuffer([])
 
-    def __init__(self, chunks, offset=0, size=0):
+    def __init__(self, chunks, offset=0, size=0, eof=False):
         """
         *Class internal usage only.*
 
@@ -34,11 +34,14 @@ class SliceableBuffer:
         # chunks which is more efficient than slicing and copying the chunks
         # on each read or skip.
         self._offset = offset
+        self._eof = eof
         self.size = size
 
     def extend(self, chunk):
         """
         Return a new buffer with the chunk appended.
+
+        The new buffer is not marked EOF even if self is.
         """
         if not chunk:
             raise ValueError("Chunk must be not None and non-empty!")
@@ -67,9 +70,9 @@ class SliceableBuffer:
             raise IncompleteReadError("Buffer is empty!")
 
         if length == offset + 1:
-            return chunk[offset], SliceableBuffer(chunks[1:], 0, size - 1)
+            return chunk[offset], SliceableBuffer(chunks[1:], 0, size - 1, self._eof)
         else:
-            return chunk[offset], SliceableBuffer(chunks, offset + 1, size - 1),
+            return chunk[offset], SliceableBuffer(chunks, offset + 1, size - 1, self._eof)
 
     def read_slice(self, n):
         """
@@ -95,9 +98,9 @@ class SliceableBuffer:
         # optimizes for common case and simplifies accumulation loop
         (chunk, length) = chunks[0]
         if endpos < length:
-            return chunk[offset:endpos], SliceableBuffer(chunks, offset + n, size - n)
+            return chunk[offset:endpos], SliceableBuffer(chunks, offset + n, size - n, self._eof)
         elif endpos == length:
-            return chunk[offset:], SliceableBuffer(chunks[1:], 0, size - n)
+            return chunk[offset:], SliceableBuffer(chunks[1:], 0, size - n, self._eof)
 
         slices = [_ChunkPair(chunk[offset:], length - offset)]
 
@@ -123,7 +126,7 @@ class SliceableBuffer:
             combined[cursor:cursor + length] = chunk
             cursor += length
 
-        return memoryview(combined), SliceableBuffer(chunks[i:], remaining, size - n)
+        return memoryview(combined), SliceableBuffer(chunks[i:], remaining, size - n, self._eof)
 
     def read_while(self, pred):
         """
@@ -194,7 +197,7 @@ class SliceableBuffer:
                 i += 1
                 break
 
-        return n, SliceableBuffer(chunks[i:], remaining, size - n)
+        return n, SliceableBuffer(chunks[i:], remaining, size - n, self._eof)
 
     def __len__(self):
         """
@@ -204,11 +207,20 @@ class SliceableBuffer:
 
     def __repr__(self):
         if self.size == 0:
-            return "SliceableBuffer(size=0, data=[])"
-        elif self.size < 5:
-            return f"SliceableBuffer(size={self.size}, data=[{bytes(self.peek(self.size))}])"
+            data = ""
+        elif self.size <= 5:
+            data = f"{bytes(self.peek(self.size))}"
         else:
-            return f"SliceableBuffer(size={self.size}, data=[{bytes(self.peek(5))}...])"
+            data = f"{bytes(self.peek(5))}..."
+
+        return f"SliceableBuffer(size={self.size}, data=[{data}], eof={self._eof})"
+
+    def eof(self):
+        return SliceableBuffer(self._chunks, self._offset, self.size, True)
+
+    def is_eof(self):
+        return self._eof
+
 
 class IncompleteReadError(IndexError):
     pass
