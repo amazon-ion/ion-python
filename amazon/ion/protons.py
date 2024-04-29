@@ -1,6 +1,7 @@
+from collections import namedtuple
 from dataclasses import dataclass
 from enum import Enum
-from typing import Callable, Any
+from typing import Callable, Any, NamedTuple
 
 from amazon.ion.sliceable_buffer import SliceableBuffer
 
@@ -121,16 +122,16 @@ def terminated(item: Parser, terminal: Parser) -> Parser:
     return p
 
 
-def debug(parser: Parser) -> Parser:
+def debug(name: str, parser: Parser) -> Parser:
     """
     prints the input buffer and result of ``parser`` to stdout.
 
     also provides a nice place to put a debug breakpoint.
     """
     def p(buffer: SliceableBuffer):
-        print(f"input {buffer}")
+        print(f"{name} input {buffer}")
         result = parser(buffer)
-        print(f"result {result}")
+        print(f"{name} result {result}")
 
         return result
     return p
@@ -177,6 +178,9 @@ def take_while(pred: Callable[[int], bool]) -> Parser:
     """
     def p(buffer: SliceableBuffer):
         (data, buffer) = buffer.read_while(pred)
+        if not buffer.size and not buffer.is_eof():
+            return ParseResult(ResultType.INCOMPLETE, buffer)
+
         return ParseResult(ResultType.SUCCESS, buffer, data)
 
     return p
@@ -249,6 +253,48 @@ def alt(*parsers: Parser) -> Parser:
     return p
 
 
+class Exact(NamedTuple):
+    value: int
+
+class Range(NamedTuple):
+    low: int
+    high: int
+
+
+SwitchRule = Exact | Range
+
+
+def table(*mappings: tuple[SwitchRule, Parser]) -> Parser:
+    """The parsers should expect to "re-parse" the byte, at least for now.
+    """
+
+    table: list[Parser | None] = [None] * 256
+    for rule, parser in mappings:
+        if type(rule) is Exact:
+            keys = [rule.value]
+        else:
+            keys = [i for i in range(rule.low, rule.high + 1)]
+        for key in keys:
+            if table[key]:
+                raise ValueError(f"mapping for int value: {key} already present!")
+            table[key] = parser
+
+    def p(buffer: SliceableBuffer):
+        if not buffer.size:
+            if buffer.is_eof():
+                return ParseResult(ResultType.FAILURE, buffer)
+            else:
+                return ParseResult(ResultType.INCOMPLETE, buffer)
+        byte = buffer.peek_byte()
+        parser = table[byte]
+        if not parser:
+            return ParseResult(ResultType.FAILURE, buffer)
+        else:
+            return parser(buffer)
+
+    return p
+
+
 def preceded(prefix: Parser, item: Parser) -> Parser:
     """
     check that the prefix matches then returns item if it matches.
@@ -287,7 +333,6 @@ def pair(left: Parser, right: Parser) -> Parser:
 
     return p
 
-
 def delim_pair(left: Parser, delim: Parser, right: Parser) -> Parser:
     """
     returns a tuple of the left and right values
@@ -318,6 +363,7 @@ def peek(parser: Parser) -> Parser:
         result = parser(buffer)
         return ParseResult(result.type, buffer, result.value)
     return p
+
 
 def is_eof() -> Parser:
     """

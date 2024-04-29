@@ -70,6 +70,7 @@ from .exceptions import IonException
 from .reader import blocking_reader, NEXT_EVENT
 from .reader_binary import binary_reader
 from .reader_managed import managed_reader
+from .reader_text2 import text_stream_handler
 from .simple_types import IonPyList, IonPyDict, IonPyNull, IonPyBool, IonPyInt, IonPyFloat, IonPyDecimal, \
     IonPyTimestamp, IonPyText, IonPyBytes, IonPySymbol, is_null
 from .symbols import SymbolToken
@@ -392,6 +393,38 @@ def load_python(fp, catalog=None, single_value=True, parse_eagerly=True):
             raw_reader = binary_reader()
         else:
             raw_reader = text_reader()
+    reader = blocking_reader(managed_reader(raw_reader, catalog), fp)
+    if parse_eagerly:
+        out = []  # top-level
+        _load(out, reader)
+        if single_value:
+            if len(out) != 1:
+                raise IonException('Stream contained %d values; expected a single value.' % (len(out),))
+            return out[0]
+        return out
+    else:
+        out = _load_iteratively(reader)
+        if single_value:
+            result = next(out)
+            try:
+                next(out)
+                raise IonException('Stream contained more than 1 values; expected a single value.')
+            except StopIteration:
+                return result
+        return out
+
+def load_python_r2(fp, catalog=None, single_value=True, parse_eagerly=True):
+    """'pure' Python implementation. Users should prefer to call ``load``."""
+    if isinstance(fp, _TEXT_TYPES):
+        raw_reader = text_stream_handler()
+    else:
+        pos = fp.tell()
+        maybe_ivm = fp.read(4)
+        fp.seek(pos)
+        if maybe_ivm == _IVM:
+            raw_reader = binary_reader()
+        else:
+            raw_reader = text_stream_handler()
     reader = blocking_reader(managed_reader(raw_reader, catalog), fp)
     if parse_eagerly:
         out = []  # top-level

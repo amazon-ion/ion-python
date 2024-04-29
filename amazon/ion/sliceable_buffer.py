@@ -74,6 +74,23 @@ class SliceableBuffer:
         else:
             return chunk[offset], SliceableBuffer(chunks, offset + 1, size - 1, self._eof)
 
+
+    def peek_byte(self):
+        """
+        Peek at the next byte from the buffer, return it.
+
+        Raise IncompleteReadError if the buffer is empty.
+        """
+        chunks = self._chunks
+        offset = self._offset
+
+        try:
+            # assume that we have data, and that chunks are non-empty
+            (chunk, length) = chunks[0]
+            return chunk[offset]
+        except IndexError:
+            raise IncompleteReadError("Buffer is empty!")
+
     def read_slice(self, n):
         """
         Read a slice of the buffer, return (slice, new buffer).

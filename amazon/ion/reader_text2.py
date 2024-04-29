@@ -13,10 +13,11 @@
 # License.
 
 from collections import deque
+from decimal import Decimal
 from typing import Optional, NamedTuple, Tuple
 
 from amazon.ion.core import IonType, IonEvent, \
-    IonEventType, ION_STREAM_INCOMPLETE_EVENT, ION_STREAM_END_EVENT, IonThunkEvent, ION_VERSION_MARKER_EVENT
+    IonEventType, ION_STREAM_INCOMPLETE_EVENT, ION_STREAM_END_EVENT, IonThunkEvent, ION_VERSION_MARKER_EVENT, Timestamp
 from amazon.ion.exceptions import IonException
 from amazon.ion.protons import *
 from amazon.ion.reader import ReadEventType
@@ -46,11 +47,10 @@ def is_empty(buffer: SliceableBuffer):
 
 
 # todo: not nan, null, true or false for field keys and annotations
-_identifier_symbol = terminated(
+_identifier_symbol = \
     preceded(
         peek(one_of(b"$_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")),
-        take_while(lambda b: b in bytearray(b"$_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"))),
-    _stop)
+        take_while(lambda b: b in bytearray(b"$_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")))
 
 _quoted_symbol = delim(
         tag(b"'"),
@@ -62,22 +62,71 @@ _quoted_string = delim(
         take_while(lambda b: b != ord(b'"')),
         tag(b'"'))
 
+def _is_digit(byte):
+    return byte in bytearray(b"0123456789")
+
 # todo: negative numbers
 _integer = terminated(
     alt(
         tag(b"0"),
         preceded(
             peek(one_of(b"123456789")),
-            take_while(lambda b: b in bytearray(b"0123456789")))),
+            take_while(_is_digit))),
+    _stop)
+
+_timestamp = pair(
+    take_while_n(4, _is_digit),
+    alt(
+        tag_stop(b"T"),
+        preceded(
+            tag(b"-"),
+            pair(
+                take_while_n(2, _is_digit),
+                alt(
+                    tag_stop(b"T"),
+                    preceded(
+                        tag(b"-"),
+                        pair(
+                            take_while_n(2, _is_digit),
+                            alt(
+                                tag_stop(b"T"),
+                                _stop))))))))
+
+# todo: lazy
+def _to_timestamp_event(value):
+    (year, rem1) = value
+    if type(rem1) is tuple:
+        (month, rem2) = rem1
+        if type(rem2) is tuple:
+            (day, rem3) = rem2
+            return IonEvent(IonEventType.SCALAR, IonType.TIMESTAMP, Timestamp(int(bytes(year)), int(bytes(month)), int(bytes(day))))
+        else:
+            return IonEvent(IonEventType.SCALAR, IonType.TIMESTAMP, Timestamp(int(bytes(year)), int(bytes(month))))
+    else:
+        return IonEvent(IonEventType.SCALAR, IonType.TIMESTAMP, Timestamp(int(bytes(year)),))
+
+_decimal = terminated(
+    delim_pair(
+        alt(
+            tag(b"0"),
+            preceded(
+                peek(one_of(b"123456789")),
+                take_while(_is_digit))),
+        # todo: this is a huge hack, but it works for my hkc dataset
+        alt(tag(b"."), tag(b"d")),
+        take_while(_is_digit)),
     _stop)
 
 
-_timestamp = alt(
-    
-)
+# todo: lazy
+def _to_decimal_event(value):
+    (integer, fraction) = value
+    dec_str = bytes(integer) + b"." + bytes(fraction)
+    #print(dec_str)
+    return IonEvent(IonEventType.SCALAR, IonType.DECIMAL, Decimal(dec_str.decode("utf-8")))
 
-_value_parsec = debug(alt(
-        # constant(is_empty, ION_STREAM_END_EVENT),
+_value_parsec = alt(
+        constant(is_empty, ION_STREAM_END_EVENT),
         constant(tag_stop(b"nan"), IonEvent(IonEventType.SCALAR, IonType.FLOAT, float("nan"))),
         constant(tag_stop(b"+inf"), IonEvent(IonEventType.SCALAR, IonType.FLOAT, float("+inf"))),
         constant(tag_stop(b"-inf"), IonEvent(IonEventType.SCALAR, IonType.FLOAT, float("-inf"))),
@@ -87,6 +136,8 @@ _value_parsec = debug(alt(
         constant(tag_stop(b"false"), IonEvent(IonEventType.SCALAR, IonType.BOOL, False)),
 
         # ignore(delim(tag_stop(b"//"), take_while(lambda b: b != ord(b"\n")), ),
+        map_value(_timestamp, _to_timestamp_event),
+        map_value(_decimal, _to_decimal_event),
 
         map_value(_integer, lambda v: IonThunkEvent(IonEventType.SCALAR, IonType.INT, lambda: int(bytes(v)))),
 
@@ -101,14 +152,14 @@ _value_parsec = debug(alt(
               lambda v: IonThunkEvent(IonEventType.SCALAR, IonType.STRING,
                                       lambda: bytes(v).decode('utf-8'), None)),
 
-        constant(tag(b"{"), IonEvent(IonEventType.CONTAINER_START, IonType.STRUCT)),
+        constant(peek(tag(b"{")), IonEvent(IonEventType.CONTAINER_START, IonType.STRUCT)),
         constant(tag(b"["), IonEvent(IonEventType.CONTAINER_START, IonType.LIST)),
         constant(tag(b"("), IonEvent(IonEventType.CONTAINER_START, IonType.SEXP)),
 
         constant(tag(b"}"), IonEvent(IonEventType.CONTAINER_END, IonType.STRUCT)),
         constant(tag(b"]"), IonEvent(IonEventType.CONTAINER_END, IonType.LIST)),
         constant(tag(b")"), IonEvent(IonEventType.CONTAINER_END, IonType.SEXP)),
-))
+)
 
 _tlv_parsec = alt(constant(tag_stop(b"$ion_1_0"), ION_VERSION_MARKER_EVENT), _value_parsec)
 
@@ -134,7 +185,7 @@ def _map_result(result: ParseResult, buffer: SliceableBuffer) -> Tuple[IonEvent,
     if result.type is ResultType.FAILURE:
         if not buffer.size and buffer.is_eof():
             return ION_STREAM_END_EVENT, buffer
-        raise IonException("Parse failed on _____")
+        raise IonException(f"Parse failed on {buffer}")
 
 
 def _tlv_parser(buffer: SliceableBuffer) -> Tuple[IonEvent, SliceableBuffer]:
@@ -164,17 +215,45 @@ _field_name = alt(
     # todo: long quoted string, because why!?!?!?
 )
 
+def opt(parser: Parser) -> Parser:
+    def p(buffer: SliceableBuffer):
+        result = parser(buffer)
+        if result.type is ResultType.SUCCESS:
+            return result
+        if result.type is ResultType.FAILURE:
+            return ParseResult(ResultType.SUCCESS, result.buffer)
+        return result
+    return p
+
+# todo: this is all eff'ed, basically it doesn't work when the _value_parsec does not fully consume the
+#       buffer. I didn't build this for these to be re-entrant so it's both an issue with expecting a comma or brace after a value
+#       and an issue when we close the container, then we're at a place where we have a whitespace and comma from a previous invocation.
+# _struct_parsec = alt(
+#     constant(tag(b"}"), IonEvent(IonEventType.CONTAINER_END, IonType.STRUCT)),
+#     map_value(
+#         terminated(
+#             delim_pair(
+#                 _field_name,
+#                 whitespace_then(tag(b':')),
+#                 whitespace_then(_value_parsec)),
+#             # todo: i think there's a bug here with whitespace after a trailing comma
+#             debug("struct end", whitespace_then(alt(tag(b','), peek(tag(b'}')))))),
+#         # todo: lazy field name
+#         lambda pair: pair[1].derive_field_name(SymbolToken(bytes(pair[0]).decode("utf-8"), None))))
+
+# todo: empty structs don't work, because they're not parsed as a container_end event
 _struct_parsec = alt(
-    constant(tag(b"}"), IonEvent(IonEventType.CONTAINER_END, IonType.STRUCT)),
-    map_value(
-        terminated(
-            delim_pair(
-                _field_name,
-                whitespace_then(tag(b':')),
-                whitespace_then(_value_parsec)),
-            whitespace_then(alt(tag(b','), peek(tag(b'}'))))),
-        # todo: lazy field name
-        lambda pair: pair[1].derive_field_name(SymbolToken(bytes(pair[0]).decode("utf-8"), None))))
+    whitespace_then(constant(tag(b"}"), IonEvent(IonEventType.CONTAINER_END, IonType.STRUCT))),
+    preceded(
+        whitespace_then(alt(tag(b"{"), tag(b","))),
+        map_value(
+                delim_pair(
+                    whitespace_then(_field_name),
+                    whitespace_then(tag(b':')),
+                    whitespace_then(_value_parsec)),
+            # todo: lazy field name
+            lambda pair: pair[1].derive_field_name(SymbolToken(bytes(pair[0]).decode("utf-8"), None)))))
+
 
 def _struct_parser(buffer: SliceableBuffer) -> Tuple[IonEvent, SliceableBuffer]:
     buffer = _trim_whitespace(buffer)

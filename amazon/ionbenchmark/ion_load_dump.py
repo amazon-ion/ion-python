@@ -22,11 +22,12 @@ class IonLoadDump:
 
     def loads(self, s):
         ion.c_ext = self._c_ext
+        print("loads?")
         return ion.loads(s, single_value=self._single_value, value_model=self.value_model)
 
     def load(self, fp):
         ion.c_ext = self._c_ext
-        it = ion.load(fp, parse_eagerly=False, single_value=False, value_model=self.value_model)
+        it = ion.load_python_r2(fp, parse_eagerly=False, single_value=False)
         while True:
             try:
                 yield next(it)
