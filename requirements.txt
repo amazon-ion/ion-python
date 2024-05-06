@@ -1,7 +1,7 @@
 appdirs==1.4.4
 attrs==21.2.0
 distlib==0.3.8
-filelock==3.13.4
+filelock==3.14.0
 iniconfig==1.1.1
 jsonconversion==0.2.12
 packaging==20.9
@@ -12,7 +12,7 @@ pytest==6.2.4
 pytest-runner==5.3.1
 toml==0.10.2
 tox==3.23.1
-virtualenv==20.26.0
+virtualenv==20.26.1
 setuptools==65.5.1
 docopt==0.6.2
 tabulate==0.9.0
