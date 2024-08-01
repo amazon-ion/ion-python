@@ -86,6 +86,9 @@ static PyObject* digits_str;
 static PyObject* fractional_precision_str;
 static PyObject* store_str;
 
+// Note: We cast x (assumed to be an int) to a long so that we can cast to a pointer without warning.
+#define INT_TO_ION_TYPE(x) ( (ION_TYPE)(long)(x) )
+
 typedef struct {
     PyObject *py_file; // a TextIOWrapper-like object
     BYTE buffer[IONC_STREAM_READ_BUFFER_SIZE];
@@ -178,10 +181,9 @@ static int ion_type_from_py(PyObject* obj) {
  *      out:  A C string converted from 'str'
  *      len_out:  Length of 'out'
  */
-static iERR c_string_from_py(PyObject* str, char** out, Py_ssize_t* len_out) {
-    iENTER;
+static iERR c_string_from_py(PyObject* str, const char** out, Py_ssize_t* len_out) {
     *out = PyUnicode_AsUTF8AndSize(str, len_out);
-    iRETURN;
+    return IERR_OK;
 }
 
 /*
@@ -193,11 +195,11 @@ static iERR c_string_from_py(PyObject* str, char** out, Py_ssize_t* len_out) {
  */
 static iERR ion_string_from_py(PyObject* str, ION_STRING* out) {
     iENTER;
-    char* c_str = NULL;
+    const char* c_str = NULL;
     Py_ssize_t c_str_len;
     IONCHECK(c_string_from_py(str, &c_str, &c_str_len));
     ION_STRING_INIT(out);
-    ion_string_assign_cstr(out, c_str, c_str_len);
+    ion_string_assign_cstr(out, (char *)c_str, c_str_len);
     iRETURN;
 }
 
@@ -543,7 +545,7 @@ iERR ionc_write_value(hWRITER writer, PyObject* obj, PyObject* tuple_as_sexp) {
         if (ion_type == tid_none_INT) {
             ion_type = tid_NULL_INT;
         }
-        IONCHECK(ion_writer_write_typed_null(writer, (ION_TYPE)ion_type));
+        IONCHECK(ion_writer_write_typed_null(writer, INT_TO_ION_TYPE(ion_type)));
     }
     else if (PyObject_TypeCheck(obj, (PyTypeObject*)_decimal_constructor)) {
         if (ion_type == tid_none_INT) {
@@ -554,7 +556,7 @@ iERR ionc_write_value(hWRITER writer, PyObject* obj, PyObject* tuple_as_sexp) {
         }
 
         PyObject* decimal_str = PyObject_CallMethod(obj, "__str__", NULL);
-        char* decimal_c_str = NULL;
+        const char* decimal_c_str = NULL;
         Py_ssize_t decimal_c_str_len;
         c_string_from_py(decimal_str, &decimal_c_str, &decimal_c_str_len);
 
@@ -712,7 +714,7 @@ iERR ionc_write_value(hWRITER writer, PyObject* obj, PyObject* tuple_as_sexp) {
         if (tid_STRUCT_INT != ion_type) {
             _FAILWITHMSG(IERR_INVALID_ARG, "Found dict; expected STRUCT Ion type.");
         }
-        IONCHECK(ion_writer_start_container(writer, (ION_TYPE)ion_type));
+        IONCHECK(ion_writer_start_container(writer, INT_TO_ION_TYPE(ion_type)));
         IONCHECK(ionc_write_struct(writer, obj, tuple_as_sexp));
         IONCHECK(ion_writer_finish_container(writer));
     }
@@ -734,10 +736,10 @@ iERR ionc_write_value(hWRITER writer, PyObject* obj, PyObject* tuple_as_sexp) {
         }
 
         if (PyTuple_Check(obj) && PyObject_IsTrue(tuple_as_sexp)) {
-            IONCHECK(ion_writer_start_container(writer, (ION_TYPE)tid_SEXP_INT));
+            IONCHECK(ion_writer_start_container(writer, tid_SEXP));
         }
         else {
-            IONCHECK(ion_writer_start_container(writer, (ION_TYPE)ion_type));
+            IONCHECK(ion_writer_start_container(writer, INT_TO_ION_TYPE(ion_type)));
         }
         IONCHECK(ionc_write_sequence(writer, obj, tuple_as_sexp));
         IONCHECK(ion_writer_finish_container(writer));
@@ -759,12 +761,14 @@ iERR ionc_write_value(hWRITER writer, PyObject* obj, PyObject* tuple_as_sexp) {
  *
  */
 static iERR _ionc_write(hWRITER writer, PyObject* objs, PyObject* tuple_as_sexp, int i) {
-    iENTER;
+    iERR err = IERR_OK;
+
     PyObject* pyObj = PySequence_Fast_GET_ITEM(objs, i);
     Py_INCREF(pyObj);
     err = ionc_write_value(writer, pyObj, tuple_as_sexp);
     Py_DECREF(pyObj);
-    iRETURN;
+
+    return err;
 }
 
 /*
@@ -775,7 +779,9 @@ static PyObject* ionc_write(PyObject *self, PyObject *args, PyObject *kwds) {
     PyObject *obj, *binary, *sequence_as_stream, *tuple_as_sexp;
     ION_STREAM  *ion_stream = NULL;
     BYTE* buf = NULL;
+    hWRITER writer = NULL;
     static char *kwlist[] = {"obj", "binary", "sequence_as_stream", "tuple_as_sexp", NULL};
+
     if (!PyArg_ParseTupleAndKeywords(args, kwds, "OOOO", kwlist, &obj, &binary, &sequence_as_stream, &tuple_as_sexp)) {
         FAILWITH(IERR_INVALID_ARG);
     }
@@ -786,7 +792,6 @@ static PyObject* ionc_write(PyObject *self, PyObject *args, PyObject *kwds) {
     IONCHECK(ion_stream_open_memory_only(&ion_stream));
 
     //Create a writer here to avoid re-create writers for each element when sequence_as_stream is True.
-    hWRITER writer;
     ION_WRITER_OPTIONS options;
     memset(&options, 0, sizeof(options));
     options.output_as_binary = PyObject_IsTrue(binary);
@@ -795,7 +800,7 @@ static PyObject* ionc_write(PyObject *self, PyObject *args, PyObject *kwds) {
 
     if (Py_TYPE(obj) == &ionc_read_IteratorType) {
         PyObject *item;
-        while (item = PyIter_Next(obj)) {
+        while ((item = PyIter_Next(obj)) != NULL) {
             err = ionc_write_value(writer, item, tuple_as_sexp);
             Py_DECREF(item);
             if (err) break;
@@ -809,7 +814,6 @@ static PyObject* ionc_write(PyObject *self, PyObject *args, PyObject *kwds) {
         PyObject* objs = PySequence_Fast(obj, "expected sequence");
         Py_ssize_t len = PySequence_Size(objs);
         Py_ssize_t i;
-        BOOL last_element = FALSE;
 
         for (i = 0; i < len; i++) {
             err = _ionc_write(writer, objs, tuple_as_sexp, i);
@@ -1106,7 +1110,7 @@ iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, enum Cont
             // TODO double check the real null type, now it's initialized to IonType.NULL by default
             ION_TYPE null_type;
             // Hack for ion-c issue https://github.com/amazon-ion/ion-c/issues/223
-            if (original_t != tid_SYMBOL_INT) {
+            if (original_t != tid_SYMBOL) {
                 IONCHECK(ion_reader_read_null(hreader, &null_type));
             }
             else {
@@ -1479,7 +1483,7 @@ PyObject* ionc_read(PyObject* self, PyObject *args, PyObject *kwds) {
     iENTER;
     PyObject *py_file = NULL; // TextIOWrapper
     uint8_t value_model = 0;
-    PyObject *text_buffer_size_limit;
+    PyObject *text_buffer_size_limit = NULL;
     ionc_read_Iterator *iterator = NULL;
     static char *kwlist[] = {"file", "value_model", "text_buffer_size_limit", NULL};
     // todo: this could be simpler and likely faster by converting to c types here.
@@ -1500,7 +1504,7 @@ PyObject* ionc_read(PyObject* self, PyObject *args, PyObject *kwds) {
     iterator->closed = FALSE;
     iterator->file_handler_state.py_file = py_file;
     iterator->value_model = value_model;
-    memset(&iterator->reader, 0, sizeof(iterator->reader));
+    iterator->reader = NULL;
     memset(&iterator->_reader_options, 0, sizeof(iterator->_reader_options));
     iterator->_reader_options.decimal_context = &dec_context;
     if (text_buffer_size_limit != Py_None) {
@@ -1513,13 +1517,15 @@ PyObject* ionc_read(PyObject* self, PyObject *args, PyObject *kwds) {
         &iterator->file_handler_state,
         ion_read_file_stream_handler,
         &iterator->_reader_options)); // NULL represents default reader options
-    return iterator;
+    return (PyObject *)iterator;
+
 
 fail:
     if (iterator != NULL) {
+        // Since we've created an iterator, that means we have INCREF'd py_file, so correct that.
         Py_DECREF(py_file);
+        Py_DECREF(iterator);
     }
-    Py_XDECREF(iterator);
     PyObject* exception = PyErr_Format(_ion_exception_cls, "%s %s", ion_error_to_str(err), _err_msg);
     _err_msg[0] = '\0';
     return exception;
