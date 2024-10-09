@@ -95,7 +95,7 @@ c_ext = __IS_C_EXTENSION_SUPPORTED
 
 
 def dump(obj, fp, imports=None, binary=True, sequence_as_stream=False, indent=None,
-         tuple_as_sexp=False, omit_version_marker=False):
+         tuple_as_sexp=False, omit_version_marker=False, trailing_commas=False):
     """Serialize ``obj`` as an Ion formatted stream and write it to fp.
 
     The python object hierarchy is mapped to the Ion data model as described in the module pydoc.
@@ -121,11 +121,15 @@ def dump(obj, fp, imports=None, binary=True, sequence_as_stream=False, indent=No
         indent (Str): If binary is False and indent is a string, then members of containers will be pretty-printed with
             a newline followed by that string repeated for each level of nesting. None (the default) selects the most
             compact representation without any newlines. Example: to indent with four spaces per level of nesting,
-            use ``'    '``.
+            use ``'    '``. Supported only in the pure Python implementation (because pretty printing is not yet
+            supported in the C implementation).
         tuple_as_sexp (Optional[True|False]): When True, all tuple values will be written as Ion s-expressions.
             When False, all tuple values will be written as Ion lists. Default: False.
         omit_version_marker (Optional[True|False]): If binary is False and omit_version_marker is True, omits the
             Ion Version Marker ($ion_1_0) from the output.  Default: False.
+        trailing_commas (Optional[True|False]): If binary is False and pretty printing (indent is not None), includes
+            trailing commas in containers. Default: False. Supported only in the pure Python implementation (because
+            pretty printing is not yet supported in the C implementation).
 
     Returns None.
     """
@@ -135,11 +139,12 @@ def dump(obj, fp, imports=None, binary=True, sequence_as_stream=False, indent=No
     else:
         return dump_python(obj, fp, imports=imports, binary=binary, sequence_as_stream=sequence_as_stream,
                            indent=indent,
-                           tuple_as_sexp=tuple_as_sexp, omit_version_marker=omit_version_marker)
+                           tuple_as_sexp=tuple_as_sexp, omit_version_marker=omit_version_marker,
+                           trailing_commas=trailing_commas)
 
 
 def dumps(obj, imports=None, binary=True, sequence_as_stream=False,
-          indent=None, tuple_as_sexp=False, omit_version_marker=False):
+          indent=None, tuple_as_sexp=False, omit_version_marker=False, trailing_commas=False):
     """Serialize obj as described by dump, return the serialized data as bytes or unicode.
 
     Returns:
@@ -149,7 +154,8 @@ def dumps(obj, imports=None, binary=True, sequence_as_stream=False,
     ion_buffer = io.BytesIO()
 
     dump(obj, ion_buffer, imports=imports, sequence_as_stream=sequence_as_stream, binary=binary,
-         indent=indent, tuple_as_sexp=tuple_as_sexp, omit_version_marker=omit_version_marker)
+         indent=indent, tuple_as_sexp=tuple_as_sexp, omit_version_marker=omit_version_marker,
+         trailing_commas=trailing_commas)
 
     ret_val = ion_buffer.getvalue()
     ion_buffer.close()
@@ -157,6 +163,25 @@ def dumps(obj, imports=None, binary=True, sequence_as_stream=False,
         ret_val = ret_val.decode('utf-8')
     return ret_val
 
+"""
+import amazon.ion.simpleion as ion
+
+x = eval('''
+{
+   'foo': 1,
+   'bar': [
+      2,
+      3,
+      4
+   ],
+   'baz': {
+      'quux': 'whiz'
+   }
+}
+''')
+
+print(ion.dumps(x, binary=False, omit_version_marker=True, indent=u'   ', trailing_commas=True))
+"""
 
 class IonPyValueModel(IntFlag):
     """Flags to control the types of values that are emitted from load(s).
@@ -292,9 +317,10 @@ _TEXT_TYPES = (TextIOBase, io.StringIO)
 
 
 def dump_python(obj, fp, imports=None, binary=True, sequence_as_stream=False,
-                indent=None, tuple_as_sexp=False, omit_version_marker=False):
+                indent=None, tuple_as_sexp=False, omit_version_marker=False,
+                trailing_commas=False):
     """'pure' Python implementation. Users should prefer to call ``dump``."""
-    raw_writer = binary_writer(imports) if binary else text_writer(indent=indent)
+    raw_writer = binary_writer(imports) if binary else text_writer(indent=indent, trailing_commas=trailing_commas)
     writer = blocking_writer(raw_writer, fp)
     from_type = _FROM_TYPE_TUPLE_AS_SEXP if tuple_as_sexp else _FROM_TYPE
     if binary or not omit_version_marker:
@@ -470,10 +496,11 @@ def _load(out, reader, end_type=IonEventType.STREAM_END, in_struct=False):
         event = reader.send(NEXT_EVENT)
 
 
-def dump_extension(obj, fp, binary=True, sequence_as_stream=False, tuple_as_sexp=False, omit_version_marker=False):
+def dump_extension(obj, fp, binary=True, sequence_as_stream=False, tuple_as_sexp=False, omit_version_marker=False,
+                   trailing_commas=False):
     """C-extension implementation. Users should prefer to call ``dump``."""
 
-    res = ionc.ionc_write(obj, binary, sequence_as_stream, tuple_as_sexp)
+    res = ionc.ionc_write(obj, binary, sequence_as_stream, tuple_as_sexp, trailing_commas)
 
     # TODO support "omit_version_marker" rather than hacking.
     if not binary and not omit_version_marker:

@@ -556,34 +556,35 @@ _ROUNDTRIPS = [
 def _generate_roundtrips(roundtrips):
     for is_binary in (True, False):
         for indent in ('not used',) if is_binary else (None, '', ' ', '   ', '\t', '\n\t\n  '):
-            def _adjust_sids(annotations=()):
-                if is_binary and isinstance(obj, SymbolToken):
-                    return SymbolToken(obj.text, 10 + len(annotations))
-                return obj
+            for trailing_commas in (True, False):
+                def _adjust_sids(annotations=()):
+                    if is_binary and isinstance(obj, SymbolToken):
+                        return SymbolToken(obj.text, 10 + len(annotations))
+                    return obj
 
-            def _to_obj(to_type=None, annotations=(), tuple_as_sexp=False):
-                if to_type is None:
-                    to_type = ion_type
-                obj_out = _adjust_sids(annotations)
-                return _FROM_ION_TYPE[ion_type].from_value(to_type, obj_out, annotations=annotations), is_binary, indent, tuple_as_sexp
+                def _to_obj(to_type=None, annotations=(), tuple_as_sexp=False):
+                    if to_type is None:
+                        to_type = ion_type
+                    obj_out = _adjust_sids(annotations)
+                    return _FROM_ION_TYPE[ion_type].from_value(to_type, obj_out, annotations=annotations), is_binary, indent, tuple_as_sexp, trailing_commas
 
-            for obj in roundtrips:
-                obj = _adjust_sids()
-                yield obj, is_binary, indent, False
-                if not obj_has_ion_type_and_annotation(obj):
-                    ion_type = _ion_type(obj, _FROM_TYPE)
-                    yield _to_obj()
-                else:
-                    ion_type = obj.ion_type
-                if isinstance(obj, IonPyNull):
-                    obj = None
-                yield _to_obj(annotations=(u'annot1', u'annot2'))
-                if isinstance(obj, list):
-                    yield _to_obj(IonType.SEXP)
-                    yield _to_obj(IonType.SEXP, annotations=(u'annot1', u'annot2'))
-                if isinstance(obj, tuple) and not isinstance(obj, SymbolToken):
-                    yield _to_obj(IonType.SEXP, tuple_as_sexp=True)
-                    yield _to_obj(IonType.SEXP, annotations=(u'annot1', u'annot2'), tuple_as_sexp=True)
+                for obj in roundtrips:
+                    obj = _adjust_sids()
+                    yield obj, is_binary, indent, False, trailing_commas
+                    if not obj_has_ion_type_and_annotation(obj):
+                        ion_type = _ion_type(obj, _FROM_TYPE)
+                        yield _to_obj()
+                    else:
+                        ion_type = obj.ion_type
+                    if isinstance(obj, IonPyNull):
+                        obj = None
+                    yield _to_obj(annotations=(u'annot1', u'annot2'))
+                    if isinstance(obj, list):
+                        yield _to_obj(IonType.SEXP)
+                        yield _to_obj(IonType.SEXP, annotations=(u'annot1', u'annot2'))
+                    if isinstance(obj, tuple) and not isinstance(obj, SymbolToken):
+                        yield _to_obj(IonType.SEXP, tuple_as_sexp=True)
+                        yield _to_obj(IonType.SEXP, annotations=(u'annot1', u'annot2'), tuple_as_sexp=True)
 
 
 def _assert_roundtrip(before, after, tuple_as_sexp):
@@ -594,9 +595,9 @@ def _assert_roundtrip(before, after, tuple_as_sexp):
     *tuple(_generate_roundtrips(_ROUNDTRIPS))
 )
 def test_roundtrip(p):
-    obj, is_binary, indent, tuple_as_sexp = p
+    obj, is_binary, indent, tuple_as_sexp, trailing_commas = p
     out = BytesIO()
-    dump(obj, out, binary=is_binary, indent=indent, tuple_as_sexp=tuple_as_sexp)
+    dump(obj, out, binary=is_binary, indent=indent, tuple_as_sexp=tuple_as_sexp, trailing_commas=trailing_commas)
     out.seek(0)
     res = load(out)
     _assert_roundtrip(obj, res, tuple_as_sexp)
@@ -606,10 +607,10 @@ def test_roundtrip(p):
     *tuple(_generate_roundtrips(_ROUNDTRIPS))
 )
 def test_roundtrip_ion_stream(p):
-    obj, is_binary, indent, tuple_as_sexp = p
+    obj, is_binary, indent, tuple_as_sexp, trailing_commas = p
     expected = [obj]
     out = BytesIO()
-    dump(obj, out, binary=is_binary, indent=indent, tuple_as_sexp=tuple_as_sexp)
+    dump(obj, out, binary=is_binary, indent=indent, tuple_as_sexp=tuple_as_sexp, trailing_commas=trailing_commas)
     out.seek(0)
     res = load(out, single_value=False, parse_eagerly=True)
     _assert_roundtrip(expected, res, tuple_as_sexp)
@@ -641,6 +642,7 @@ def test_unknown_object_type_fails(is_binary):
 class PrettyPrintParams(NamedTuple):
     ion_text: str
     indent: str
+    trailing_commas = False
     exact_text: Optional[str] = None
     regexes: Sequence = []
 
@@ -659,7 +661,27 @@ class PrettyPrintParams(NamedTuple):
             exact_text="$ion_1_0\n[\n\tapple,\n\t\"banana\",\n\t{\n\t\troof: false\n\t}\n]"),
         PrettyPrintParams(ion_text='[apple, {roof: false, walls:4, door: wood::large::true}]', indent='\t',
             regexes=["\\A\\$ion_1_0\n\\[\n\tapple,\n\t\\{", "\n\t\tdoor: wood::large::true,?\n",
-                "\n\t\troof: false,?\n", "\n\t\twalls: 4,?\n", "\n\t\\}\n\\]\\Z"])
+                "\n\t\troof: false,?\n", "\n\t\twalls: 4,?\n", "\n\t\\}\n\\]\\Z"]),
+
+        PrettyPrintParams(ion_text='a', indent='  ', trailing_commas=True, exact_text="$ion_1_0\na"),
+        PrettyPrintParams(ion_text='"a"', indent='  ', trailing_commas=True, exact_text="$ion_1_0\n\"a\""),
+        PrettyPrintParams(ion_text='\'$a__9\'', indent='  ', trailing_commas=True,
+                          exact_text="$ion_1_0\n$a__9"),
+        PrettyPrintParams(ion_text='\'$a_\\\'_9\'', indent='  ', trailing_commas=True,
+                          exact_text="$ion_1_0\n\'$a_\\\'_9\'"),
+        PrettyPrintParams(ion_text='[a, b, chair::2008-08-08T]', indent='  ', trailing_commas=True,
+                          exact_text="$ion_1_0\n[\n  a,\n  b,\n  chair::2008-08-08T,\n]"),
+        PrettyPrintParams(ion_text='[a, b, chair::2008-08-08T]',
+                          indent=None, trailing_commas=True, # not pretty print
+                          exact_text="$ion_1_0 [a,b,chair::2008-08-08T]"),
+        PrettyPrintParams(ion_text='[apple, {roof: false}]', indent='\t', trailing_commas=True,
+                          exact_text="$ion_1_0\n[\n\tapple,\n\t{\n\t\troof: false,\n\t}\n]"),
+        PrettyPrintParams(ion_text='[apple, "banana", {roof: false}]', indent='\t', trailing_commas=True,
+                          exact_text="$ion_1_0\n[\n\tapple,\n\t\"banana\",\n\t{\n\t\troof: false,\n\t}\n]"),
+        PrettyPrintParams(ion_text='[apple, {roof: false, walls:4, door: wood::large::true}]', indent='\t',
+                          trailing_commas=True,
+                          regexes=["\\A\\$ion_1_0\n\\[\n\tapple,\n\t\\{", "\n\t\tdoor: wood::large::true,\n",
+                                   "\n\t\troof: false,\n", "\n\t\twalls: 4,\n", "\n\t\\}\n\\]\\Z"])
         )
 def test_pretty_print(p):
     if c_ext:

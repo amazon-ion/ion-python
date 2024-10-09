@@ -217,6 +217,7 @@ def new_writer():
 def test_raw_writer(p):
     assert_writer_events(p, new_writer)
 
+
 @parametrize(
         (None, True),
         ('', True),
@@ -249,6 +250,7 @@ class _P_Q(NamedTuple):
     backslash_required: bool = False
 
     pass
+
 
 @parametrize(
         _P_Q('a', False),
@@ -296,3 +298,19 @@ def test_quote_symbols(p):
     assert needs_quotes == quoted
     assert len(ion_value.ion_annotations) == 1
     assert ion_value.ion_annotations[0].text == symbol_text
+
+
+@parametrize(
+    ('    ', True),
+    ('   ', False)
+    (None, True),
+    (None, False))
+def test_trailing_commas(p):
+    indent, trailing_commas = p
+
+    # Ensure raw_writer can handle trailing_commas value with indent value for all value combinations.
+    raw_writer(indent, trailing_commas)
+
+    # Ensure that a value dumped using the indent and trailing_commas values can be successfully loaded.
+    ion_val = loads('[a, {x:2, y: height::17}]')
+    assert ion_val == loads(dumps(ion_val, binary=False, indent=indent, trailing_commas=trailing_commas))
