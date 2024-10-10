@@ -163,25 +163,6 @@ def dumps(obj, imports=None, binary=True, sequence_as_stream=False,
         ret_val = ret_val.decode('utf-8')
     return ret_val
 
-"""
-import amazon.ion.simpleion as ion
-
-x = eval('''
-{
-   'foo': 1,
-   'bar': [
-      2,
-      3,
-      4
-   ],
-   'baz': {
-      'quux': 'whiz'
-   }
-}
-''')
-
-print(ion.dumps(x, binary=False, omit_version_marker=True, indent=u'   ', trailing_commas=True))
-"""
 
 class IonPyValueModel(IntFlag):
     """Flags to control the types of values that are emitted from load(s).
