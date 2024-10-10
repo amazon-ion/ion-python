@@ -675,13 +675,13 @@ class PrettyPrintParams(NamedTuple):
                           indent=None, trailing_commas=True, # not pretty print
                           exact_text="$ion_1_0 [a,b,chair::2008-08-08T]"),
         PrettyPrintParams(ion_text='[apple, {roof: false}]', indent='\t', trailing_commas=True,
-                          exact_text="$ion_1_0\n[\n\tapple,\n\t{\n\t\troof: false,\n\t}\n]"),
+                          exact_text="$ion_1_0\n[\n\tapple,\n\t{\n\t\troof: false,\n\t},\n]"),
         PrettyPrintParams(ion_text='[apple, "banana", {roof: false}]', indent='\t', trailing_commas=True,
-                          exact_text="$ion_1_0\n[\n\tapple,\n\t\"banana\",\n\t{\n\t\troof: false,\n\t}\n]"),
+                          exact_text="$ion_1_0\n[\n\tapple,\n\t\"banana\",\n\t{\n\t\troof: false,\n\t},\n]"),
         PrettyPrintParams(ion_text='[apple, {roof: false, walls:4, door: wood::large::true}]', indent='\t',
                           trailing_commas=True,
                           regexes=["\\A\\$ion_1_0\n\\[\n\tapple,\n\t\\{", "\n\t\tdoor: wood::large::true,\n",
-                                   "\n\t\troof: false,\n", "\n\t\twalls: 4,\n", "\n\t\\}\n\\]\\Z"])
+                                   "\n\t\troof: false,\n", "\n\t\twalls: 4,\n", "\n\t\\},\n\\]\\Z"])
         )
 def test_pretty_print(p):
     if c_ext:

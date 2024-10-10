@@ -369,7 +369,7 @@ def _raw_writer_coroutine(depth=0, container_event=None, whence=None, indent=Non
         ion_event, self = (yield transition)
         delegate = self
 
-        if has_written_values and (trailing_commas or not ion_event.event_type.ends_container):
+        if has_written_values and ((indent and trailing_commas) or not ion_event.event_type.ends_container):
             # TODO This will always emit a delimiter for containers--should make it not do that.
             # Write the delimiter for the next value.
             if depth == 0:
