@@ -302,7 +302,7 @@ def test_quote_symbols(p):
 
 @parametrize(
     ('    ', True),
-    ('   ', False)
+    ('   ', False),
     (None, True),
     (None, False))
 def test_trailing_commas(p):

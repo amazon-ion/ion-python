@@ -642,9 +642,9 @@ def test_unknown_object_type_fails(is_binary):
 class PrettyPrintParams(NamedTuple):
     ion_text: str
     indent: str
-    trailing_commas = False
     exact_text: Optional[str] = None
     regexes: Sequence = []
+    trailing_commas: bool = False
 
 @parametrize(
         PrettyPrintParams(ion_text='a', indent='  ', exact_text="$ion_1_0\na"),
@@ -687,9 +687,10 @@ def test_pretty_print(p):
     if c_ext:
         # TODO support pretty print for C extension.
         return
-    ion_text, indent, exact_text, regexes = p
+    ion_text, indent, exact_text, regexes, trailing_commas = p
     ion_value = loads(ion_text)
-    actual_pretty_ion_text = dumps(ion_value, binary=False, indent=indent)
+    actual_pretty_ion_text = dumps(ion_value, binary=False, indent=indent,
+                                   trailing_commas=trailing_commas)
     if exact_text is not None:
         assert actual_pretty_ion_text == exact_text
     for regex_str in regexes:
