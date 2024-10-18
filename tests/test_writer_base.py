@@ -134,3 +134,17 @@ def test_blocking_writer(p):
         result_type = writer.send(None)
         assert isinstance(result_type, WriteEventType) and result_type is not WriteEventType.HAS_PENDING
     assert p.expected == buf.getvalue()
+
+
+# Simple test to make sure that our C extension returns a proper exception if we give it unexpected parameters.
+def test_ionc_writer_fails_graceful():
+    from amazon.ion.simpleion import c_ext
+    from amazon.ion.exceptions import IonException
+    from pytest import raises
+
+    if c_ext:
+        from amazon.ion import ionc
+        with raises(IonException) as e_info:
+            ionc.ionc_write(None, True, False, False, None) # Invalid argument
+        # Exceptions don't compare eq..
+        assert str(e_info.value) == str(IonException('IERR_INVALID_ARG ')) # Space is added when the error is thrown.
