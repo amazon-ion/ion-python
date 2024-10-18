@@ -17,7 +17,7 @@ def generate_test_path(p):
 
 def run_cli(c):
     import subprocess
-    cmd = ["python", abspath(join(dirname(os.path.abspath(__file__)), '../amazon/ionbenchmark/ion_benchmark_cli.py'))] + c
+    cmd = ["python", abspath(join(dirname(os.path.abspath(__file__)), '../src-python/amazon/ionbenchmark/ion_benchmark_cli.py'))] + c
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, text=True)
     error_code = proc.wait()
     (out, err) = proc.communicate()
