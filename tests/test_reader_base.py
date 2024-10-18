@@ -245,9 +245,11 @@ def test_ionc_reader_fails_graceful():
     from amazon.ion.exceptions import IonException
     from pytest import raises
 
-    if c_ext:
+    try:
         from amazon.ion import ionc
         with raises(IonException) as e_info:
             ionc.ionc_read(None, 0, None, None) # Invalid argument
         # Exceptions don't compare eq..
         assert str(e_info.value) == str(IonException('IERR_INVALID_ARG ')) # Space is added when the error is thrown.
+    except ImportError:
+        pass

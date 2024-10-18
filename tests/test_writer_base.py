@@ -138,13 +138,14 @@ def test_blocking_writer(p):
 
 # Simple test to make sure that our C extension returns a proper exception if we give it unexpected parameters.
 def test_ionc_writer_fails_graceful():
-    from amazon.ion.simpleion import c_ext
     from amazon.ion.exceptions import IonException
     from pytest import raises
 
-    if c_ext:
+    try:
         from amazon.ion import ionc
         with raises(IonException) as e_info:
             ionc.ionc_write(None, True, False, False, None) # Invalid argument
         # Exceptions don't compare eq..
         assert str(e_info.value) == str(IonException('IERR_INVALID_ARG ')) # Space is added when the error is thrown.
+    except ImportError:
+        pass
