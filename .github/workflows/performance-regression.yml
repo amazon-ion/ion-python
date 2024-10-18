@@ -61,7 +61,8 @@ jobs:
             **/requirements.txt
             **/requirements_benchmark.txt
       - run: |
-          pip install -r requirements.txt -r requirements_benchmark.txt
+          pip install -r requirements.txt
+          [ -e "requirements_benchmark.txt" ] && pip install -r requirements_benchmark.txt # include benchmark requirements if they exist.
           # TODO: See if there's a way to cache the ion-c build output if it hasn't changed
 
   detect-regression:
@@ -108,7 +109,8 @@ jobs:
       - name: Create a virtual environment
         working-directory: ./baseline
         run: |
-          pip install -r requirements.txt -r requirements_benchmark.txt
+          pip install -r requirements.txt
+          [ -e "requirements_benchmark.txt" ] && pip install -r requirements_benchmark.txt # include benchmark requirements if they exist.
           pip install .
       - name: Run baseline performance benchmark
         id: 'baseline'
@@ -126,7 +128,8 @@ jobs:
       - name: Create a virtual environment and setup the package
         working-directory: ./new
         run: |
-          pip install -r requirements.txt -r requirements_benchmark.txt
+          pip install -r requirements.txt
+          [ -e "requirements_benchmark.txt" ] && pip install -r requirements_benchmark.txt # include benchmark requirements if they exist.
           pip install .
       - name: Run new performance benchmark
         id: 'new'
