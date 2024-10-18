@@ -5,6 +5,7 @@ on:
     paths:
       # Workflow will only run if something in this path is changed
       - 'amazon/**'
+      - '.github/workflows/performance-regression.yml' # Also trigger if the workflow itself changes.
 
 env:
   report_statistics: 'file_size,time_mean,time_error,ops/s_mean,ops/s_error,memory_usage_peak'
