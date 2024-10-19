@@ -1,0 +1,59 @@
+[project]
+name = "amazon-ion"
+readme = "README.md"
+requires-python = ">=3.8"
+license = { "file" = "LICENSE" }
+authors = [{ "name" = "Amazon Ion Team", "email" = "ion-team@amazon.com" }]
+keywords = []
+classifiers = []
+urls = { "Documentation" = "https://ion-python.readthedocs.io/en/latest/?badge=latest" }
+dependencies = [
+    "appdirs==1.4.4",
+    "attrs==21.2.0",
+    "distlib==0.3.8",
+    "filelock==3.14.0",
+    "iniconfig==1.1.1",
+    "jsonconversion==0.2.12",
+    "packaging==20.9",
+    "pluggy==0.13.1",
+    "py==1.11.0",
+    "pyparsing==3.2.0",
+    "pytest==6.2.4",
+    "pytest-runner==5.3.1",
+    "toml==0.10.2",
+]
+dynamic = ["version", "description"]
+
+[project.optional-dependencies]
+benchmarking = [
+    "docopt==0.6.2",
+    "tabulate==0.9.0",
+    "simplejson~=3.18.3",
+    "six~=1.16.0",
+    "cbor~=1.0.0",
+    "cbor2~=5.4.6",
+    "python-rapidjson~=1.19",
+    "ujson~=5.7.0",
+    "protobuf>=4.0.0",
+]
+dev = [
+    "tox==3.23.1",
+    "virtualenv==20.26.2",
+]
+
+[build-system]
+requires = ["py-build-cmake~=0.1.8"]
+build-backend = "py_build_cmake.build"
+
+[tool.py-build-cmake.module]
+name = "amazon"
+directory = "src-python"
+
+[tool.py-build-cmake.sdist]
+include = ["CMakeLists.txt", "src/*"]
+
+[tool.py-build-cmake.cmake]
+build_type = "Release"
+source_path = "src"
+build_args = []
+install_components = ["python_module"]
