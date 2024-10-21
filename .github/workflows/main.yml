@@ -24,13 +24,14 @@ jobs:
       - run: pip install --upgrade setuptools
       - run: pip install -r requirements.txt
       - run: pip install -e .
-      - run: py.test
+      # Run our tests, but do not run the benchmark tests since they pull in libraries that do not have pypy support.
+      - run: py.test --ignore tests/test_benchmark_cli.py --ignore tests/test_benchmark_spec.py
 
   test-windows:
     runs-on: windows-latest
     strategy:
       matrix:
-        python-version: ['3.9', '3.10', '3.11', 'pypy-3.8', 'pypy-3.10' ]
+        python-version: ['3.9', '3.10', '3.11', 'pypy-3.8', 'pypy-3.10']
       fail-fast: false
     steps:
       - uses: actions/checkout@v4
@@ -44,4 +45,5 @@ jobs:
       - run: pip install --upgrade setuptools
       - run: pip install -r requirements.txt
       - run: pip install -e .
-      - run: py.test
+      # Run our tests, but do not run the benchmark tests since they pull in libraries that do not have pypy support.
+      - run: py.test --ignore tests/test_benchmark_cli.py --ignore tests/test_benchmark_spec.py
