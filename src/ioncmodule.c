@@ -776,8 +776,8 @@ static iERR _ionc_write(hWRITER writer, PyObject* objs, PyObject* tuple_as_sexp,
  */
 static PyObject* ionc_write(PyObject *self, PyObject *args, PyObject *kwds) {
     iENTER;
-    PyObject *obj, *binary, *sequence_as_stream, *tuple_as_sexp;
-    ION_STREAM  *ion_stream = NULL;
+    PyObject *obj=NULL, *binary=NULL, *sequence_as_stream=NULL, *tuple_as_sexp=NULL;
+    ION_STREAM *ion_stream = NULL;
     BYTE* buf = NULL;
     hWRITER writer = NULL;
     static char *kwlist[] = {"obj", "binary", "sequence_as_stream", "tuple_as_sexp", NULL};
@@ -858,10 +858,10 @@ fail:
         ion_stream_close(ion_stream);
     }
     PyMem_Free(buf);
-    Py_DECREF(obj);
-    Py_DECREF(binary);
-    Py_DECREF(sequence_as_stream);
-    Py_DECREF(tuple_as_sexp);
+    Py_XDECREF(obj);
+    Py_XDECREF(binary);
+    Py_XDECREF(sequence_as_stream);
+    Py_XDECREF(tuple_as_sexp);
 
     PyObject* exception = NULL;
     if (err == IERR_INVALID_STATE) {
