@@ -3,7 +3,7 @@ project(ion)
 
 find_package(Python3 REQUIRED COMPONENTS Development.Module)
 
-set(IONC_BUILD_TESTS OFF)
+set(IONC_BUILD_TESTS OFF CACHE BOOL "disable ionc test builds")
 add_subdirectory(ion-c/ EXCLUDE_FROM_ALL)
 
 Python3_add_library(_ioncmodule MODULE "ioncmodule.c")
