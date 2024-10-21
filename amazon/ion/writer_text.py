@@ -359,7 +359,7 @@ _serialize_container_delimiter_pretty = _serialize_container_factory('delimiter'
 
 
 @coroutine
-def _raw_writer_coroutine(depth=0, container_event=None, whence=None, indent=None):
+def _raw_writer_coroutine(depth=0, container_event=None, whence=None, indent=None, trailing_commas=False):
     pretty = indent is not None
     serialize_container_delimiter = \
             _serialize_container_delimiter_pretty if pretty else _serialize_container_delimiter_normal
@@ -369,7 +369,7 @@ def _raw_writer_coroutine(depth=0, container_event=None, whence=None, indent=Non
         ion_event, self = (yield transition)
         delegate = self
 
-        if has_written_values and not ion_event.event_type.ends_container:
+        if has_written_values and ((indent and trailing_commas) or not ion_event.event_type.ends_container):
             # TODO This will always emit a delimiter for containers--should make it not do that.
             # Write the delimiter for the next value.
             if depth == 0:
@@ -402,7 +402,8 @@ def _raw_writer_coroutine(depth=0, container_event=None, whence=None, indent=Non
 
         if ion_event.event_type is IonEventType.CONTAINER_START:
             writer_event = DataEvent(WriteEventType.NEEDS_INPUT, _serialize_container_start(ion_event))
-            delegate = _raw_writer_coroutine(depth + 1, ion_event, self, indent=indent)
+            delegate = _raw_writer_coroutine(depth + 1, ion_event, self, indent=indent,
+                                             trailing_commas=trailing_commas)
         elif depth == 0:
             # Serialize at the top-level.
             if ion_event.event_type is IonEventType.STREAM_END:
@@ -429,7 +430,7 @@ def _raw_writer_coroutine(depth=0, container_event=None, whence=None, indent=Non
 
 
 # TODO Add options for text formatting.
-def raw_writer(indent=None):
+def raw_writer(indent=None, trailing_commas=False):
     """Returns a raw text writer co-routine.
 
     Yields:
@@ -447,7 +448,7 @@ def raw_writer(indent=None):
     # of writing (Dec 2022).
     indent_bytes = indent.encode("UTF-8") if isinstance(indent, str) else indent
 
-    return writer_trampoline(_raw_writer_coroutine(indent=indent_bytes))
+    return writer_trampoline(_raw_writer_coroutine(indent=indent_bytes, trailing_commas=trailing_commas))
 
 # TODO Determine if we need to do anything special for non-raw writer.  Validation?
 text_writer = raw_writer
