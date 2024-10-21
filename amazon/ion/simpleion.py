@@ -477,13 +477,13 @@ def _load(out, reader, end_type=IonEventType.STREAM_END, in_struct=False):
         event = reader.send(NEXT_EVENT)
 
 
-def dump_extension(obj, fp, binary=True, sequence_as_stream=False, tuple_as_sexp=False, omit_version_marker=False,
-                   trailing_commas=False):
+def dump_extension(obj, fp, binary=True, sequence_as_stream=False, tuple_as_sexp=False, omit_version_marker=False):
     """C-extension implementation. Users should prefer to call ``dump``."""
 
-    res = ionc.ionc_write(obj, binary, sequence_as_stream, tuple_as_sexp, trailing_commas)
+    res = ionc.ionc_write(obj, binary, sequence_as_stream, tuple_as_sexp)
 
-    # TODO support "omit_version_marker" rather than hacking.
+    # TODO: support "omit_version_marker" rather than hacking.
+    # TODO: support "trailing_commas" (support is not included in the C code).
     if not binary and not omit_version_marker:
         res = b'$ion_1_0 ' + res
     fp.write(res)
