@@ -15,4 +15,6 @@
 /amazon.ion.egg-info
 /docs/_build/
 /amazon/ion/ion-c-build/
+/temp_*.ion
+/temp_*.10n
 
