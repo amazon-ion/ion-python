@@ -60,7 +60,7 @@ $ python3 -m venv ./venv
 ...
 $ . venv/bin/activate
 $ pip install -U pip
-$ pip install -U setuptools
+$ pip install -U 'setuptools<71.0.0'
 $ pip install -r requirements.txt
 $ pip install -e .
 ```

@@ -5,6 +5,7 @@ on:
     paths:
       # Workflow will only run if something in this path is changed
       - 'amazon/**'
+      - '.github/workflows/performance-regression.yml' # Also trigger if the workflow itself changes.
 
 env:
   report_statistics: 'file_size,time_mean,time_error,ops/s_mean,ops/s_error,memory_usage_peak'
@@ -56,9 +57,12 @@ jobs:
         with:
           python-version: '3.10'
           cache: 'pip'
-          cache-dependency-path: '**/requirements.txt'
+          cache-dependency-path: |
+            **/requirements.txt
+            **/requirements_benchmark.txt
       - run: |
           pip install -r requirements.txt
+          [ -e "requirements_benchmark.txt" ] && pip install -r requirements_benchmark.txt # include benchmark requirements if they exist.
           # TODO: See if there's a way to cache the ion-c build output if it hasn't changed
 
   detect-regression:
@@ -67,7 +71,7 @@ jobs:
     needs: [generate-test-data, prepopulate-pip-cache]
     strategy:
       matrix:
-        python-version: ['3.9', '3.11', 'pypy-3.8', 'pypy-3.10']
+        python-version: ['3.9', '3.11']
         test-data: ['nestedStruct', 'nestedList', 'sexp', 'realWorldDataSchema01', 'realWorldDataSchema02', 'realWorldDataSchema03']
       fail-fast: false
     steps:
@@ -91,7 +95,9 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           cache: 'pip'
-          cache-dependency-path: '**/requirements.txt'
+          cache-dependency-path: |
+            **/requirements.txt
+            **/requirements_benchmark.txt
 
       - name: Download Test Data
         id: 'download'
@@ -104,6 +110,7 @@ jobs:
         working-directory: ./baseline
         run: |
           pip install -r requirements.txt
+          [ -e "requirements_benchmark.txt" ] && pip install -r requirements_benchmark.txt # include benchmark requirements if they exist.
           pip install .
       - name: Run baseline performance benchmark
         id: 'baseline'
@@ -122,6 +129,7 @@ jobs:
         working-directory: ./new
         run: |
           pip install -r requirements.txt
+          [ -e "requirements_benchmark.txt" ] && pip install -r requirements_benchmark.txt # include benchmark requirements if they exist.
           pip install .
       - name: Run new performance benchmark
         id: 'new'
