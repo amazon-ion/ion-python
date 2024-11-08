@@ -12,8 +12,6 @@
 # specific language governing permissions and limitations under the
 # License.
 
-# XXX Setuptools Namespace Package
-#__import__("pkg_resources").declare_namespace(__name__)
 """
 Amazon Ion
 """
