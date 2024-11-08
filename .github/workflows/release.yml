@@ -20,13 +20,10 @@ jobs:
 
       - name: Create a virtual environment
         run: git submodule init && git submodule update && python3 -m venv ./venv && . venv/bin/activate
-      - name: Install dependencies..
-        run: |
-          pip install --upgrade setuptools
-          pip install -r requirements.txt
-          pip install -e .
-      - name: Run Tests
-        run: py.test --ignore tests/test_benchmark_cli.py --ignore tests/test_benchmark_spec.py
+      - run: python -m pip install build
+      - run: python -m build .
+      - run: python -m pip install -e .
+      - run: py.test --ignore tests/test_benchmark_cli.py --ignore tests/test_benchmark_spec.py
 
   source-distribution:
     if: startsWith(github.ref, 'refs/tags/')
@@ -40,13 +37,13 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Build sdist
-        run: python3 setup.py sdist
+        run: python -m pip install build && python -m build -s
 
       - name: Upload source to Github
         uses: actions/upload-artifact@v4
         with:
           name: source
-          path: ./dist/amazon.ion-*.tar.gz
+          path: ./dist/amazon_ion-*.tar.gz
 
       - uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -60,7 +57,7 @@ jobs:
 
       - name: Upload source to s3
         run: |
-          zip ion-python-source ./dist/amazon.ion-*.tar.gz
+          zip ion-python-source ./dist/amazon_ion-*.tar.gz
           aws s3 mv ion-python-source.zip ${{ secrets.AWS_SOURCE_BUCKET_URL }} --acl bucket-owner-full-control
 
       - name: Install the released source from PYPI
