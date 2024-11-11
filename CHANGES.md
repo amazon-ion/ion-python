@@ -1,3 +1,25 @@
+### 0.13.0 (2024-11-08)
+* Update dependabot.yml schedule interval (#383)
+* Bump the pip-dependencies group across 1 directory with 3 updates (#380)
+* chore: ignore generated temp files
+* chore: Update README to reflect the need for an old enough setuptools (#373)
+* Remove pypy from benchmarking, and split requirements (#378)
+* feat: Add `trailing_commas` to `dump`/`dumps` (#372)
+* Fix invalid memory access in ionc_write (#376)
+* Update python-rapidjson requirement from ~=1.9 to ~=1.19 (#360)
+* Bump setuptools from 69.5.1 to 72.0.0 (#361)
+* C Extension warning cleanup (#349)
+* Bump virtualenv from 20.26.1 to 20.26.2 in the pip-dependencies group (#355)
+* Bump setuptools from 65.5.1 to 69.5.1
+* Bump the pip-dependencies group with 2 updates (#353)
+* Bump virtualenv in the pip-dependencies group across 1 directory (#352)
+* Bump filelock from 3.13.3 to 3.13.4 in the pip-dependencies group (#350)
+* Remove text_buffer_size_limit decref, fixes #347
+* Bump the pip-dependencies group with 3 updates (#346)
+* Set update types (minor, patch) in Dependabot config (#345)
+* Bump the github-action-dependencies group with 7 updates (#343)
+* Add dependabot configuration for keeping dependencies current (#342)
+
 ### 0.12.0 (2024-02-16)
 * Avoid strcpy of Field Names in C-Ext Read (#312)
 * Fix Bugs with emit_bare_values (#313)
