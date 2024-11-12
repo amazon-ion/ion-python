@@ -20,11 +20,14 @@ jobs:
 
       - name: Create a virtual environment
         run: git submodule init && git submodule update && python3 -m venv ./venv && . venv/bin/activate
-      - run: pip install --upgrade setuptools
-      - run: pip install -r requirements.txt
-      - run: [ -e "requirements_benchmark.txt" ] && pip install -r requirements_benchmark.txt # include benchmark requirements if they exist.
-      - run: pip install -e .
-      - run: py.test
+      - name: Install dependencies..
+        run: |
+          pip install --upgrade setuptools
+          pip install -r requirements.txt
+          [ -e "requirements_benchmark.txt" ] && pip install -r requirements_benchmark.txt # include benchmark requirements if they exist.
+          pip install -e .
+      - name: Run Tests
+        run: py.test
 
   source-distribution:
     if: startsWith(github.ref, 'refs/tags/')
