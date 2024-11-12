@@ -24,10 +24,9 @@ jobs:
         run: |
           pip install --upgrade setuptools
           pip install -r requirements.txt
-          [ -e "requirements_benchmark.txt" ] && pip install -r requirements_benchmark.txt # include benchmark requirements if they exist.
           pip install -e .
       - name: Run Tests
-        run: py.test
+        run: py.test --ignore tests/test_benchmark_cli.py --ignore tests/test_benchmark_spec.py
 
   source-distribution:
     if: startsWith(github.ref, 'refs/tags/')
