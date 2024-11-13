@@ -111,24 +111,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up pip and setuptools
-        run: |
-          pip3 install -U pip
-          pip3 install -U setuptools
-
-      - name: Set up QEMU
-        if: runner.os == 'Linux'
-        uses: docker/setup-qemu-action@v3
-        with:
-          platforms: all
-
-      - name: Install cibuildwheel
-        run: python3 -m pip install cibuildwheel==2.16.5
-
-      - name: Build wheels
-        run: python3 -m cibuildwheel --output-dir wheelhouse
+      - name: Build Wheels
+        uses: pypa/cibuildwheel@v2.21.3
         env:
-          CIBW_BUILD: "cp39-* cp310-* cp311-*" # Only build wheels for c-python 3.9 to 3.11
+          CIBW_BUILD: "cp39-* cp310-* cp311-*"
           CIBW_ARCHS: ${{ matrix.cibw_arch }}
 
       - name: Upload wheels to Github
