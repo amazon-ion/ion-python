@@ -97,7 +97,7 @@ jobs:
       matrix:
         include:
           # See https://cibuildwheel.readthedocs.io/en/stable/options/#build-skip for more details.
-          - os: macos-latest
+          - os: macos-13 # macos-13 is the last non-large x86-based runner. Need to look into cross-compiling.
             arch: x86_64
             cibw_arch: "x86_64"
           - os: macos-14  # https://github.com/actions/runner-images?tab=readme-ov-file#available-images
