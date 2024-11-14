@@ -120,7 +120,7 @@ jobs:
       - name: Upload wheels to Github
         uses: actions/upload-artifact@v4
         with:
-          name: wheels
+          name: wheels-${{ matrix.os }}
           path: ./wheelhouse/*.whl
 
   upload-wheels:
@@ -130,7 +130,8 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: wheels
+          pattern: wheels-*
+          merge-multiple: true
 
       - uses: aws-actions/configure-aws-credentials@v4
         with:
