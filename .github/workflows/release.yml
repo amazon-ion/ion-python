@@ -111,11 +111,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Set up QEMU for Linux Builds
+        if: runner.os == 'Linux'
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: all
+
       - name: Build Wheels
         uses: pypa/cibuildwheel@v2.22.0
         env:
           CIBW_BUILD: "cp39-* cp310-* cp311-*"
           CIBW_ARCHS: ${{ matrix.cibw_arch }}
+          CIBW_ARCHS_LINUX: ${{ matrix.cibw_arch }}
 
       - name: Upload wheels to Github
         uses: actions/upload-artifact@v4
