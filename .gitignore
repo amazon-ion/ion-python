@@ -17,4 +17,4 @@
 /amazon/ion/ion-c-build/
 /temp_*.ion
 /temp_*.10n
-
+/.py-build-cmake_cache
