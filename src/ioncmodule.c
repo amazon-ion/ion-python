@@ -1668,7 +1668,7 @@ static PyObject* init_module(void) {
 }
 
 PyMODINIT_FUNC
-PyInit_ionc(void)
+PyInit__ioncmodule(void)
 {
     return init_module();
 }
