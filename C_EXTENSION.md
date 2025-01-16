@@ -76,16 +76,73 @@ b'\xe0\x01\x00\xea\xe9\x81\x83\xd6\x87\xb4\x83abc\xd3\x8a!{'
 
 ## Development
 
-Architecture of Ion Python C extension:
+The Ion Python C extension is built as part of the PEP 517 build process using py-build-cmake, and leaning on
+Ion C's existing cmake build. A revision of Ion C is included as a submodule in this repo under `src/ion-c`.
+If you would like to update the version of Ion C, simply update the submodule to point to the desired revision.
+
+The file `src/CMakeLists.txt` acts as the build script for the C extension itself, which then includes the Ion C
+codebase into the build tree.
+
+With the extension built, it will be exposed to python as `amazon._ioncmodule`. For example:
+```python
+>>> import amazon._ioncmodule as ionc
+>>> ionc.ionc_version()
+'v1.1.3 (rev: d61c09a)'
+>>>
 ```
-                                   ioncmodule.c
-                                        |
-                                        | 
-                                        ↓ 
-Ion C -------> Ion C binaries -----> setup.py ------> C extension -------------------> Ion Python simpleion module
-      compile                                  setup               import ionc module   
+
+The `amazon.ion.simpleion` module then makes use of this extension when it is available to provide more efficient
+Ion parsing. Importing `amazon._ioncmodule` directly can determine if it is available, however simpleion also provides
+the field `__IS_C_EXTENSION_SUPPORTED`.
+```python
+>>> import amazon.ion.simpleion as ion
+>>> ion.__IS_C_EXTENSION_SUPPORTED
+True
+>>>
 ```
-After setup, C extension will be built and imported to simpleion module. If there are changes in `ioncmodule.c`, build the latest C extension by running `python setup.py build_ext --inplace`.
+
+In order to build the extension, along with the package itself, we can use python's build module:
+```python
+ion-python# python -m build .
+* Creating isolated environment: venv+pip...
+* Installing packages in isolated environment:
+  - py-build-cmake~=0.1.8
+* Getting build dependencies for sdist...
+* Building sdist...
+* Building wheel from sdist
+* Creating isolated environment: venv+pip...
+* Installing packages in isolated environment:
+  - py-build-cmake~=0.1.8
+* Getting build dependencies for wheel...
+* Building wheel...
+...
+Successfully built amazon_ion-0.13.0.tar.gz and amazon_ion-0.13.0-cp310-cp310-linux_x86_64.whl
+```
+This will build both the source wheel, and the binary wheel for the current system. Installing the module can
+be done with pip. Depending on what you're doing with the package you may want to install different dependencies.
+Different sets of optional dependencies are provided, such as `test`, and `benchmarking`. More details can be
+found in the `pyproject.toml`.
+
+To install the package and dependencies for unit tests you can run:
+```python
+ion-python# python -m pip install '.[test]'
+Processing /ion-python
+  Installing build dependencies ... done
+  Getting requirements to build wheel ... done
+  Preparing metadata (pyproject.toml) ... done
+Building wheels for collected packages: amazon_ion
+  Building wheel for amazon_ion (pyproject.toml) ... done
+  Created wheel for amazon_ion: filename=amazon_ion-0.13.0-cp310-cp310-linux_x86_64.whl size=573770 sha256=96ef01efea7519a1a38d9fc9e42139ab82125aafa328cfb4a4823458de802fa1
+  Stored in directory: /root/.cache/pip/wheels/78/55/f9/c6d69051d6a93c725251429f62d0d5b7d16d8c982a3772d666
+Successfully built amazon_ion
+Installing collected packages: amazon_ion
+  Attempting uninstall: amazon_ion
+    Found existing installation: amazon_ion 0.13.0
+    Uninstalling amazon_ion-0.13.0:
+      Successfully uninstalled amazon_ion-0.13.0
+Successfully installed amazon_ion-0.13.0
+```
+Installing with `-e` will also allow you to update the python side of the package without having to re-install.
 
 
 ## Technical Details
