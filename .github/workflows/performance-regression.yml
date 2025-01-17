@@ -55,15 +55,11 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: '3.13'
           cache: 'pip'
-          cache-dependency-path: |
-            **/requirements.txt
-            **/requirements_benchmark.txt
+          cache-dependency-path: pyproject.toml
       - run: |
-          pip install -r requirements.txt
-          [ -e "requirements_benchmark.txt" ] && pip install -r requirements_benchmark.txt # include benchmark requirements if they exist.
-          # TODO: See if there's a way to cache the ion-c build output if it hasn't changed
+          python -m pip install '.[test,benchmarking]'
 
   detect-regression:
     name: Check
@@ -71,7 +67,7 @@ jobs:
     needs: [generate-test-data, prepopulate-pip-cache]
     strategy:
       matrix:
-        python-version: ['3.9', '3.11']
+        python-version: ['3.13']
         test-data: ['nestedStruct', 'nestedList', 'sexp', 'realWorldDataSchema01', 'realWorldDataSchema02', 'realWorldDataSchema03']
       fail-fast: false
     steps:
@@ -95,9 +91,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           cache: 'pip'
-          cache-dependency-path: |
-            **/requirements.txt
-            **/requirements_benchmark.txt
+          cache-dependency-path: pyproject.toml
 
       - name: Download Test Data
         id: 'download'
@@ -106,12 +100,13 @@ jobs:
           name: ${{env.test_data_id}}
 
       # Generates performance results for the previous commit
-      - name: Create a virtual environment
+      - name: Create a virtual environment for baseline
         working-directory: ./baseline
         run: |
           pip install -r requirements.txt
           [ -e "requirements_benchmark.txt" ] && pip install -r requirements_benchmark.txt # include benchmark requirements if they exist.
           pip install .
+
       - name: Run baseline performance benchmark
         id: 'baseline'
         working-directory: ./baseline
@@ -125,12 +120,10 @@ jobs:
           echo "report=$PWD/report.ion" >> "$GITHUB_OUTPUT"
 
       # Generates performance results for the current commit
-      - name: Create a virtual environment and setup the package
+      - name: Create a virtual environment for PR changes
         working-directory: ./new
-        run: |
-          pip install -r requirements.txt
-          [ -e "requirements_benchmark.txt" ] && pip install -r requirements_benchmark.txt # include benchmark requirements if they exist.
-          pip install .
+        run: pip install '.[test,benchmarking]'
+
       - name: Run new performance benchmark
         id: 'new'
         working-directory: ./new
