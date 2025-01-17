@@ -15,6 +15,7 @@ env:
   specs: '{command:read,format:ion_text} {command:write,format:ion_text} {command:read,format:ion_binary} {command:write,format:ion_binary}'
   test_data_id: 'generated-test-data'
   run_cli: 'python amazon/ionbenchmark/ion_benchmark_cli.py'
+  run_cli_new: 'python src-python/amazon/ionbenchmark/ion_benchmark_cli.py'
 
 
 jobs:
@@ -129,7 +130,7 @@ jobs:
         id: 'new'
         working-directory: ./new
         run: |
-          ${{env.run_cli}} spec '${{env.specs}}' -d '${{env.spec_defaults}}' \
+          ${{env.run_cli_new}} spec '${{env.specs}}' -d '${{env.spec_defaults}}' \
               -O '{input_file:"${{steps.download.outputs.download-path}}/${{ matrix.test-data }}.10n"}' \
               -o "$PWD/report.ion" -r '${{env.report_statistics}}'
           echo "::group::Ion Report"
@@ -140,4 +141,4 @@ jobs:
       # Compare results and identify regression
       - name: Detect performance regression
         working-directory: ./new
-        run: ${{env.run_cli}} compare --fail ${{steps.baseline.outputs.report}} ${{steps.new.outputs.report}} -c '${{env.compare_statistics}}'
+        run: ${{env.run_cli_new}} compare --fail ${{steps.baseline.outputs.report}} ${{steps.new.outputs.report}} -c '${{env.compare_statistics}}'
