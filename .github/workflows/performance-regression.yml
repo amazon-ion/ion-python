@@ -39,7 +39,7 @@ jobs:
           mkdir -p testData
           for test in nestedStruct nestedList sexp realWorldDataSchema01 realWorldDataSchema02 realWorldDataSchema03
           do
-            java -jar $jar_file generate -S ${{env.data_size}} --input-ion-schema $schema_dir/${test}.isl testData/${test}.10n
+            java -jar "$jar_file" generate -S "${{env.data_size}}" --input-ion-schema "$schema_dir/${test}.isl" "testData/${test}.10n"
           done
       - name: Upload test Ion Data to artifacts
         uses: actions/upload-artifact@v4
