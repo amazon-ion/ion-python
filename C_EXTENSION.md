@@ -92,8 +92,8 @@ With the extension built, it will be exposed to python as `amazon._ioncmodule`. 
 ```
 
 The `amazon.ion.simpleion` module then makes use of this extension when it is available to provide more efficient
-Ion parsing. Importing `amazon._ioncmodule` directly can determine if it is available, however simpleion also provides
-the field `__IS_C_EXTENSION_SUPPORTED`.
+Ion reading and writing. Importing `amazon._ioncmodule` directly can determine if it is available, however simpleion
+also provides the field `__IS_C_EXTENSION_SUPPORTED`.
 ```python
 >>> import amazon.ion.simpleion as ion
 >>> ion.__IS_C_EXTENSION_SUPPORTED

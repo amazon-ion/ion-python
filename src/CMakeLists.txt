@@ -24,8 +24,3 @@ install(TARGETS _ioncmodule objlib
         EXCLUDE_FROM_ALL
         COMPONENT python_module
         DESTINATION ${PY_BUILD_CMAKE_MODULE_NAME})
-
-# install(FILES _ioncmodule.pyi
-#         EXCLUDE_FROM_ALL
-#         COMPONENT python_module
-#         DESTINATION ${PY_BUILD_CMAKE_MODULE_NAME})
