@@ -21,9 +21,8 @@ jobs:
 
       - name: Create a virtual environment
         run: git submodule init && git submodule update && python3 -m venv ./venv && . venv/bin/activate
-      - run: pip install --upgrade setuptools
-      - run: pip install -r requirements.txt
-      - run: pip install -e .
+      - run: python -m pip install build
+      - run: python -m pip install '.[test]'
       # Run our tests, but do not run the benchmark tests since they pull in libraries that do not have pypy support.
       - run: py.test --ignore tests/test_benchmark_cli.py --ignore tests/test_benchmark_spec.py
 
@@ -42,8 +41,8 @@ jobs:
 
       - name: Create a virtual environment
         run: git submodule init && git submodule update && python3 -m venv ./venv && . venv/Scripts/activate
-      - run: pip install --upgrade setuptools
-      - run: pip install -r requirements.txt
-      - run: pip install -e .
+      - run: python -m pip install build
+      - run: python -m build
+      - run: python -m pip install -e '.[test]'
       # Run our tests, but do not run the benchmark tests since they pull in libraries that do not have pypy support.
       - run: py.test --ignore tests/test_benchmark_cli.py --ignore tests/test_benchmark_spec.py

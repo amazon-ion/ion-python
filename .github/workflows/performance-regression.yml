@@ -15,6 +15,7 @@ env:
   specs: '{command:read,format:ion_text} {command:write,format:ion_text} {command:read,format:ion_binary} {command:write,format:ion_binary}'
   test_data_id: 'generated-test-data'
   run_cli: 'python amazon/ionbenchmark/ion_benchmark_cli.py'
+  run_cli_new: 'python src-python/amazon/ionbenchmark/ion_benchmark_cli.py'
 
 
 jobs:
@@ -38,7 +39,7 @@ jobs:
           mkdir -p testData
           for test in nestedStruct nestedList sexp realWorldDataSchema01 realWorldDataSchema02 realWorldDataSchema03
           do
-            java -jar $jar_file generate -S ${{env.data_size}} --input-ion-schema $schema_dir/${test}.isl testData/${test}.10n
+            java -jar "$jar_file" generate -S "${{env.data_size}}" --input-ion-schema "$schema_dir/${test}.isl" "testData/${test}.10n"
           done
       - name: Upload test Ion Data to artifacts
         uses: actions/upload-artifact@v4
@@ -55,15 +56,12 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: '3.13'
           cache: 'pip'
-          cache-dependency-path: |
-            **/requirements.txt
-            **/requirements_benchmark.txt
+          cache-dependency-path: pyproject.toml
       - run: |
-          pip install -r requirements.txt
-          [ -e "requirements_benchmark.txt" ] && pip install -r requirements_benchmark.txt # include benchmark requirements if they exist.
-          # TODO: See if there's a way to cache the ion-c build output if it hasn't changed
+          python -m pip freeze '.[test,benchmarking]' > requirements.txt # capture only dependencies.
+          python -m pip install -r requirements.txt
 
   detect-regression:
     name: Check
@@ -71,7 +69,7 @@ jobs:
     needs: [generate-test-data, prepopulate-pip-cache]
     strategy:
       matrix:
-        python-version: ['3.9', '3.11']
+        python-version: ['3.13']
         test-data: ['nestedStruct', 'nestedList', 'sexp', 'realWorldDataSchema01', 'realWorldDataSchema02', 'realWorldDataSchema03']
       fail-fast: false
     steps:
@@ -95,9 +93,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           cache: 'pip'
-          cache-dependency-path: |
-            **/requirements.txt
-            **/requirements_benchmark.txt
+          cache-dependency-path: pyproject.toml
 
       - name: Download Test Data
         id: 'download'
@@ -106,12 +102,13 @@ jobs:
           name: ${{env.test_data_id}}
 
       # Generates performance results for the previous commit
-      - name: Create a virtual environment
+      - name: Create a virtual environment for baseline
         working-directory: ./baseline
         run: |
           pip install -r requirements.txt
           [ -e "requirements_benchmark.txt" ] && pip install -r requirements_benchmark.txt # include benchmark requirements if they exist.
           pip install .
+
       - name: Run baseline performance benchmark
         id: 'baseline'
         working-directory: ./baseline
@@ -125,17 +122,15 @@ jobs:
           echo "report=$PWD/report.ion" >> "$GITHUB_OUTPUT"
 
       # Generates performance results for the current commit
-      - name: Create a virtual environment and setup the package
+      - name: Create a virtual environment for PR changes
         working-directory: ./new
-        run: |
-          pip install -r requirements.txt
-          [ -e "requirements_benchmark.txt" ] && pip install -r requirements_benchmark.txt # include benchmark requirements if they exist.
-          pip install .
+        run: pip install '.[test,benchmarking]'
+
       - name: Run new performance benchmark
         id: 'new'
         working-directory: ./new
         run: |
-          ${{env.run_cli}} spec '${{env.specs}}' -d '${{env.spec_defaults}}' \
+          ${{env.run_cli_new}} spec '${{env.specs}}' -d '${{env.spec_defaults}}' \
               -O '{input_file:"${{steps.download.outputs.download-path}}/${{ matrix.test-data }}.10n"}' \
               -o "$PWD/report.ion" -r '${{env.report_statistics}}'
           echo "::group::Ion Report"
@@ -146,4 +141,4 @@ jobs:
       # Compare results and identify regression
       - name: Detect performance regression
         working-directory: ./new
-        run: ${{env.run_cli}} compare --fail ${{steps.baseline.outputs.report}} ${{steps.new.outputs.report}} -c '${{env.compare_statistics}}'
+        run: ${{env.run_cli_new}} compare --fail ${{steps.baseline.outputs.report}} ${{steps.new.outputs.report}} -c '${{env.compare_statistics}}'

@@ -1,0 +1,92 @@
+[project]
+name = "amazon-ion"
+readme = "README.md"
+requires-python = ">=3.8"
+license = { "file" = "LICENSE" }
+authors = [{ "name" = "Amazon Ion Team", "email" = "ion-team@amazon.com" }]
+keywords = []
+classifiers = []
+urls = { "Documentation" = "https://ion-python.readthedocs.io/en/latest/?badge=latest" }
+dependencies = [
+    "attrs==21.2.0",
+    "setuptools==71.0.0",    # Needed for jsonconversion, it seems
+    "jsonconversion==0.2.13", # 1.0.1 tightens the requirements for pytest, and 1.0.0 is broken.
+    "pyparsing==3.0.0",
+]
+dynamic = ["version", "description"]
+
+[project.optional-dependencies]
+test = [
+   "pytest==8.3.3"
+]
+benchmarking = [
+    "docopt==0.6.2",
+    "tabulate==0.9.0",
+    "simplejson~=3.18.3",
+    "six~=1.16.0",
+    "cbor~=1.0.0",
+    "cbor2~=5.4.6",
+    "python-rapidjson~=1.19",
+    "ujson~=5.7.0",
+    "protobuf>=4.0.0"
+]
+dev = [
+    "tox==3.23.1",
+    "virtualenv==20.28.0"
+]
+
+# Build System ################################################################################
+[build-system]
+requires = ["py-build-cmake~=0.1.8"]
+build-backend = "py_build_cmake.build"
+
+# py-build-cmake ##############################################################################
+#  We use CMake for our extension's build. py-build-cmake implements the build backend to build
+#  our extension, and the underlying ion-c libraries it depends on, using cmake as well as provide
+#  the mechanisms to produce the sdist as well.
+[tool.py-build-cmake.module]
+name = "amazon"
+directory = "src-python"
+
+[tool.py-build-cmake.sdist]
+include = ["CMakeLists.txt", "src/*"]
+
+[tool.py-build-cmake.cmake]
+build_type = "Release"
+source_path = "src"
+build_args = []
+install_components = ["python_module"]
+
+# cibuildwheel ################################################################################
+#  Used to build the various wheels we want to support so that our users do not need to build
+#  the extension themselves. cibuildwheel can handle building the extension for multiple python
+#  versions and architectures.
+[tool.cibuildwheel]
+before-all = "uname -a"
+
+# pytest ######################################################################################
+#  Unit testing options and support.
+[tool.pytest.ini_options]
+minversion = "6.0"
+# addopts = "-rw --strict-markers"
+testpaths = ["tests"]
+
+# tox #########################################################################################
+#  Virtual Environment Management; When using tox the envlist defined here will be used for
+#  running our default unit tests (minus benchmarking related tests). This ensures that we
+#  can easily test against supported python versions.
+[tool.tox]
+envlist = ["py3.8", "py3.9", "pypy3"] # default environments to run.
+
+[tool.tox.env_run_base]
+extras = ["test"]
+requires = ["pip >= 21.1.2", "setuptools >= 57.0.0"]
+commands = [
+   ["py.test", "--ignore", "tests/test_benchmark_cli.py", "--ignore", "tests/test_benchmark_spec.py", { replace = "posargs", extend = true}]
+]
+
+[tool.tox.env.benchmark_tests]
+extras = ["test", "benchmarking"]
+commands = [
+   ["py.test", "tests/test_benchmark_cli.py", "tests/test_benchmark_spec.py", { replace = "posargs", extend = true}]
+]

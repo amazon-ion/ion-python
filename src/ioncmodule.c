@@ -1531,6 +1531,12 @@ fail:
     return exception;
 }
 
+PyObject *ionc_version() {
+   char const *version = ion_version_full();
+   PyObject *version_obj = PyUnicode_FromString(version);
+   return version_obj;
+}
+
 /******************************************************************************
 *       Initial module                                                        *
 ******************************************************************************/
@@ -1541,6 +1547,7 @@ static char ioncmodule_docs[] =
 static PyMethodDef ioncmodule_funcs[] = {
     {"ionc_write", (PyCFunction)ionc_write, METH_VARARGS | METH_KEYWORDS, ioncmodule_docs},
     {"ionc_read", (PyCFunction)ionc_read, METH_VARARGS | METH_KEYWORDS, ioncmodule_docs},
+    {"ionc_version", (PyCFunction)ionc_version, METH_NOARGS, ioncmodule_docs},
     {NULL}
 };
 
@@ -1668,7 +1675,7 @@ static PyObject* init_module(void) {
 }
 
 PyMODINIT_FUNC
-PyInit_ionc(void)
+PyInit__ioncmodule(void)
 {
     return init_module();
 }

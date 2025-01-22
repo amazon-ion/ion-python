@@ -33,6 +33,9 @@ from amazon.ion.simpleion import c_ext
 
 PYPY = hasattr(sys, 'pypy_translation_info')
 
+if hasattr(sys, 'set_int_max_str_digits'):
+    sys.set_int_max_str_digits(10000) # See: https://github.com/python/cpython/issues/95778
+
 # This file lives in the tests/ directory. Up one level is tests/ and up another level is the package root, which
 # contains the vectors/ directory.
 _VECTORS_ROOT = abspath(join(abspath(__file__), u'..', u'..', u'vectors', u'iontestdata'))

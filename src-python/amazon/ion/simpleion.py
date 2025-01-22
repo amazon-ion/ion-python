@@ -77,7 +77,7 @@ from .writer import blocking_writer
 from .writer_binary import binary_writer
 
 try:
-    import amazon.ion.ionc as ionc
+    import amazon._ioncmodule as ionc
     __IS_C_EXTENSION_SUPPORTED = True
 except ModuleNotFoundError:
     __IS_C_EXTENSION_SUPPORTED = False

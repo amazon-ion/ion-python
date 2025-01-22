@@ -3,6 +3,6 @@
 	url = https://github.com/amazon-ion/ion-tests
 	branch = master
 [submodule "ion-c"]
-	path = ion-c
+	path = src/ion-c
 	url = https://github.com/amazon-ion/ion-c
 	branch = master
