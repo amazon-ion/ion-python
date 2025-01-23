@@ -10,7 +10,8 @@ urls = { "Documentation" = "https://ion-python.readthedocs.io/en/latest/?badge=l
 dependencies = [
     "attrs==21.2.0",
     "setuptools==71.0.0",    # Needed for jsonconversion, it seems
-    "jsonconversion==1.1.0",
+    "jsonconversion==1.0.1 ; python_version == '3.8'",
+    "jsonconversion==1.1.0 ; python_version >= '3.9'",
     "pyparsing==3.0.0",
 ]
 dynamic = ["version", "description"]
