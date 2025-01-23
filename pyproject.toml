@@ -18,7 +18,7 @@ dynamic = ["version", "description"]
 
 [project.optional-dependencies]
 test = [
-   "pytest==8.3.3"
+   "pytest"
 ]
 benchmarking = [
     "docopt==0.6.2",
