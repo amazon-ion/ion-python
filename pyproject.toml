@@ -10,14 +10,15 @@ urls = { "Documentation" = "https://ion-python.readthedocs.io/en/latest/?badge=l
 dependencies = [
     "attrs==21.2.0",
     "setuptools==71.0.0",    # Needed for jsonconversion, it seems
-    "jsonconversion==0.2.13", # 1.0.1 tightens the requirements for pytest, and 1.0.0 is broken.
+    "jsonconversion==1.0.1 ; python_version == '3.8'",
+    "jsonconversion==1.1.0 ; python_version >= '3.9'",
     "pyparsing==3.0.0",
 ]
 dynamic = ["version", "description"]
 
 [project.optional-dependencies]
 test = [
-   "pytest==8.3.3"
+   "pytest"
 ]
 benchmarking = [
     "docopt==0.6.2",
