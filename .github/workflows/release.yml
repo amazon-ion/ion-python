@@ -145,7 +145,7 @@ jobs:
           merge-multiple: true
 
       - name: Publish Package to PyPI
-        uses: pypa/gh-action-pypi-publish@76f52bc884231f62b9a034ebfe128415bbaabdfc # release/v1.12
+        uses: pypa/gh-action-pypi-publish@76f52bc884231f62b9a034ebfe128415bbaabdfc # release/v1.12.4
 
       - name: Install the released wheels from PYPI
         run: |
