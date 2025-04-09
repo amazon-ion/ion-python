@@ -76,7 +76,7 @@ testpaths = ["tests"]
 #  running our default unit tests (minus benchmarking related tests). This ensures that we
 #  can easily test against supported python versions.
 [tool.tox]
-envlist = ["py3.8", "py3.9", "pypy3"] # default environments to run.
+envlist = ["py3.9", "pypy3"] # default environments to run.
 
 [tool.tox.env_run_base]
 extras = ["test"]

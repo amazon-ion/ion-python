@@ -10,7 +10,7 @@ jobs:
     strategy:
       matrix:
         # Python maintains 5 versions, along with the to-be-released version. Every October, this changes.
-        python-version: ['3.9', '3.10', '3.11', '3.12', '3.13', 'pypy-3.10', 'pypy-3.11']
+        python-version: ['3.9', '3.10', '3.11', '3.12', '3.13', 'pypy-3.10']
         os: [ macos-latest, ubuntu-latest, windows-latest ]
       fail-fast: false
     steps:
