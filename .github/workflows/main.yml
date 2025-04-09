@@ -10,7 +10,7 @@ jobs:
     strategy:
       matrix:
         # Python maintains 5 versions, along with the to-be-released version. Every October, this changes.
-        python-version: ['3.9', '3.10', '3.11', '3.12', '3.13', 'pypy-3.8', 'pypy-3.10']
+        python-version: ['3.9', '3.10', '3.11', '3.12', '3.13', 'pypy-3.10', 'pypy-3.11']
         os: [ macos-latest, ubuntu-latest, windows-latest ]
       fail-fast: false
     steps:
@@ -21,7 +21,15 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Create a virtual environment
-        run: git submodule init && git submodule update && python3 -m venv ./venv && . venv/bin/activate
+        run: git submodule init && git submodule update && python3 -m venv ./venv
+
+      - name: Activate Virtual Environment for Windows.
+        if: matrix.os == 'windows-latest'
+        run: . venv/Scripts/activate
+      - name: Activate Virtual Environment for Linux and Mac
+        if: matrix.os != 'windows-latest'
+        run: . venv/bin/activate
+
       - run: python -m pip install build
       - run: python -m pip install '.[test]'
       # Run our tests, but do not run the benchmark tests since they pull in libraries that do not have pypy support.
