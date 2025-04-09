@@ -1,7 +1,7 @@
 [project]
 name = "amazon-ion"
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 license = { "file" = "LICENSE" }
 authors = [{ "name" = "Amazon Ion Team", "email" = "ion-team@amazon.com" }]
 keywords = []
