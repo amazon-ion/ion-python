@@ -9,8 +9,9 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        python-version: ['3.8', '3.9', '3.10', '3.11', 'pypy-3.8', 'pypy-3.10']
-        os: [ macos-latest, ubuntu-latest ]
+        # Python maintains 5 versions, along with the to-be-released version. Every October, this changes.
+        python-version: ['3.9', '3.10', '3.11', '3.12', '3.13', 'pypy-3.8', 'pypy-3.10']
+        os: [ macos-latest, ubuntu-latest, windows-latest ]
       fail-fast: false
     steps:
       - uses: actions/checkout@v4
@@ -23,26 +24,5 @@ jobs:
         run: git submodule init && git submodule update && python3 -m venv ./venv && . venv/bin/activate
       - run: python -m pip install build
       - run: python -m pip install '.[test]'
-      # Run our tests, but do not run the benchmark tests since they pull in libraries that do not have pypy support.
-      - run: py.test --ignore tests/test_benchmark_cli.py --ignore tests/test_benchmark_spec.py
-
-  test-windows:
-    runs-on: windows-latest
-    strategy:
-      matrix:
-        python-version: ['3.9', '3.10', '3.11', 'pypy-3.8', 'pypy-3.10']
-      fail-fast: false
-    steps:
-      - uses: actions/checkout@v4
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-
-      - name: Create a virtual environment
-        run: git submodule init && git submodule update && python3 -m venv ./venv && . venv/Scripts/activate
-      - run: python -m pip install build
-      - run: python -m build
-      - run: python -m pip install -e '.[test]'
       # Run our tests, but do not run the benchmark tests since they pull in libraries that do not have pypy support.
       - run: py.test --ignore tests/test_benchmark_cli.py --ignore tests/test_benchmark_spec.py
