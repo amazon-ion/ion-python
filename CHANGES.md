@@ -54,7 +54,7 @@
 * Add support for large decimals with >34 digits. (#293) 
 
 ### 0.11.1 (2023-10-09)
-* Drops the support for Python versions older than 3.8.
+* Drops the support for Python versions older than 3.7 (#292).
 
 ### 0.11.0 (2023-10-09)
 * Refactors the benchmark tool
