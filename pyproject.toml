@@ -31,7 +31,7 @@ benchmarking = [
     "protobuf>=4.0.0"
 ]
 dev = [
-    "tox==3.23.1",
+    "tox==4.25.0",
     "virtualenv==20.30.0"
 ]
 
