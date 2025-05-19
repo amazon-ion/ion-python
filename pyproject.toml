@@ -9,7 +9,7 @@ classifiers = []
 urls = { "Documentation" = "https://ion-python.readthedocs.io/en/latest/?badge=latest" }
 dependencies = [
     "attrs==21.2.0",
-    "setuptools==71.0.0",    # Needed for jsonconversion, it seems
+    "setuptools==78.1.1",    # Needed for jsonconversion, it seems
     "jsonconversion==0.2.13", # 1.0.1 tightens the requirements for pytest, and 1.0.0 is broken.
     "pyparsing==3.2.3",
 ]
