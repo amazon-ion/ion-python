@@ -14,7 +14,9 @@
 #
 import os
 import sys
-sys.path.insert(0, os.path.abspath('../'))
+sys.path.insert(0, os.path.abspath('../src-python'))
+
+from amazon.ion import __version__
 
 
 # -- Project information -----------------------------------------------------
@@ -24,9 +26,9 @@ copyright = '2018, Amazon Ion Team'
 author = 'Amazon Ion Team'
 
 # The short X.Y version
-version = ''
+version = __version__
 # The full version, including alpha/beta/rc tags
-release = '0.3.2'
+release = version
 
 
 # -- General configuration ---------------------------------------------------
