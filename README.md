@@ -59,24 +59,29 @@ It is recommended to use `venv` to create a clean environment to build/test Ion 
 $ python3 -m venv ./venv
 ...
 $ . venv/bin/activate
-$ pip install -U pip
-$ pip install -U 'setuptools<71.0.0'
-$ pip install -r requirements.txt
-$ pip install -e .
+$ python -m pip install build
+$ python -m pip install '.[test]'
 ```
 
-You can also run the tests through `setup.py` or `py.test` directly.
+You can run the tests through `py.test` directly:
 
 ```
-$ python setup.py test
+$ py.test --ignore tests/test_benchmark_cli.py --ignore tests/test_benchmark_spec.py
 ```
+
+This recipe skips the benchmark tests because they require additional dependencies:
+
+When in doubt, look at [`.github/workflows/main.yml`](.github/workflows/main.yml) to see CI setup
+and learn how to build/test the project.
+See also [ion-python#379](https://github.com/amazon-ion/ion-python/pull/379) for a writeup of our
+adoption of pyproject.toml.
 
 ### Tox Setup
 In order to verify that all platforms we support work with Ion Python, we use a combination
 of [tox](http://tox.readthedocs.io/en/latest/) with [pyenv](https://github.com/yyuu/pyenv).
 
 We recommend that you use tox within a virtual environment to isolate from whatever is in the system
-installed Python (`requirements.txt` installs `tox`).
+installed Python.
 
 Install relevant versions of Python:
 
