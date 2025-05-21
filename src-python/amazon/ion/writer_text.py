@@ -221,21 +221,21 @@ def _escape(code_point):
 
 def _bytes_text(code_point_iter, quote, prefix=b'', suffix=b''):
     quote_code_point = None if len(quote) == 0 else quote[0]
-    buf = BytesIO()
-    buf.write(prefix)
-    buf.write(quote)
-    for code_point in code_point_iter:
-        if code_point == quote_code_point:
-            buf.write(b'\\' + quote)
-        elif code_point == b'\\'[0]:
-            buf.write(b'\\\\')
-        elif _is_printable_ascii(code_point):
-            buf.write(bytes((code_point,)))
-        else:
-            buf.write(_escape(code_point))
-    buf.write(quote)
-    buf.write(suffix)
-    return buf.getvalue()
+    with BytesIO() as buf:
+        buf.write(prefix)
+        buf.write(quote)
+        for code_point in code_point_iter:
+            if code_point == quote_code_point:
+                buf.write(b'\\' + quote)
+            elif code_point == b'\\'[0]:
+                buf.write(b'\\\\')
+            elif _is_printable_ascii(code_point):
+                buf.write(bytes((code_point,)))
+            else:
+                buf.write(_escape(code_point))
+        buf.write(quote)
+        buf.write(suffix)
+        return buf.getvalue()
 
 
 _SINGLE_QUOTE = b"'"
