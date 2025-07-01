@@ -115,7 +115,7 @@ jobs:
           platforms: all
 
       - name: Build Wheels
-        uses: pypa/cibuildwheel@v2.23.3
+        uses: pypa/cibuildwheel@v3.0.0
         env:
           # See the following for the status of python versions (ie. what's EoL'd, security only, etc):
           # https://devguide.python.org/versions/
