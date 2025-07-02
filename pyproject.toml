@@ -17,7 +17,7 @@ dynamic = ["version", "description"]
 
 [project.optional-dependencies]
 test = [
-   "pytest==8.3.5"
+   "pytest==8.4.1"
 ]
 benchmarking = [
     "docopt==0.6.2",
@@ -31,7 +31,7 @@ benchmarking = [
     "protobuf>=4.0.0"
 ]
 dev = [
-    "tox==4.26.0",
+    "tox==4.27.0",
     "virtualenv==20.31.2"
 ]
 
