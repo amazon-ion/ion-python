@@ -1,6 +1,6 @@
 from typing import NamedTuple, Sequence, Callable
 
-from _pytest.python_api import raises
+from pytest import raises
 
 from amazon.ion.sliceable_buffer import IncompleteReadError, SliceableBuffer
 from tests import parametrize
