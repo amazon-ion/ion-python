@@ -11,13 +11,13 @@ dependencies = [
     "attrs==21.2.0",
     "setuptools==78.1.1",    # Needed for jsonconversion, it seems
     "jsonconversion==0.2.13", # 1.0.1 tightens the requirements for pytest, and 1.0.0 is broken.
-    "pyparsing==3.2.3",
+    "pyparsing==3.2.5",
 ]
 dynamic = ["version", "description"]
 
 [project.optional-dependencies]
 test = [
-   "pytest==8.4.1"
+   "pytest==8.4.2"
 ]
 benchmarking = [
     "docopt==0.6.2",
@@ -31,7 +31,7 @@ benchmarking = [
     "protobuf>=4.0.0"
 ]
 dev = [
-    "tox==4.29.0",
+    "tox==4.30.2",
     "virtualenv==20.34.0"
 ]
 
