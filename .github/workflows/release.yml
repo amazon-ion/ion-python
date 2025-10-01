@@ -115,7 +115,7 @@ jobs:
           platforms: all
 
       - name: Build Wheels
-        uses: pypa/cibuildwheel@v3.1.4
+        uses: pypa/cibuildwheel@v3.2.0
         env:
           # See the following for the status of python versions (ie. what's EoL'd, security only, etc):
           # https://devguide.python.org/versions/
@@ -145,7 +145,7 @@ jobs:
           merge-multiple: true
 
       - name: Publish Package to PyPI
-        uses: pypa/gh-action-pypi-publish@76f52bc884231f62b9a034ebfe128415bbaabdfc # release/v1.12.4
+        uses: pypa/gh-action-pypi-publish@ed0c53931b1dc9bd32cbe73a98c7f6766f8a527e # release/v1.13.0
 
       - name: Install the released wheels from PYPI
         run: |
