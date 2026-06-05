@@ -2,6 +2,7 @@
 * Fix release workflow to install test dependencies (#431)
 * Fix release workflow pypy version: pypy-3.8 to pypy-3.10 (#432)
 * Bump py-build-cmake from ~=0.1.8 to ~=0.5.0 (#433)
+* Fix release workflow: checkout submodules for wheel and sdist builds (#434)
 * Updates ion-c submodule
 
 ### 0.14.0 (2026-04-22)
