@@ -1,3 +1,7 @@
+### 0.14.1 (2026-06-05)
+* Fix release workflow to install test dependencies (#431)
+* Updates ion-c submodule
+
 ### 0.14.0 (2026-04-22)
 * Bump minimum Python version to 3.9 (#406)
 * Migrate to pyproject.toml (#379)
