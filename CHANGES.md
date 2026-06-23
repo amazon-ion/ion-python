@@ -1,4 +1,4 @@
-### (unreleased)
+### 0.14.2 (2026-06-23)
 * Fix ion-c submodule missing tags (#435)
 
 ### 0.14.1 (2026-06-05)
