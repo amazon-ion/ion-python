@@ -1,3 +1,6 @@
+### (unreleased)
+* Fix ion-c submodule missing tags (#435)
+
 ### 0.14.1 (2026-06-05)
 * Fix release workflow to install test dependencies (#431)
 * Fix release workflow pypy version: pypy-3.8 to pypy-3.10 (#432)
