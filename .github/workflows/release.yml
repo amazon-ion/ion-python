@@ -88,6 +88,12 @@ jobs:
         with:
           submodules: true
 
+      # ion-c derives its version via `git describe --tags --match "v*"`. Submodule
+      # checkouts don't fetch tags, so without this the version macros expand to empty
+      # and ion_version.c fails to compile ("expected expression before ';' token").
+      - name: Fetch ion-c tags
+        run: git -C src/ion-c fetch --tags
+
       - name: Set up QEMU for Linux Builds
         if: runner.os == 'Linux'
         uses: docker/setup-qemu-action@v3
