@@ -92,7 +92,7 @@ jobs:
       # checkouts don't fetch tags, so without this the version macros expand to empty
       # and ion_version.c fails to compile ("expected expression before ';' token").
       - name: Fetch ion-c tags
-        run: git -C src/ion-c fetch --tags
+        run: git -C src/ion-c fetch --tags --unshallow
 
       - name: Set up QEMU for Linux Builds
         if: runner.os == 'Linux'
