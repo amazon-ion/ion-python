@@ -2,7 +2,7 @@ name: Ion Python Release
 
 on:
   release:
-    types: [ created ]
+    types: [ released ]
 
 jobs:
   test:
