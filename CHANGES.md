@@ -1,3 +1,6 @@
+### (unreleased)
+* Update macOS target versions
+
 ### 0.14.3 (2026-06-24)
 * Unshallow ion-c submodule (#438)
 
