@@ -1,4 +1,4 @@
-### (unreleased)
+### 0.14.3 (2026-06-24)
 * Unshallow ion-c submodule (#438)
 
 ### 0.14.2 (2026-06-23)
