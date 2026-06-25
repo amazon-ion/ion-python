@@ -8,10 +8,7 @@ keywords = []
 classifiers = []
 urls = { "Documentation" = "https://ion-python.readthedocs.io/en/latest/?badge=latest" }
 dependencies = [
-    "attrs==21.2.0",
-    "setuptools==78.1.1",    # Needed for jsonconversion, it seems
-    "jsonconversion==1.2.1",
-    "pyparsing==3.2.5",
+    "jsonconversion>=1.2.1",
 ]
 dynamic = ["version", "description"]
 
