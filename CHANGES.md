@@ -1,5 +1,5 @@
-### (unreleased)
-* Minimize amount of dependencies
+### 0.14.5 (2026-06-25)
+* Minimize amount of dependencies (#443)
 
 ### 0.14.4 (2026-06-24)
 * Update macOS target versions (#440)
