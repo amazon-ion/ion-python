@@ -147,7 +147,7 @@ jobs:
               continue
             fi
 
-            v=$( pip show amazon.ion | grep Version )
+            v=$( pip show amazon.ion | grep Version | head -1 )
             break
           done
 
