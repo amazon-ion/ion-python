@@ -1,5 +1,5 @@
-### (unpublished)
-* Publish sdist to PyPI
+### 0.14.6 (2026-06-26)
+* Publish sdist to PyPI (#445)
 
 ### 0.14.5 (2026-06-25)
 * Minimize amount of dependencies (#443)

@@ -12,7 +12,7 @@
 # specific language governing permissions and limitations under the
 # License.
 __author__ = 'Amazon.com, Inc.'
-__version__ = '0.14.5'
+__version__ = '0.14.6'
 
 __all__ = [
     'core',
