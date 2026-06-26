@@ -44,7 +44,7 @@ jobs:
       - name: Upload source to Github
         uses: actions/upload-artifact@v4
         with:
-          name: source
+          name: dist-source
           path: ./dist/amazon_ion-*.tar.gz
 
       - uses: aws-actions/configure-aws-credentials@v4
@@ -114,19 +114,19 @@ jobs:
       - name: Upload wheels to Github
         uses: actions/upload-artifact@v4
         with:
-          name: wheels-${{ matrix.os }}
+          name: dist-${{ matrix.os }}
           path: ./wheelhouse/*.whl
 
-  upload-wheels:
-    name: Release wheels to PyPI
+  upload-distributions:
+    name: Release distributions to PyPI
     runs-on: [ubuntu-latest]
-    needs: [build-wheels]
+    needs: [build-wheels, source-distribution]
     permissions:
       id-token: write # Needed for PyPi trusted publishing
     steps:
       - uses: actions/download-artifact@v4
         with:
-          pattern: wheels-*
+          pattern: dist-*
           path: ./dist
           merge-multiple: true
 
@@ -154,5 +154,36 @@ jobs:
           if [[ $v != "Version: ${GITHUB_REF##*/v}" ]]
           then
             echo "Exiting because unable to install the new version from PYPI"
+            exit 1
+          fi
+
+      - name: Install the released sdist from PYPI
+        # Non-blocking for now: a from-source build failure reports but does not
+        # fail the release. Remove this once the sdist build is proven reliable.
+        continue-on-error: true
+        run: |
+          # Use a clean venv and --no-binary :all: so pip ignores the published
+          # wheels and builds the C extension from the source distribution. This
+          # verifies the sdist on PyPI is actually buildable from source.
+          python -m venv /tmp/sdist-venv
+          . /tmp/sdist-venv/bin/activate
+
+          v=""
+
+          for (( i=0; i<3; i++ ))
+          do
+            if ! (pip install --no-binary :all: --no-cache-dir "amazon.ion==${GITHUB_REF##*/v}") then
+              echo "Unable to build/install the desired version from sdist"
+              sleep 120s
+              continue
+            fi
+
+            v=$( pip show amazon.ion | grep Version | head -1 )
+            break
+          done
+
+          if [[ $v != "Version: ${GITHUB_REF##*/v}" ]]
+          then
+            echo "Exiting because unable to install the new version from sdist on PYPI"
             exit 1
           fi
