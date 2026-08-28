@@ -79,7 +79,7 @@ jobs:
             arch: arm64
             cibw_arch: "arm64"
           - os: windows-latest
-            cibw_arch: "AMD64"
+            cibw_arch: "AMD64 ARM64"
           - os: ubuntu-latest
             cibw_arch: "i686 x86_64 aarch64"
 
