@@ -56,6 +56,7 @@ disabled as below:
 """
 import io
 import warnings
+from contextlib import contextmanager
 from datetime import datetime
 from decimal import Decimal
 from enum import IntFlag
@@ -306,13 +307,14 @@ def dump_python(obj, fp, imports=None, binary=True, sequence_as_stream=False,
     from_type = _FROM_TYPE_TUPLE_AS_SEXP if tuple_as_sexp else _FROM_TYPE
     if binary or not omit_version_marker:
         writer.send(ION_VERSION_MARKER_EVENT)  # The IVM is emitted automatically in binary; it's optional in text.
-    if sequence_as_stream and isinstance(obj, (list, tuple)) or isinstance(obj, GeneratorType):
-        # Treat this top-level sequence as a stream; serialize its elements as top-level values, but don't serialize the
-        # sequence itself.
-        for top_level in obj:
-            _dump(top_level, writer, from_type)
-    else:
-        _dump(obj, writer, from_type)
+    with _translate_recursion_error():
+        if sequence_as_stream and isinstance(obj, (list, tuple)) or isinstance(obj, GeneratorType):
+            # Treat this top-level sequence as a stream; serialize its elements as top-level values, but don't
+            # serialize the sequence itself.
+            for top_level in obj:
+                _dump(top_level, writer, from_type)
+        else:
+            _dump(obj, writer, from_type)
     writer.send(ION_STREAM_END_EVENT)
 
 
@@ -387,6 +389,16 @@ def _dump(obj, writer, from_type, field=None, in_struct=False, depth=0):
     writer.send(event)
 
 
+@contextmanager
+def _translate_recursion_error():
+    """Reports container nesting too deep to process as an IonException, like other malformed
+    input, keeping the RecursionError as the cause."""
+    try:
+        yield
+    except RecursionError as e:
+        raise IonException('Container nesting exceeded the maximum supported recursion depth.') from e
+
+
 def load_python(fp, catalog=None, single_value=True, parse_eagerly=True):
     """'pure' Python implementation. Users should prefer to call ``load``."""
     if isinstance(fp, _TEXT_TYPES):
@@ -402,7 +414,8 @@ def load_python(fp, catalog=None, single_value=True, parse_eagerly=True):
     reader = blocking_reader(managed_reader(raw_reader, catalog), fp)
     if parse_eagerly:
         out = []  # top-level
-        _load(out, reader)
+        with _translate_recursion_error():
+            _load(out, reader)
         if single_value:
             if len(out) != 1:
                 raise IonException('Stream contained %d values; expected a single value.' % (len(out),))
@@ -411,7 +424,8 @@ def load_python(fp, catalog=None, single_value=True, parse_eagerly=True):
     else:
         out = _load_iteratively(reader)
         if single_value:
-            result = next(out)
+            with _translate_recursion_error():
+                result = next(out)
             try:
                 next(out)
                 raise IonException('Stream contained more than 1 values; expected a single value.')
@@ -443,7 +457,8 @@ def _load_iteratively(reader, end_type=IonEventType.STREAM_END):
         ion_type = event.ion_type
         if event.event_type is IonEventType.CONTAINER_START:
             container = _FROM_ION_TYPE[ion_type].from_event(event)
-            _load(container, reader, IonEventType.CONTAINER_END, ion_type is IonType.STRUCT)
+            with _translate_recursion_error():
+                _load(container, reader, IonEventType.CONTAINER_END, ion_type is IonType.STRUCT)
             yield container
         elif event.event_type is IonEventType.SCALAR:
             if event.value is None or ion_type is IonType.NULL or ion_type.is_container:
@@ -480,7 +495,8 @@ def _load(out, reader, end_type=IonEventType.STREAM_END, in_struct=False):
 def dump_extension(obj, fp, binary=True, sequence_as_stream=False, tuple_as_sexp=False, omit_version_marker=False):
     """C-extension implementation. Users should prefer to call ``dump``."""
 
-    res = ionc.ionc_write(obj, binary, sequence_as_stream, tuple_as_sexp)
+    with _translate_recursion_error():
+        res = ionc.ionc_write(obj, binary, sequence_as_stream, tuple_as_sexp)
 
     # TODO: support "omit_version_marker" rather than hacking.
     # TODO: support "trailing_commas" (support is not included in the C code).
@@ -494,16 +510,21 @@ def load_extension(fp, single_value=True, parse_eagerly=True,
     """C-extension implementation. Users should prefer to call ``load``."""
     iterator = ionc.ionc_read(fp, value_model=value_model.value, text_buffer_size_limit=text_buffer_size_limit)
     if single_value:
-        try:
-            value = next(iterator)
-        except StopIteration:
-            return None
-        try:
-            next(iterator)
-            raise IonException('Stream contained more than 1 values; expected a single value.')
-        except StopIteration:
-            pass
+        with _translate_recursion_error():
+            try:
+                value = next(iterator)
+            except StopIteration:
+                return None
+        with _translate_recursion_error():
+            try:
+                next(iterator)
+                raise IonException('Stream contained more than 1 values; expected a single value.')
+            except StopIteration:
+                pass
         return value
     if parse_eagerly:
-        return list(iterator)
+        with _translate_recursion_error():
+            return list(iterator)
+    # The raw iterator is returned so that ionc_write can recognise its type and re-serialize the
+    # stream directly. A caller advancing it past the recursion limit sees a RecursionError.
     return iterator
