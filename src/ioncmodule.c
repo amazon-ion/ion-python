@@ -27,6 +27,10 @@ static char _err_msg[ERR_MSG_MAX_LEN];
 
 #define _FAILWITHMSG(x, msg) { err = x; snprintf(_err_msg, ERR_MSG_MAX_LEN, msg); goto fail; }
 
+// Unwinds when a Python C-API call returns NULL, having already set an exception. Yields a
+// non-zero iERR to stop the IONCHECK chain while leaving that exception intact for the caller.
+#define _FAILWITH_PENDING_PYERR() { err = IERR_INTERNAL_ERROR; goto fail; }
+
 #define IONC_BYTES_FORMAT "y#"
 #define IONC_READ_ARGS_FORMAT "ObO"
 
@@ -355,7 +359,11 @@ static iERR ionc_write_sequence(hWRITER writer, PyObject* sequence, PyObject* tu
         child_obj = PySequence_Fast_GET_ITEM(sequence, i);
         Py_INCREF(child_obj);
 
-        IONCHECK(Py_EnterRecursiveCall(" while writing an Ion sequence"));
+        // Returns a plain int, not an iERR; see ionc_read_into_container.
+        if (Py_EnterRecursiveCall(" while writing an Ion sequence")) {
+            err = IERR_STACK_OVERFLOW;
+            goto fail;
+        }
         err = ionc_write_value(writer, child_obj, tuple_as_sexp);
         Py_LeaveRecursiveCall();
         IONCHECK(err);
@@ -378,7 +386,7 @@ fail:
  */
 
 static iERR write_struct_field(hWRITER writer, PyObject* key, PyObject* val, PyObject* tuple_as_sexp) {
-    iERR err;
+    iENTER;
     if (PyUnicode_Check(key)) {
         ION_STRING field_name;
         ion_string_from_py(key, &field_name);
@@ -386,7 +394,11 @@ static iERR write_struct_field(hWRITER writer, PyObject* key, PyObject* val, PyO
     } else if (key == Py_None) {
         IONCHECK(_ion_writer_write_field_sid_helper(writer, 0));
     }
-    IONCHECK(Py_EnterRecursiveCall(" while writing an Ion struct"));
+    // Returns a plain int, not an iERR; see ionc_read_into_container.
+    if (Py_EnterRecursiveCall(" while writing an Ion struct")) {
+        err = IERR_STACK_OVERFLOW;
+        goto fail;
+    }
     err = ionc_write_value(writer, val, tuple_as_sexp);
     Py_LeaveRecursiveCall();
     IONCHECK(err);
@@ -863,6 +875,10 @@ fail:
     Py_XDECREF(sequence_as_stream);
     Py_XDECREF(tuple_as_sexp);
 
+    // Reported as-is and translated in simpleion.py; see ionc_read_iter_next.
+    if (PyErr_ExceptionMatches(PyExc_RecursionError)) {
+        return NULL;
+    }
     PyObject* exception = NULL;
     if (err == IERR_INVALID_STATE) {
         exception = PyErr_Format(PyExc_TypeError, "%s", _err_msg);
@@ -870,7 +886,6 @@ fail:
     else {
         exception = PyErr_Format(_ion_exception_cls, "%s %s", ion_error_to_str(err), _err_msg);
     }
-
     _err_msg[0] = '\0';
     return exception;
 }
@@ -1005,7 +1020,12 @@ fail:
 static iERR ionc_read_into_container(hREADER hreader, PyObject* container, enum ContainerType parent_type, uint8_t value_model) {
     iENTER;
     IONCHECK(ion_reader_step_in(hreader));
-    IONCHECK(Py_EnterRecursiveCall(" while reading an Ion container"));
+    // Py_EnterRecursiveCall reports failure with a plain non-zero int and sets a RecursionError.
+    // That value is not an iERR, so it is checked here rather than handed to IONCHECK.
+    if (Py_EnterRecursiveCall(" while reading an Ion container")) {
+        err = IERR_STACK_OVERFLOW;
+        goto fail;
+    }
     err = ionc_read_all(hreader, container, parent_type, value_model);
     Py_LeaveRecursiveCall();
     IONCHECK(err);
@@ -1022,32 +1042,49 @@ static iERR ionc_read_into_container(hREADER hreader, PyObject* container, enum 
  *      container_type: Type of container to add to.
  *      field_name:  The field name of the element if it is inside a struct
  */
-static void ionc_add_to_container(PyObject* pyContainer, PyObject* element, enum ContainerType container_type, PyObject* field_name) {
+static iERR ionc_add_to_container(PyObject* pyContainer, PyObject* element, enum ContainerType container_type, PyObject* field_name) {
+    iENTER;
+    // A NULL element means its construction already failed and set an exception. Reporting that
+    // exception is more useful than the SystemError PyList_Append/PyDict_SetItem would raise.
+    if (element == NULL) {
+        _FAILWITH_PENDING_PYERR();
+    }
     switch (container_type) {
         case MULTIMAP:
         {
             // this builds the "hash-map of lists" structure that the IonPyDict object
             // expects for its __store
             PyObject* empty = PyList_New(0);
+            if (empty == NULL) {
+                _FAILWITH_PENDING_PYERR();
+            }
             // SetDefault performs get|set with a single hash of the key
             PyObject* found = PyDict_SetDefault(pyContainer, field_name, empty);
-            PyList_Append(found, element);
-
+            if (found == NULL || PyList_Append(found, element) < 0) {
+                Py_DECREF(empty);
+                _FAILWITH_PENDING_PYERR();
+            }
             Py_DECREF(empty);
             break;
         }
         case STD_DICT:
         {
-            PyDict_SetItem(pyContainer, field_name, element);
+            if (PyDict_SetItem(pyContainer, field_name, element) < 0) {
+                _FAILWITH_PENDING_PYERR();
+            }
             break;
         }
         case LIST:
         {
-            PyList_Append(pyContainer, (PyObject*)element);
+            if (PyList_Append(pyContainer, (PyObject*)element) < 0) {
+                _FAILWITH_PENDING_PYERR();
+            }
             break;
         }
     }
+fail:
     Py_XDECREF(element);
+    cRETURN;
 }
 
 /*
@@ -1285,6 +1322,10 @@ iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, enum Cont
                 wrap_py_value = TRUE;
                 container_type = MULTIMAP;
             }
+            // Runs Python code once per nesting level, so it can fail with a RecursionError set.
+            if (py_value == NULL) {
+                _FAILWITH_PENDING_PYERR();
+            }
 
             IONCHECK(ionc_read_into_container(hreader, py_value, container_type, value_model));
             break;
@@ -1309,6 +1350,10 @@ iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, enum Cont
             } else {
                 py_value = PyList_New(0);
             }
+            // Runs Python code once per nesting level, so it can fail with a RecursionError set.
+            if (py_value == NULL) {
+                _FAILWITH_PENDING_PYERR();
+            }
             IONCHECK(ionc_read_into_container(hreader, py_value, LIST, value_model));
             ion_nature_constructor = _ionpylist_fromvalue;
             break;
@@ -1328,9 +1373,14 @@ iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, enum Cont
             NULL
         );
         Py_XDECREF(py_value);
+        py_value = NULL;
+        // Wrapping runs Python code too, so it can fail with a RecursionError set.
+        if (final_py_value == NULL) {
+            _FAILWITH_PENDING_PYERR();
+        }
     }
 
-    ionc_add_to_container(container, final_py_value, parent_type, py_field_name);
+    IONCHECK(ionc_add_to_container(container, final_py_value, parent_type, py_field_name));
 
 fail:
     Py_XDECREF(py_annotations);
@@ -1456,6 +1506,11 @@ PyObject* ionc_read_iter_next(PyObject *self) {
 
 fail:
     Py_XDECREF(container);
+    // A RecursionError is reported as-is; simpleion.py translates it into an IonException. Any
+    // other pending exception is superseded by the IonException built below.
+    if (PyErr_ExceptionMatches(PyExc_RecursionError)) {
+        return NULL;
+    }
     PyObject* exception = PyErr_Format(_ion_exception_cls, "%s %s", ion_error_to_str(err), _err_msg);
     _err_msg[0] = '\0';
     return exception;

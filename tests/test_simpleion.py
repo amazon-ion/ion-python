@@ -20,13 +20,14 @@ from itertools import chain
 from math import isnan
 
 import re
+import sys
 from typing import NamedTuple, Any, Sequence, Optional
 
-from pytest import raises
+from pytest import raises, mark
 
 from amazon.ion import simpleion
 from amazon.ion.exceptions import IonException
-from amazon.ion.symbols import SymbolToken, SYSTEM_SYMBOL_TABLE
+from amazon.ion.symbols import SymbolToken, SYSTEM_SYMBOL_TABLE, SymbolTableCatalog
 from amazon.ion.writer_binary import _IVM
 from amazon.ion.core import IonType, IonEvent, IonEventType, OffsetTZInfo, Multimap, TimestampPrecision, Timestamp
 from amazon.ion.simple_types import IonPyDict, IonPyText, IonPyList, IonPyNull, IonPyBool, IonPyInt, IonPyFloat, \
@@ -911,3 +912,119 @@ def test_ion_py_objects_construction(v):
     So, we compare if they represent the same instant; in other words, we set timestamps_instants_only to True.
     """
     assert True is ion_equals(v[0], v[1], timestamps_instants_only=True)
+
+def test_loads_deeply_nested_list_text_raises_ion_exception():
+    text = "[" * 5000 + "]" * 5000
+    with raises(IonException):
+        loads(text, catalog=SymbolTableCatalog())
+
+
+def _build_nested_annotation_binary(depth):
+    """Builds `depth` nested annotation wrappers around a null.null, to exercise
+    reader_binary.py's _annotation_handler -> _tlv_parser recursion."""
+    def varuint(n):
+        bs = [n & 0x7f]
+        n >>= 7
+        while n:
+            bs.append(n & 0x7f)
+            n >>= 7
+        bs.reverse()
+        bs[-1] |= 0x80
+        return bytes(bs)
+
+    def wrap_annot(content, annot_bytes):
+        inner = varuint(len(annot_bytes)) + annot_bytes + content
+        length = len(inner)
+        if length < 14:
+            return bytes([0xE0 | length]) + inner
+        return bytes([0xEE]) + varuint(length) + inner
+
+    annot_sym = varuint(10)  # annotate with symbol id 10 (arbitrary)
+    content = bytes([0x0F])  # innermost value: null.null
+    for _ in range(depth):
+        content = wrap_annot(content, annot_sym)
+
+    ivm = bytes([0xE0, 0x01, 0x00, 0xEA])  # Ion 1.0 version marker
+    return ivm + content
+
+
+def test_load_deeply_nested_annotations_binary_raises_ion_exception():
+    data = _build_nested_annotation_binary(3000)
+    buf = BytesIO(data)
+    with raises(IonException):
+        load(buf, single_value=True, catalog=SymbolTableCatalog())
+
+
+def test_deeply_nested_recursion_is_recoverable_and_wraps_recursion_error():
+    text = "[" * 5000 + "]" * 5000
+    with raises(IonException) as exc_info:
+        loads(text, catalog=SymbolTableCatalog())
+    assert isinstance(exc_info.value.__cause__, RecursionError)
+    # Rejecting the input must leave the interpreter able to handle well-formed values.
+    assert loads("[0]", catalog=SymbolTableCatalog()) == [0]
+
+
+def test_load_iteratively_deeply_nested_list_raises_ion_exception():
+    text = "[" * 5000 + "]" * 5000
+    it = loads(text, catalog=SymbolTableCatalog(), parse_eagerly=False, single_value=False)
+    with raises(IonException):
+        next(it)
+
+
+def _build_nested_list(depth):
+    """Builds a `depth`-deep nested list, for use as input to dump/dumps."""
+    obj = []
+    cur = obj
+    for _ in range(depth - 1):
+        child = []
+        cur.append(child)
+        cur = child
+    return obj
+
+
+@parametrize(True, False)
+def test_dumps_deeply_nested_list_pure_python_raises_ion_exception(binary):
+    # imports=[] selects dump_python even when the C extension is available.
+    with raises(IonException) as exc_info:
+        dumps(_build_nested_list(5000), binary=binary, imports=[])
+    assert isinstance(exc_info.value.__cause__, RecursionError)
+    # Rejecting the input must leave the interpreter able to handle well-formed values.
+    assert dumps([0], binary=False, imports=[]) == '$ion_1_0 [0]'
+
+
+@mark.skipif(not c_ext, reason="C extension is not available in this environment.")
+def test_c_extension_loads_deeply_nested_list_text_raises_ion_exception():
+    # Omitting catalog selects the C-extension read path.
+    text = "[" * 5000 + "]" * 5000
+    with raises(IonException):
+        loads(text)
+
+
+@mark.skipif(not c_ext, reason="C extension is not available in this environment.")
+def test_c_extension_dumps_deeply_nested_list_raises_ion_exception():
+    # Omitting imports and indent selects the C-extension write path.
+    with raises(IonException):
+        dumps(_build_nested_list(5000), binary=False)
+
+
+@mark.skipif(not c_ext, reason="C extension is not available in this environment.")
+def test_c_extension_loads_at_recursion_limit_boundary_raises_ion_exception():
+    """Just under the recursion limit, the Python calls the C extension makes per container level
+    are what fail, rather than ion-c's own max_container_depth check rejecting the input."""
+    depth = sys.getrecursionlimit() - 1
+    text = "[" * depth + "]" * depth
+    with raises(IonException) as exc_info:
+        loads(text)
+    assert isinstance(exc_info.value.__cause__, RecursionError)
+
+
+@mark.skipif(not c_ext, reason="C extension is not available in this environment.")
+def test_c_extension_recursion_is_recoverable_and_wraps_recursion_error():
+    """The RecursionError is preserved as the cause, and the interpreter survives to keep
+    serializing well-formed values."""
+    with raises(IonException) as exc_info:
+        dumps(_build_nested_list(5000), binary=False)
+    assert isinstance(exc_info.value.__cause__, RecursionError)
+    # Rejecting the input must leave the interpreter able to handle well-formed values.
+    assert loads("[0]") == [0]
+    assert dumps([0], binary=False) == '$ion_1_0 [0]'
