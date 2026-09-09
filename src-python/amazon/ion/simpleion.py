@@ -526,5 +526,6 @@ def load_extension(fp, single_value=True, parse_eagerly=True,
         with _translate_recursion_error():
             return list(iterator)
     # The raw iterator is returned so that ionc_write can recognise its type and re-serialize the
-    # stream directly. A caller advancing it past the recursion limit sees a RecursionError.
+    # stream directly. A caller advancing it past the recursion limit may see a RecursionError
+    # instead of an IonException, depending on which depth limit the runtime reaches first.
     return iterator

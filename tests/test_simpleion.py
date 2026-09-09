@@ -1008,9 +1008,13 @@ def test_c_extension_dumps_deeply_nested_list_raises_ion_exception():
 
 
 @mark.skipif(not c_ext, reason="C extension is not available in this environment.")
-def test_c_extension_loads_at_recursion_limit_boundary_raises_ion_exception():
-    """Just under the recursion limit, the Python calls the C extension makes per container level
-    are what fail, rather than ion-c's own max_container_depth check rejecting the input."""
+@mark.skipif(sys.version_info >= (3, 12),
+             reason="Before 3.12 the C extension's per-level Python calls draw on the same limit "
+                    "as Python frames, so they fail just under it. From 3.12 they have their own, "
+                    "much higher limit and ion-c's max_container_depth is always reached first.")
+def test_c_extension_loads_just_under_recursion_limit_raises_ion_exception():
+    """The per-level Python calls the C extension makes are what fail here, rather than ion-c's
+    max_container_depth check rejecting the input."""
     depth = sys.getrecursionlimit() - 1
     text = "[" * depth + "]" * depth
     with raises(IonException) as exc_info:
@@ -1019,12 +1023,11 @@ def test_c_extension_loads_at_recursion_limit_boundary_raises_ion_exception():
 
 
 @mark.skipif(not c_ext, reason="C extension is not available in this environment.")
-def test_c_extension_recursion_is_recoverable_and_wraps_recursion_error():
-    """The RecursionError is preserved as the cause, and the interpreter survives to keep
-    serializing well-formed values."""
-    with raises(IonException) as exc_info:
+def test_c_extension_recursion_is_recoverable():
+    """Whichever depth limit rejects the input, the interpreter survives to keep serializing
+    well-formed values."""
+    with raises(IonException):
         dumps(_build_nested_list(5000), binary=False)
-    assert isinstance(exc_info.value.__cause__, RecursionError)
     # Rejecting the input must leave the interpreter able to handle well-formed values.
     assert loads("[0]") == [0]
     assert dumps([0], binary=False) == '$ion_1_0 [0]'
