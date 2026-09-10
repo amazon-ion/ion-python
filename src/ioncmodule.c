@@ -810,7 +810,9 @@ static PyObject* ionc_write(PyObject *self, PyObject *args, PyObject *kwds) {
     options.max_annotation_count = ANNOTATION_MAX_LEN;
     IONCHECK(ion_writer_open(&writer, ion_stream, &options));
 
-    if (Py_TYPE(obj) == &ionc_read_IteratorType) {
+    // Generators are written as a stream of top-level values, matching dump_python, and covering
+    // the read iterator once simpleion has wrapped it to translate errors.
+    if (Py_TYPE(obj) == &ionc_read_IteratorType || PyGen_Check(obj)) {
         PyObject *item;
         while ((item = PyIter_Next(obj)) != NULL) {
             err = ionc_write_value(writer, item, tuple_as_sexp);

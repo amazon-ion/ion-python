@@ -1001,6 +1001,15 @@ def test_c_extension_loads_deeply_nested_list_text_raises_ion_exception():
 
 
 @mark.skipif(not c_ext, reason="C extension is not available in this environment.")
+def test_c_extension_load_iteratively_deeply_nested_list_raises_ion_exception():
+    # The caller advances this iterator themselves, outside any of load_extension's own calls.
+    text = "[" * 5000 + "]" * 5000
+    it = loads(text, parse_eagerly=False, single_value=False)
+    with raises(IonException):
+        next(it)
+
+
+@mark.skipif(not c_ext, reason="C extension is not available in this environment.")
 def test_c_extension_dumps_deeply_nested_list_raises_ion_exception():
     # Omitting imports and indent selects the C-extension write path.
     with raises(IonException):

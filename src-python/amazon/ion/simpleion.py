@@ -363,8 +363,11 @@ def _dump(obj, writer, from_type, field=None, in_struct=False, depth=0):
         ion_type = obj.ion_type
         ion_nature = True
     except AttributeError:
-        ion_type = _ion_type(obj, from_type)
         ion_nature = False
+    if not ion_nature:
+        # Resolved outside the handler above: a RecursionError raised here while the AttributeError
+        # is still in flight has to record it as its context, which PyPy cannot do out of stack.
+        ion_type = _ion_type(obj, from_type)
     if ion_type is None:
         raise IonException('Value must have a non-None ion_type: %s, depth: %d, field: %s' % (repr(obj), depth, field))
     if not null and ion_type.is_container:
@@ -505,6 +508,17 @@ def dump_extension(obj, fp, binary=True, sequence_as_stream=False, tuple_as_sexp
     fp.write(res)
 
 
+def _translate_recursion_error_iter(iterator):
+    """Yields from ``iterator``, reporting nesting too deep to process as an IonException."""
+    while True:
+        with _translate_recursion_error():
+            try:
+                value = next(iterator)
+            except StopIteration:
+                return
+        yield value
+
+
 def load_extension(fp, single_value=True, parse_eagerly=True,
                    text_buffer_size_limit=None, value_model=IonPyValueModel.ION_PY):
     """C-extension implementation. Users should prefer to call ``load``."""
@@ -525,7 +539,6 @@ def load_extension(fp, single_value=True, parse_eagerly=True,
     if parse_eagerly:
         with _translate_recursion_error():
             return list(iterator)
-    # The raw iterator is returned so that ionc_write can recognise its type and re-serialize the
-    # stream directly. A caller advancing it past the recursion limit may see a RecursionError
-    # instead of an IonException, depending on which depth limit the runtime reaches first.
-    return iterator
+    # Wrapped so that a caller advancing the iterator themselves also gets an IonException. The
+    # wrapper is a generator, which ionc_write writes as a stream just like the raw iterator.
+    return _translate_recursion_error_iter(iterator)
