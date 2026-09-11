@@ -15,6 +15,6 @@
 """
 Amazon Ion
 """
-__version__ = "0.14.6"
+__version__ = "0.15.0"
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)

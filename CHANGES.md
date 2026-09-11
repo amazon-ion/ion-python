@@ -1,3 +1,6 @@
+### 0.15.0 (2026-09-10)
+* Report container nesting past the recursion limit as IonException (#448)
+
 ### 0.14.6 (2026-06-26)
 * Publish sdist to PyPI (#445)
 
