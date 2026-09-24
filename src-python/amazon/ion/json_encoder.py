@@ -43,9 +43,9 @@ class IonToJSONEncoder(JSONExtendedEncoder):
         elif isinstance(o, IonPyInt) and o.ion_type == IonType.INT:
             return int(o)
         elif isinstance(o, IonPyList) and (o.ion_type == IonType.LIST or o.ion_type == IonType.SEXP):
-            return list(map(self.default, o))
+            return list(o)
         elif isinstance(o, IonPyDict) and o.ion_type == IonType.STRUCT:
-            return {key: self.default(o[key]) for key in o.keys()}
+            return {key: o[key] for key in o.keys()}
         elif isinstance(o, IonPyNull):
             return None
         elif isinstance(o, IonPyBytes) and o.ion_type == IonType.BLOB:
