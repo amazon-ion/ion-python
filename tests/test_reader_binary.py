@@ -117,6 +117,8 @@ _BAD_VALUES = (
     (b'\xe4\x81\x84\xb2\x21\x01', 'ANNOT LENGTH TOO SHORT - CONTAINER'),
     # The annotation wrapper declares 3 octets, but the subfields (including an int) take up four.
     (b'\xe3\x81\x84\x21\x01', 'ANNOT LENGTH TOO SHORT - SCALAR'),
+    # A negative int with a magnitude of zero (negative zero) is illegal.
+    (b'\x31\x00', 'NEGATIVE INT ZERO'),
     # TODO: annnotated nop is a fail
 
     # TODO: value within container is longer than container.
