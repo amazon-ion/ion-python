@@ -72,10 +72,6 @@ def compare_command():
     regression_threshold = float(args['--threshold'])
     comparison_keywords_arg = args['--compare']
 
-    # TODO: Update this command to use the information in REPORT_FIELDS, such as the direction of improvement (doi).
-    # https://github.com/amazon-ion/ion-python/issues/281
-    # Without that (i.e. right now), the compare command will actually fail when the ops/sec metric improves. :S
-
     comparison_fields = [get_report_field_by_name(name) for name in comparison_keywords_arg.split(",")]
 
     with open(previous_path, 'br') as p, open(current_path, 'br') as c:
@@ -100,7 +96,10 @@ def compare_command():
                 pct_diff = f"{relative_diff:.2%}"
                 result[key] = pct_diff
 
-                if relative_diff > regression_threshold:
+                # Throughput improves as it increases; keep the existing comparison
+                # for fields without an explicit direction of improvement.
+                regression = -relative_diff if field.doi == 1 else relative_diff
+                if regression > regression_threshold:
                     if not args['--quiet']:
                         print(f"{case_name} '{key}' changed by {pct_diff}: {prev} => {cur}")
                     has_regression = True
