@@ -1040,3 +1040,21 @@ def test_c_extension_recursion_is_recoverable():
     # Rejecting the input must leave the interpreter able to handle well-formed values.
     assert loads("[0]") == [0]
     assert dumps([0], binary=False) == '$ion_1_0 [0]'
+
+
+@mark.parametrize('ion_text', [
+    "'\U0001f3f30\U0001f308\ufe0f'",
+    '"caf\u00e9 \u4e2d \U0001f600"',
+    "'''\u4e2d\U0001f600'''",
+    "{'\u00e9': '\U0001f600'}",
+    "'\u4e2d'::\"\U0001f600\"",
+])
+@mark.parametrize('parse_eagerly', [True, False])
+def test_load_utf8_text_from_binary_stream(ion_text, parse_eagerly):
+    # A catalog forces the pure-Python path even when ion-c is installed.
+    catalog = SymbolTableCatalog()
+    expected = load(StringIO(ion_text), catalog=catalog)
+    stream = BytesIO(ion_text.encode('utf-8'))
+    actual = load(stream, catalog=catalog, parse_eagerly=parse_eagerly)
+    assert ion_equals(actual, expected)
+    assert not stream.closed

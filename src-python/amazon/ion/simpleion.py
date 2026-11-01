@@ -54,6 +54,7 @@ disabled as below:
     ``simpleion.c_ext = False``
 
 """
+import codecs
 import io
 import warnings
 from contextlib import contextmanager
@@ -413,7 +414,9 @@ def load_python(fp, catalog=None, single_value=True, parse_eagerly=True):
         if maybe_ivm == _IVM:
             raw_reader = binary_reader()
         else:
-            raw_reader = text_reader()
+            # Text Ion is UTF-8 even when the caller opened the file in binary mode.
+            fp = codecs.getreader('utf-8')(fp)
+            raw_reader = text_reader(is_unicode=True)
     reader = blocking_reader(managed_reader(raw_reader, catalog), fp)
     if parse_eagerly:
         out = []  # top-level
