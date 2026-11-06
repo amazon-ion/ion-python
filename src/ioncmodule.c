@@ -31,6 +31,12 @@ static char _err_msg[ERR_MSG_MAX_LEN];
 // non-zero iERR to stop the IONCHECK chain while leaving that exception intact for the caller.
 #define _FAILWITH_PENDING_PYERR() { err = IERR_INTERNAL_ERROR; goto fail; }
 
+// Unwinds when ion_build_py_string or ion_string_to_py_symboltoken returns NULL.
+#define _FAILWITH_PY_STRING_ERR() { \
+    err = PyErr_ExceptionMatches(PyExc_UnicodeDecodeError) ? IERR_INVALID_UTF8 : IERR_INTERNAL_ERROR; \
+    goto fail; \
+}
+
 #define IONC_BYTES_FORMAT "y#"
 #define IONC_READ_ARGS_FORMAT "ObO"
 
@@ -187,6 +193,9 @@ static int ion_type_from_py(PyObject* obj) {
  */
 static iERR c_string_from_py(PyObject* str, const char** out, Py_ssize_t* len_out) {
     *out = PyUnicode_AsUTF8AndSize(str, len_out);
+    if (*out == NULL) {
+        return PyErr_ExceptionMatches(PyExc_UnicodeEncodeError) ? IERR_INVALID_UTF8 : IERR_INTERNAL_ERROR;
+    }
     return IERR_OK;
 }
 
@@ -214,7 +223,8 @@ static iERR ion_string_from_py(PyObject* str, ION_STRING* out) {
  *      string_value:  An ION_STRING that needs to be converted
  *
  *  Returns:
- *      A python string
+ *      A python string, Py_None (not increffed) if string_value has no text, or NULL with a
+ *      Python exception set if it is not valid UTF-8.
  */
 static PyObject* ion_build_py_string(ION_STRING* string_value) {
     // TODO Test non-ASCII compatibility.
@@ -230,7 +240,7 @@ static PyObject* ion_build_py_string(ION_STRING* string_value) {
  *      string_value:  An ION_STRING that needs to be converted
  *
  *  Returns:
- *      A python symbol token
+ *      A python symbol token, or NULL with a Python exception set
  */
 static PyObject* ion_string_to_py_symboltoken(ION_STRING* string_value) {
     PyObject* py_string_value, *py_sid, *return_value;
@@ -241,6 +251,9 @@ static PyObject* ion_string_to_py_symboltoken(ION_STRING* string_value) {
     else {
         py_string_value = Py_None;
         py_sid = PyLong_FromLong(0);
+    }
+    if (py_string_value == NULL || py_sid == NULL) {
+        return NULL;
     }
     return_value = PyObject_CallFunctionObjArgs(
         _py_symboltoken_constructor,
@@ -284,12 +297,11 @@ static iERR ionc_write_symboltoken(hWRITER writer, PyObject* symboltoken, BOOL i
     }
     else {
         ION_STRING string_value;
-        ion_string_from_py(symbol_text, &string_value);
-        if (is_value) {
-            err = ion_writer_write_symbol(writer, &string_value);
-        }
-        else {
-            err = ion_writer_add_annotation(writer, &string_value);
+        err = ion_string_from_py(symbol_text, &string_value);
+        if (!err) {
+            err = is_value
+                ? ion_writer_write_symbol(writer, &string_value)
+                : ion_writer_add_annotation(writer, &string_value);
         }
     }
     Py_DECREF(symbol_text);
@@ -327,8 +339,10 @@ static iERR ionc_write_annotations(hWRITER writer, PyObject* obj) {
         Py_INCREF(pyAnnotation);
         if (PyUnicode_Check(pyAnnotation)) {
             ION_STRING annotation;
-            ion_string_from_py(pyAnnotation, &annotation);
-            err = ion_writer_add_annotation(writer, &annotation);
+            err = ion_string_from_py(pyAnnotation, &annotation);
+            if (!err) {
+                err = ion_writer_add_annotation(writer, &annotation);
+            }
         }
         else if (PyObject_TypeCheck(pyAnnotation, (PyTypeObject*)_py_symboltoken_constructor)){
             err = ionc_write_symboltoken(writer, pyAnnotation, /*is_value=*/FALSE);
@@ -391,7 +405,7 @@ static iERR write_struct_field(hWRITER writer, PyObject* key, PyObject* val, PyO
     iENTER;
     if (PyUnicode_Check(key)) {
         ION_STRING field_name;
-        ion_string_from_py(key, &field_name);
+        IONCHECK(ion_string_from_py(key, &field_name));
         IONCHECK(ion_writer_write_field_name(writer, &field_name));
     } else if (key == Py_None) {
         IONCHECK(_ion_writer_write_field_sid_helper(writer, 0));
@@ -469,7 +483,7 @@ static iERR ionc_write_big_int(hWRITER writer, PyObject *obj) {
         PyErr_Clear();
         int_str = PyObject_Str(obj);
         ION_STRING string_value;
-        ion_string_from_py(int_str, &string_value);
+        IONCHECK(ion_string_from_py(int_str, &string_value));
         ION_INT ion_int_value;
         IONCHECK(ion_int_init(&ion_int_value, NULL));
         IONCHECK(ion_int_from_string(&ion_int_value, &string_value));
@@ -505,7 +519,7 @@ iERR ionc_write_value(hWRITER writer, PyObject* obj, PyObject* tuple_as_sexp) {
             ion_type = tid_STRING_INT;
         }
         ION_STRING string_value;
-        ion_string_from_py(obj, &string_value);
+        IONCHECK(ion_string_from_py(obj, &string_value));
         if (tid_STRING_INT == ion_type) {
             IONCHECK(ion_writer_write_string(writer, &string_value));
         }
@@ -572,7 +586,11 @@ iERR ionc_write_value(hWRITER writer, PyObject* obj, PyObject* tuple_as_sexp) {
         PyObject* decimal_str = PyObject_CallMethod(obj, "__str__", NULL);
         const char* decimal_c_str = NULL;
         Py_ssize_t decimal_c_str_len;
-        c_string_from_py(decimal_str, &decimal_c_str, &decimal_c_str_len);
+        err = c_string_from_py(decimal_str, &decimal_c_str, &decimal_c_str_len);
+        if (err) {
+            Py_DECREF(decimal_str);
+            goto fail;
+        }
 
         ION_DECIMAL decimal_value;
         IONCHECK(ion_decimal_from_string(&decimal_value, decimal_c_str, &dec_context));
@@ -1118,6 +1136,9 @@ iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, enum Cont
     if (parent_type > LIST) {
         IONCHECK(ion_reader_get_field_name(hreader, &field_name));
         py_field_name = ion_build_py_string(&field_name);
+        if (py_field_name == NULL) {
+            _FAILWITH_PY_STRING_ERR();
+        }
     }
 
     IONCHECK(ion_reader_get_annotation_count(hreader, &annotation_count));
@@ -1130,9 +1151,18 @@ iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, enum Cont
             IONCHECK(err);
         }
         py_annotations = PyTuple_New(annotation_count);
+        if (py_annotations == NULL) {
+            PyMem_Free(annotations);
+            _FAILWITH_PENDING_PYERR();
+        }
         int i;
         for (i = 0; i < annotation_count; i++) {
-            PyTuple_SetItem(py_annotations, i, ion_string_to_py_symboltoken(&annotations[i]));
+            PyObject* py_annotation = ion_string_to_py_symboltoken(&annotations[i]);
+            if (py_annotation == NULL) {
+                PyMem_Free(annotations);
+                _FAILWITH_PY_STRING_ERR();
+            }
+            PyTuple_SET_ITEM(py_annotations, i, py_annotation);
         }
         PyMem_Free(annotations);
     }
@@ -1259,6 +1289,9 @@ iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, enum Cont
                 py_value = ion_build_py_string(&string_value);
                 ion_nature_constructor = _ionpytext_fromvalue;
             }
+            if (py_value == NULL) {
+                _FAILWITH_PY_STRING_ERR();
+            }
             break;
         }
         case tid_STRING_INT:
@@ -1266,6 +1299,9 @@ iERR ionc_read_value(hREADER hreader, ION_TYPE t, PyObject* container, enum Cont
             ION_STRING string_value;
             IONCHECK(ion_reader_read_string(hreader, &string_value));
             py_value = ion_build_py_string(&string_value);
+            if (py_value == NULL) {
+                _FAILWITH_PY_STRING_ERR();
+            }
             ion_nature_constructor = _ionpytext_fromvalue;
             break;
         }
