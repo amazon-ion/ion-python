@@ -1040,3 +1040,53 @@ def test_c_extension_recursion_is_recoverable():
     # Rejecting the input must leave the interpreter able to handle well-formed values.
     assert loads("[0]") == [0]
     assert dumps([0], binary=False) == '$ion_1_0 [0]'
+
+
+_INVALID_UTF8_TEXT = [
+    b"'\xff'",          # symbol value
+    b"'\xc1\x30'",      # symbol value with an invalid lead byte followed by ASCII
+    b"['\xff']",        # symbol value in a container
+    b"'\xff'::1",       # annotation
+    b"'\xff'::[1]",     # annotation on a container
+    b"{'\xff':1}",      # quoted symbol field name
+    b'{"\xff":1}',      # string field name
+    b'"\xff"',          # string value
+]
+
+
+@mark.skipif(not c_ext, reason="C extension is not available in this environment.")
+@mark.parametrize("value_model", [
+    IonPyValueModel.ION_PY,
+    IonPyValueModel.MAY_BE_BARE,
+    IonPyValueModel.SYMBOL_AS_TEXT | IonPyValueModel.MAY_BE_BARE,
+])
+@mark.parametrize("data", _INVALID_UTF8_TEXT)
+def test_c_extension_loads_text_with_invalid_utf8_raises_ion_exception(data, value_model):
+    with raises(IonException, match="IERR_INVALID_UTF8"):
+        loads(data, value_model=value_model)
+
+
+@mark.skipif(not c_ext, reason="C extension is not available in this environment.")
+@mark.parametrize("data", _INVALID_UTF8_TEXT)
+def test_c_extension_load_iteratively_text_with_invalid_utf8_raises_ion_exception(data):
+    it = loads(data, single_value=False, parse_eagerly=False)
+    with raises(IonException, match="IERR_INVALID_UTF8"):
+        next(it)
+
+
+_LONE_SURROGATE = '\ud800'
+
+
+@mark.skipif(not c_ext, reason="C extension is not available in this environment.")
+@mark.parametrize("binary", [True, False])
+@mark.parametrize("obj", [
+    _LONE_SURROGATE,
+    SymbolToken(_LONE_SURROGATE, None),
+    {_LONE_SURROGATE: 1},
+    IonPyInt.from_value(IonType.INT, 1, (_LONE_SURROGATE,)),
+    IonPyInt.from_value(IonType.INT, 1, (SymbolToken(_LONE_SURROGATE, None),)),
+], ids=["string", "symbol", "field_name", "annotation", "annotation_symboltoken"])
+def test_c_extension_dumps_lone_surrogate_raises_ion_exception(obj, binary):
+    with raises(IonException, match="IERR_INVALID_UTF8"):
+        dumps(obj, binary=binary)
+    assert dumps([0], binary=False) == '$ion_1_0 [0]'
