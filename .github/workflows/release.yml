@@ -10,11 +10,11 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ['3.9', '3.10', '3.11', '3.12', '3.13', 'pypy-3.10']
+        python-version: ['3.10', '3.11', '3.12', '3.13', '3.14', 'pypy-3.10']
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Set up python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -34,7 +34,7 @@ jobs:
       matrix:
         python-version: [ '3.10' ]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           submodules: true
 
@@ -84,7 +84,7 @@ jobs:
             cibw_arch: "i686 x86_64 aarch64"
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           submodules: true
 
@@ -106,8 +106,11 @@ jobs:
           # See the following for the status of python versions (ie. what's EoL'd, security only, etc):
           # https://devguide.python.org/versions/
           #
-          # At the time of writing, anything older than 3.9 is end-of-life.
-          CIBW_BUILD: "cp39-* cp310-* cp311-* cp312-* cp313-*"
+          # At the time of writing, anything older than 3.10 is end-of-life. (3.9 has no build
+          # for the Ubuntu 26.04 runners that ubuntu-latest now resolves to.)
+          # 3.15 is excluded until jsonconversion works with it: it calls the private
+          # json.encoder._make_iterencode with an isinstance= kwarg that 3.15 removed.
+          CIBW_BUILD: "cp310-* cp311-* cp312-* cp313-* cp314-*"
           CIBW_ARCHS: ${{ matrix.cibw_arch }}
           CIBW_ARCHS_LINUX: ${{ matrix.cibw_arch }}
 

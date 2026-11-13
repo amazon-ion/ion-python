@@ -86,13 +86,13 @@ installed Python.
 Install relevant versions of Python:
 
 ```
-$ for V in 3.8.10 3.9.5 do pyenv install $V; done
+$ for V in 3.10.19 3.14.10; do pyenv install $V; done
 ```
 
 Once you have these installations, add them as a local `pyenv` configuration
 
 ```
-$ pyenv local 3.8.10 3.9.5
+$ pyenv local 3.10.19 3.14.10
 ```
 
 Assuming you have `pyenv` properly set up (making sure `pyenv init` is evaluated into your shell),
@@ -102,14 +102,14 @@ you can now run `tox`:
 # Run tox for all versions of python which executes py.test.
 $ tox
 
-# Run tox for just Python 3.8 and 3.9.
-$ tox -e py38,py39
+# Run tox for just Python 3.10 and 3.14.
+$ tox -e py310,py314
 
 # Run tox for a specific version and run py.test with high verbosity
-$ tox -e py39 -- py.test -vv
+$ tox -e py310 -- py.test -vv
 
 # Run tox for a specific version and just the virtual env REPL.
-$ tox -e py39 -- python
+$ tox -e py310 -- python
 ```
 
 ## TODO
