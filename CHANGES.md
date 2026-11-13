@@ -1,3 +1,9 @@
+### 0.16.0 (2026-11-13)
+* Drop support for Python 3.9; add Python 3.14 (#463)
+* Fix a double decref of annotations in the C extension that could crash on Python 3.14 (#463)
+* Add missing null checks in the C extension (#462)
+* Add Windows ARM64 support (#447)
+
 ### 0.15.0 (2026-09-10)
 * Report container nesting past the recursion limit as IonException (#448)
 
