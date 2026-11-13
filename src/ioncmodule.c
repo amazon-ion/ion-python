@@ -308,14 +308,17 @@ static iERR ionc_write_symboltoken(hWRITER writer, PyObject* symboltoken, BOOL i
 static iERR ionc_write_annotations(hWRITER writer, PyObject* obj) {
     iENTER;
     PyObject* annotations = NULL;
-    annotations = PyObject_GetAttr(obj, ion_annotations_str);
-    if (annotations == NULL || PyObject_Not(annotations)) {
+    PyObject* attr = PyObject_GetAttr(obj, ion_annotations_str);
+    if (attr == NULL || PyObject_Not(attr)) {
+        Py_XDECREF(attr);
         PyErr_Clear();
         // Proceed as if the attribute is not there.
         SUCCEED();
     }
 
-    annotations = PySequence_Fast(annotations, "expected sequence");
+    annotations = PySequence_Fast(attr, "expected sequence");
+    Py_DECREF(attr);
+    if (annotations == NULL) FAILWITH(IERR_INVALID_ARG);
     Py_ssize_t len = PySequence_Size(annotations);
     Py_ssize_t i;
 
@@ -333,7 +336,6 @@ static iERR ionc_write_annotations(hWRITER writer, PyObject* obj) {
         Py_DECREF(pyAnnotation);
         if (err) break;
     }
-    Py_XDECREF(annotations);
 fail:
     Py_XDECREF(annotations);
     cRETURN;
