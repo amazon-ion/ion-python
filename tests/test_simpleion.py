@@ -1042,6 +1042,17 @@ def test_c_extension_recursion_is_recoverable():
     assert dumps([0], binary=False) == '$ion_1_0 [0]'
 
 
+@mark.skipif(not c_ext, reason="C extension is not available in this environment.")
+@mark.parametrize("binary", [True, False])
+@mark.parametrize("value", ["NaN", "-NaN", "sNaN", "-sNaN", "Infinity", "-Infinity"])
+def test_c_extension_dumps_non_finite_decimal_raises_ion_exception(value, binary):
+    # Ion decimals have no NaN or infinity (only Ion floats do), so these cannot be written as decimals.
+    with raises(IonException, match="IERR_INVALID_ARG"):
+        dumps(Decimal(value), binary=binary)
+    # Rejecting the value must leave the writer usable for finite decimals.
+    assert loads(dumps(Decimal('1.5'), binary=binary)) == Decimal('1.5')
+
+
 _INVALID_UTF8_TEXT = [
     b"'\xff'",          # symbol value
     b"'\xc1\x30'",      # symbol value with an invalid lead byte followed by ASCII
