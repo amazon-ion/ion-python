@@ -80,7 +80,9 @@ jobs:
             cibw_arch: "arm64"
           - os: windows-latest
             cibw_arch: "AMD64 ARM64"
-          - os: ubuntu-latest
+          # Pinned: the first release on the Ubuntu 26.04 image behind ubuntu-latest failed to
+          # build the i686 wheels, while ubuntu-24.04 built them for v0.15.0.
+          - os: ubuntu-24.04
             cibw_arch: "i686 x86_64 aarch64"
 
     steps:
@@ -113,6 +115,8 @@ jobs:
           CIBW_BUILD: "cp310-* cp311-* cp312-* cp313-* cp314-*"
           CIBW_ARCHS: ${{ matrix.cibw_arch }}
           CIBW_ARCHS_LINUX: ${{ matrix.cibw_arch }}
+          # Show compiler/CMake output so a failing wheel build is debuggable from the job log.
+          CIBW_BUILD_VERBOSITY: 1
 
       - name: Upload wheels to Github
         uses: actions/upload-artifact@v4
