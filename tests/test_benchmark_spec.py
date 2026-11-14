@@ -4,6 +4,7 @@ from os.path import abspath, join, dirname
 from pathlib import Path
 
 import cbor2
+import pytest
 
 from amazon.ion import simpleion
 from amazon.ion.equivalence import ion_equals
@@ -137,6 +138,26 @@ def test_write_generate_multiple_top_level_cbor_values():
             load_count += 1
     # make sure they have the same size
     assert obj_count == load_count
+
+
+@pytest.mark.parametrize('format_option', ['ion_text', 'ion_binary'])
+@pytest.mark.parametrize('values', [[], [1], [1, {'name': 'value'}], [[1, 2]]])
+def test_buffer_write_preserves_top_level_values(format_option, values, tmp_path, monkeypatch):
+    monkeypatch.setattr(simpleion, 'c_ext', False)
+    input_file = tmp_path / 'input.ion'
+    with input_file.open('wb') as fp:
+        simpleion.dump(values, fp, binary=True, sequence_as_stream=True)
+    params = {'command': 'write', 'format': format_option, 'input_file': str(input_file),
+              'py_c_extension': False}
+    buffer_fun = _create_test_fun(BenchmarkSpec({**params, 'io_type': 'buffer'}))
+    output_file = tmp_path / 'output.ion'
+    _create_test_fun(BenchmarkSpec({**params, 'io_type': 'file'}), custom_file=str(output_file))()
+    with output_file.open('rb') as fp:
+        file_values = simpleion.load(fp, single_value=False)
+    assert ion_equals(file_values, values)
+    # Benchmark functions are called repeatedly with the same input stream.
+    for _ in range(2):
+        assert ion_equals(simpleion.loads(buffer_fun(), single_value=False), file_values)
 
 
 def test_get_input_file_size():
