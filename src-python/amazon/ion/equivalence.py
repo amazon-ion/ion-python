@@ -141,11 +141,16 @@ def _structs_eq(a, b, comparison_func):
                 return False
             if isinstance(a, (IonPyDict, Multimap)) and isinstance(b, (IonPyDict, Multimap)):
                 values_a = a.get_all_values(key)
-                values_b = b.get_all_values(key)
+                values_b = list(b.get_all_values(key))
                 if len(values_a) != len(values_b):
                     return False
                 for value_a in values_a:
-                    if not any(comparison_func(value_a, value_b) for value_b in values_b):
+                    for i, value_b in enumerate(values_b):
+                        if comparison_func(value_a, value_b):
+                            # Each field occurrence must match a distinct occurrence.
+                            del values_b[i]
+                            break
+                    else:
                         return False
             else:
                 if not comparison_func(a[key], b[key]):

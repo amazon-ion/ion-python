@@ -387,3 +387,27 @@ def _generate_equiv_dicts(equivs):
 )
 def test_equivalence(p):
     p.assertion()
+
+
+@parametrize(
+    ([1, 1, 2], [1, 2, 2], False),
+    ([1, 1, 2], [2, 1, 1], True),
+    ([[1], [1], [2]], [[1], [2], [2]], False),
+    ([[1], [1], [2]], [[2], [1], [1]], True),
+    ([float('nan'), float('nan'), 1.0], [float('nan'), 1.0, 1.0], False),
+    ([float('nan'), float('nan'), 1.0], [1.0, float('nan'), float('nan')], True),
+    ([0.0, 0.0, -0.0], [0.0, -0.0, -0.0], False),
+)
+def test_duplicate_field_multiplicity(p):
+    values_a, values_b, expected = p
+    a, b = IonPyDict(), IonPyDict()
+    for value in values_a:
+        a.add_item('field', value)
+    for value in values_b:
+        b.add_item('field', value)
+    items_a, items_b = a.items(), b.items()
+
+    assert ion_equals(a, b) is expected
+    assert ion_equals(b, a) is expected
+    assert a.items() == items_a
+    assert b.items() == items_b
