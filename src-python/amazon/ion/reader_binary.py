@@ -494,6 +494,9 @@ def _rslice(data, rem, size):
 
 
 def _int_factory(sign, data):
+    if sign < 0 and not any(data):
+        raise IonException('Negative zero is not a valid int.')
+
     def parse_int():
         value = 0
         length = len(data)

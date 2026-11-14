@@ -113,7 +113,6 @@ _SKIP_LIST = (
     _bad_file(u'localSymbolTableWithMultipleImportsFields.10n'),  # TODO amazon-ion/ion-python#118
     _bad_file(u'localSymbolTableWithMultipleSymbolsAndImportsFields.10n'),  # TODO amazon-ion/ion-python#118
     _bad_file(u'localSymbolTableWithMultipleSymbolsFields.10n'),  # TODO amazon-ion/ion-python#118
-    _bad_file(u'negativeIntZero.10n'),  # TODO amazon-ion/ion-python#119
     _equivs_file(u'timestampSuperfluousOffset.10n')  # TODO amazon-ion/ion-python#121
 )
 
