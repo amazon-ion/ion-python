@@ -194,6 +194,11 @@ _NONEQUIVS = (
         None,
     ),
     (
+        # Timestamps with different fractional precisions beyond microseconds are not equivalent.
+        _timestamp(_ts(2000, precision=_TP.SECOND, fractional_seconds=Decimal('0.000000'))),
+        _timestamp(_ts(2000, precision=_TP.SECOND, fractional_seconds=Decimal('0.0000000'))),
+    ),
+    (
         # Timestamps with different fractional seconds are not equivalent.
         _timestamp(_ts(2000, 1, 1, 1, precision=_TP.SECOND, fractional_seconds=Decimal('0.123456789'))),
         _timestamp(_ts(2000, 1, 1, 1, precision=_TP.SECOND, fractional_seconds=Decimal('0.9999999'))),

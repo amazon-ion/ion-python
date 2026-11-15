@@ -169,7 +169,7 @@ def _timestamps_eq(a, b):
             if isinstance(b, Timestamp):
                 # Both operands declare their precisions. They are only equivalent if their precisions are the same.
                 if a.precision is b.precision and a.fractional_precision is b.fractional_precision \
-                        and a.fractional_seconds == b.fractional_seconds:
+                        and _decimals_eq(a.fractional_seconds, b.fractional_seconds):
                     break
                 return False
             elif a.precision is not TimestampPrecision.SECOND or a.fractional_precision != MICROSECOND_PRECISION:
