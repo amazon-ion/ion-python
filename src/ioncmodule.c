@@ -595,6 +595,12 @@ iERR ionc_write_value(hWRITER writer, PyObject* obj, PyObject* tuple_as_sexp) {
         ION_DECIMAL decimal_value;
         IONCHECK(ion_decimal_from_string(&decimal_value, decimal_c_str, &dec_context));
         Py_DECREF(decimal_str);
+        // Ion decimals have no NaN or infinity (only Ion floats do). ion-c's writers do not reject
+        // them: the binary writer never returns, and the text writer emits a float.
+        if (!ion_decimal_is_finite(&decimal_value)) {
+            ion_decimal_free(&decimal_value);
+            _FAILWITHMSG(IERR_INVALID_ARG, "Found non-finite Decimal; Ion decimals cannot be NaN or Infinity.");
+        }
 
         IONCHECK(ion_writer_write_ion_decimal(writer, &decimal_value));
     }
