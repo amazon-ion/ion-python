@@ -1,6 +1,9 @@
 import os
+import sys
 import time
 from os.path import abspath, join, dirname
+
+import pytest
 
 from amazon.ion import simpleion
 from amazon.ion.equivalence import ion_equals
@@ -17,7 +20,7 @@ def generate_test_path(p):
 
 def run_cli(c):
     import subprocess
-    cmd = ["python", abspath(join(dirname(os.path.abspath(__file__)), '../src-python/amazon/ionbenchmark/ion_benchmark_cli.py'))] + c
+    cmd = [sys.executable, abspath(join(dirname(os.path.abspath(__file__)), '../src-python/amazon/ionbenchmark/ion_benchmark_cli.py'))] + c
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, text=True)
     error_code = proc.wait()
     (out, err) = proc.communicate()
@@ -208,6 +211,42 @@ def test_compare_with_large_regression():
     assert error_code
 
 
+@pytest.mark.parametrize('args', [
+    ('ops/s_mean', 150, False),
+    ('ops/s_mean', 50, True),
+    ('ops/s_min', 150, False),
+    ('ops/s_min', 50, True),
+    ('ops/s_max', 150, False),
+    ('ops/s_max', 50, True),
+    ('ops/s_mean', 90, False),
+    ('ops/s_mean', 80, False),
+    ('time_mean', 150, True),
+    ('time_mean', 50, False),
+    ('file_size', 150, True),
+    ('file_size', 50, False),
+])
+def test_compare_metric_direction(args, tmp_path):
+    field, current, has_regression = args
+    units = '(ns)' if field == 'time_mean' else '(B)' if field == 'file_size' else ''
+    key = field + units
+    previous_path = tmp_path / 'previous.ion'
+    current_path = tmp_path / 'current.ion'
+    report_path = tmp_path / 'comparison.ion'
+    for path, value in ((previous_path, 100), (current_path, current)):
+        with path.open('wb') as output:
+            simpleion.dump([{'name': 'example', key: value}], output, binary=False)
+
+    error_code, _, _ = run_cli([
+        'compare', str(previous_path), str(current_path), '--fail',
+        '-c', field, '--output', str(report_path),
+    ])
+    assert bool(error_code) == has_regression
+    with report_path.open('rb') as report_file:
+        report = simpleion.load(report_file)
+    # Reports retain the signed change, even when higher values are better.
+    assert report[0][key] == f'{(current - 100) / 100:.2%}'
+
+
 def test_format_conversion_ion_binary_to_ion_text():
     rewrite_file_to_format(generate_test_path('integers.ion'), Format.Format.ION_BINARY.value)
     assert os.path.exists('temp_integers.10n')
@@ -232,4 +271,3 @@ def test_multiple_top_level_values(args):
     (command, format_option, file) = args
     (error_code, _, _) = run_cli([f'{command}', file, '--format', f'{format_option}', '--io-type', 'file'])
     assert not error_code
-
