@@ -258,3 +258,135 @@ def test_annotation_suppression():
     assert isinstance(ion_value, IonPyInt) and ion_value.ion_type == IonType.INT
     json_string = json.dumps(ion_value, cls=IonToJSONEncoder)
     assert json_string == '123'
+
+
+@pytest.fixture(params=[
+    (IonType.STRUCT, '{"value": %s}'),
+    (IonType.LIST, '[%s]'),
+    (IonType.SEXP, '[%s]'),
+], ids=['struct', 'list', 'sexp'])
+def ion_container(request):
+    if is_pypy:
+        pytest.skip("The JSON encoder is not supported on PyPy.")
+    ion_type, expected_template = request.param
+
+    def wrap(value):
+        if ion_type == IonType.STRUCT:
+            return IonPyDict.from_value(ion_type, {'value': value})
+        return IonPyList.from_value(ion_type, [value])
+
+    return wrap, expected_template
+
+
+@pytest.mark.skipif(is_pypy, reason="The JSON encoder is not supported on PyPy.")
+def test_native_value_added_to_loaded_struct():
+    ion_value = loads('{hello: "world"}')
+    ion_value['foo'] = 'bar'
+    expected = '{"hello": "world", "foo": "bar"}'
+    encoder = IonToJSONEncoder()
+    assert json.dumps(ion_value, cls=IonToJSONEncoder) == expected
+    assert encoder.encode(ion_value) == expected
+    assert ''.join(encoder.iterencode(ion_value)) == expected
+    assert isinstance(ion_value['hello'], IonPyText)
+    assert type(ion_value['foo']) is str
+
+
+@pytest.mark.parametrize('value, expected', [
+    ('bar', '"bar"'),
+    (42, '42'),
+    (0, '0'),
+    (-1, '-1'),
+    (1.5, '1.5'),
+    (True, 'true'),
+    (False, 'false'),
+    (None, 'null'),
+    ([], '[]'),
+    ({}, '{}'),
+    ((), '[]'),
+    (['x', 1], '["x", 1]'),
+    ({'x': 1}, '{"x": 1}'),
+    (('x', 1), '["x", 1]'),
+])
+def test_native_values_in_ion_containers(ion_container, value, expected):
+    wrap, expected_template = ion_container
+    assert json.dumps(wrap(value), cls=IonToJSONEncoder) == expected_template % expected
+
+
+@pytest.mark.parametrize('ion_text, expected', [
+    ('true', 'true'),
+    ('false', 'false'),
+    ('null.int', 'null'),
+    ('1.25', '1.25'),
+    ('1.5e0', '1.5'),
+    ('2000-01-01T00:00:00Z', '"2000-01-01 00:00:00+00:00"'),
+    ('symbol', '"symbol"'),
+    ('{{SW9u}}', '"SW9u"'),
+    ('{{"Ion"}}', '"Ion"'),
+    ('nan', 'null'),
+    ('+inf', 'null'),
+    ('-inf', 'null'),
+    ('annotation::1', '1'),
+])
+def test_ion_values_inside_native_containers(ion_container, ion_text, expected):
+    wrap, expected_template = ion_container
+    ion_value = loads(ion_text)
+    native_value = ({'inner': ion_value},)
+    result = json.dumps(wrap(native_value), cls=IonToJSONEncoder, allow_nan=False)
+    assert result == expected_template % ('[{"inner": %s}]' % expected)
+    assert native_value[0]['inner'] is ion_value
+
+
+@pytest.mark.parametrize('value, expected', [
+    (float('nan'), 'NaN'),
+    (float('inf'), 'Infinity'),
+    (float('-inf'), '-Infinity'),
+])
+def test_native_non_finite_floats_in_ion_containers(ion_container, value, expected):
+    wrap, expected_template = ion_container
+    ion_value = wrap(value)
+    assert json.dumps(ion_value, cls=IonToJSONEncoder) == expected_template % expected
+    with pytest.raises(ValueError):
+        json.dumps(ion_value, cls=IonToJSONEncoder, allow_nan=False)
+
+
+def test_native_dictionary_keys_in_ion_containers(ion_container):
+    wrap, expected_template = ion_container
+    value = {2: 'int', 2.5: 'float', False: 'bool', None: 'null'}
+    expected = '{"2": "int", "2.5": "float", "false": "bool", "null": "null"}'
+    assert json.dumps(wrap(value), cls=IonToJSONEncoder) == expected_template % expected
+
+
+def test_skipkeys_in_ion_containers(ion_container):
+    wrap, expected_template = ion_container
+    ion_value = wrap({'keep': 1, (1, 2): 'skip'})
+    with pytest.raises(TypeError):
+        json.dumps(ion_value, cls=IonToJSONEncoder)
+    assert json.dumps(ion_value, cls=IonToJSONEncoder, skipkeys=True) == (
+        expected_template % '{"keep": 1}')
+
+
+@pytest.mark.parametrize('value', [object(), {1}, b'bytes', Decimal('1.5')],
+                         ids=['object', 'set', 'bytes', 'decimal'])
+def test_unsupported_native_values_in_ion_containers(ion_container, value):
+    wrap, _ = ion_container
+    with pytest.raises(TypeError, match='is not JSON serializable'):
+        json.dumps(wrap(value), cls=IonToJSONEncoder)
+
+
+@pytest.mark.skipif(is_pypy, reason="The JSON encoder is not supported on PyPy.")
+def test_duplicate_struct_fields_keep_latest_value():
+    ion_value = loads('{value: 1, value: 2}')
+    ion_value.add_item('value', 'latest')
+    assert json.dumps(ion_value, cls=IonToJSONEncoder) == '{"value": "latest"}'
+    assert ion_value.get_all_values('value') == [1, 2, 'latest']
+
+
+def test_circular_ion_containers(ion_container):
+    wrap, _ = ion_container
+    ion_value = wrap(None)
+    if isinstance(ion_value, IonPyDict):
+        ion_value['value'] = ion_value
+    else:
+        ion_value[0] = ion_value
+    with pytest.raises(ValueError, match='Circular reference detected'):
+        json.dumps(ion_value, cls=IonToJSONEncoder)
