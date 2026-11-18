@@ -1,6 +1,9 @@
 import os
 import time
 from os.path import abspath, join, dirname
+from pathlib import Path
+
+import pytest
 
 from amazon.ion import simpleion
 from amazon.ion.equivalence import ion_equals
@@ -13,6 +16,11 @@ from tests import parametrize
 
 def generate_test_path(p):
     return join(dirname(abspath(__file__)), 'benchmark_sample_data', p)
+
+
+def _ion_bytes(value, format_option):
+    data = simpleion.dumps(value, binary=format_option == 'ion_binary')
+    return data.encode('utf-8') if isinstance(data, str) else data
 
 
 def run_cli(c):
@@ -206,6 +214,77 @@ def test_compare_with_small_regression():
 def test_compare_with_large_regression():
     (error_code, _, _) = run_cli(['compare', './tests/benchmark_sample_data/compare/cats_baseline.ion', generate_test_path('compare/cats_large_regression.ion'), '--fail'])
     assert error_code
+
+
+@pytest.mark.parametrize('format_option,suffix', [('ion_text', '.ion'), ('ion_binary', '.10n')])
+@pytest.mark.parametrize('path_type', [str, Path])
+def test_format_conversion_reuses_matching_input(tmp_path, monkeypatch, format_option, suffix, path_type):
+    monkeypatch.chdir(tmp_path)
+    source = tmp_path / ('temp_sample' + suffix)
+    source.write_bytes(_ion_bytes(1, format_option))
+    original = source.read_bytes()
+    stale_temp = tmp_path / ('temp_temp_sample' + suffix)
+    stale_temp.write_bytes(b'previous benchmark')
+
+    def unexpected_copy(*args):
+        pytest.fail('Matching Ion input should not be copied')
+
+    monkeypatch.setattr(Format.shutil, 'copy', unexpected_copy)
+    source_path = path_type(source)
+    assert rewrite_file_to_format(source_path, format_option) is source_path
+    assert source.read_bytes() == original
+    assert stale_temp.read_bytes() == b'previous benchmark'
+
+
+@pytest.mark.parametrize('format_option,suffix', [('ion_text', '.ion'), ('ion_binary', '.10n')])
+def test_format_conversion_reuses_same_basename(tmp_path, monkeypatch, format_option, suffix):
+    monkeypatch.chdir(tmp_path)
+    sources = []
+    for directory in ('first', 'second'):
+        parent = tmp_path / directory
+        parent.mkdir()
+        source = parent / ('sample' + suffix)
+        source.write_bytes(_ion_bytes(directory, format_option))
+        sources.append(source)
+
+    for source in sources * 2:
+        assert rewrite_file_to_format(source, format_option) == source
+    assert not (tmp_path / ('temp_sample' + suffix)).exists()
+    assert sources[0].read_bytes() != sources[1].read_bytes()
+
+
+@pytest.mark.parametrize('format_option', ['ion_text', 'ion_binary'])
+def test_format_conversion_copies_unknown_extension(tmp_path, monkeypatch, format_option):
+    monkeypatch.chdir(tmp_path)
+    source = tmp_path / 'sample.data'
+    source.write_bytes(_ion_bytes(1, format_option))
+    result = rewrite_file_to_format(source, format_option)
+    assert result != source
+    assert Path(result).read_bytes() == source.read_bytes()
+
+
+@pytest.mark.parametrize('format_option,suffix', [('ion_text', '.ion'), ('ion_binary', '.10n')])
+@pytest.mark.parametrize('command', ['read', 'write'])
+@pytest.mark.parametrize('io_type', ['buffer', 'file'])
+def test_benchmark_reused_input_is_read_only(tmp_path, monkeypatch, format_option, suffix, command, io_type):
+    from amazon.ionbenchmark.benchmark_runner import run_benchmark
+
+    monkeypatch.chdir(tmp_path)
+    source = tmp_path / ('sample' + suffix)
+    original = _ion_bytes(1, format_option)
+    source.write_bytes(original)
+    source.chmod(0o444)
+    try:
+        spec = BenchmarkSpec({'input_file': str(source), 'format': format_option, 'command': command,
+                              'io_type': io_type, 'iterations': 2, 'warmups': 0, 'py_c_extension': False})
+        spec['input_file'] = rewrite_file_to_format(spec.get_input_file(), spec.get_format())
+        assert spec.get_input_file() == str(source)
+        result = run_benchmark(spec)
+        assert len(result.nanos_per_op) == 2
+        assert source.read_bytes() == original
+        assert not (tmp_path / ('temp_sample' + suffix)).exists()
+    finally:
+        source.chmod(0o644)
 
 
 def test_format_conversion_ion_binary_to_ion_text():
