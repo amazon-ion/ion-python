@@ -41,6 +41,10 @@ def format_is_bytes(format_option):
 
 
 def rewrite_file_to_format(file, format_option):
+    if (format_option == Format.ION_BINARY.value and _file_is_ion_binary(file)) \
+            or (format_option == Format.ION_TEXT.value and _file_is_ion_text(file)):
+        return file
+
     temp_file_name_base = 'temp_' + os.path.splitext(os.path.basename(file))[0]
     if format_option == Format.ION_BINARY.value:
         temp_file_name_suffix = '.10n'
