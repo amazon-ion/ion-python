@@ -13,7 +13,7 @@
 # License.
 from collections import deque
 from datetime import timedelta
-from decimal import Decimal, localcontext
+from decimal import Decimal
 from enum import IntEnum
 from functools import partial
 from io import BytesIO
@@ -185,18 +185,8 @@ def _parse_decimal(buf):
     exponent = _parse_var_int(buf, signed=True)
     sign_bit, coefficient = _parse_signed_int_components(buf)
 
-    if coefficient == 0:
-        # Handle the zero cases--especially negative zero
-        value = Decimal((sign_bit, (0,), exponent))
-    else:
-        coefficient *= sign_bit and -1 or 1
-        with localcontext() as context:
-            # Adjusting precision for taking into account arbitrarily
-            # large/small numbers
-            context.prec = len(str(coefficient))
-            value = Decimal(coefficient).scaleb(exponent)
-
-    return value
+    # Construct the value without applying the caller's arithmetic context.
+    return Decimal((sign_bit, Decimal(coefficient).as_tuple().digits, exponent))
 
 
 def _parse_sid_iter(data):

@@ -15,7 +15,7 @@ from datetime import datetime, timedelta
 from functools import partial
 from io import BytesIO, StringIO
 
-from decimal import Decimal
+from decimal import Decimal, localcontext
 from itertools import chain
 from math import isnan
 
@@ -946,6 +946,19 @@ def _build_nested_annotation_binary(depth):
 
     ivm = bytes([0xE0, 0x01, 0x00, 0xEA])  # Ion 1.0 version marker
     return ivm + content
+
+
+@mark.parametrize('text', ['1e3', '-1e3', '1e-3', '-1e-3', '1.2300', '0.00', '-0.00'])
+@mark.parametrize('parse_eagerly', [True, False])
+def test_binary_decimal_preserves_value_outside_context(text, parse_eagerly):
+    expected = Decimal(text)
+    data = dumps(expected, imports=[])
+    with localcontext() as context:
+        context.prec = 2
+        context.Emax = 2
+        context.Emin = -2
+        actual = loads(data, catalog=SymbolTableCatalog(), parse_eagerly=parse_eagerly)
+    assert actual.as_tuple() == expected.as_tuple()
 
 
 def test_load_deeply_nested_annotations_binary_raises_ion_exception():
